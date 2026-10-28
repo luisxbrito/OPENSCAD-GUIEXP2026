@@ -1,0 +1,24 @@
+# Entorno virtual y Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+venv/
+env/
+
+# Salidas de compilación y empaquetado PyInstaller
+build/
+dist/
+*.spec.bak
+
+# Pruebas e IDEs
+.pytest_cache/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporales de usuario
+*.tmp
+*.bak
