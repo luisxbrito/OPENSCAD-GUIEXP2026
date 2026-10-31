@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.pyc
+
+# Salida de PyInstaller (build_portable.py)
+build/
+dist/
+
+# Temporales de la vista previa (se borran solos, salvo si el programa se cierra a mitad)
+.scadgui_preview_*.scad
