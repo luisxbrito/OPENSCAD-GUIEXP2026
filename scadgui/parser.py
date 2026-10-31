@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from .catalog import SPECS
+from .library import library_name
 from .model import HEADER, MODIFIERS, Document, Expr, Node, RawCode
 
 
@@ -75,6 +76,7 @@ def tokenize(src: str) -> list[Tok]:
 
 _NUMERIC_LITERAL = re.compile(r"[\s\d.eE+\-\[\],]*")
 _STRING_LITERAL = re.compile(r'"(?:[^"\\]|\\.)*"', re.DOTALL)
+_STRING_LIST = re.compile(r'\[\s*(?:"(?:[^"\\]|\\.)*"\s*(?:,\s*"(?:[^"\\]|\\.)*"\s*)*)?\]')
 _ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "\\": "\\", '"': '"'}
 
 
@@ -97,6 +99,8 @@ def literal(text: str) -> Any:
         return False
     if _STRING_LITERAL.fullmatch(t):
         return re.sub(r"\\(.)", lambda m: _ESCAPES.get(m.group(1), m.group(1)), t[1:-1])
+    if _STRING_LIST.fullmatch(t) and '"' in t:  # ["x1y1", "top"]: aristas de cube_edges
+        return [literal(m.group(0)) for m in _STRING_LITERAL.finditer(t)]
     if t and _NUMERIC_LITERAL.fullmatch(t):
         try:
             value = ast.literal_eval(t)
@@ -212,7 +216,9 @@ class _Parser:
 
     # ----- gramática
     def parse(self) -> Document:
-        self.doc.children = self.block(top=True)
+        # La definición de un módulo propio sin cambios no se muestra: generate() la vuelve a escribir.
+        self.doc.children = [n for n in self.block(top=True)
+                             if not (isinstance(n, RawCode) and library_name(n.text))]
         return self.doc
 
     def block(self, top: bool, open_line: int = 0) -> list:
@@ -263,7 +269,7 @@ class _Parser:
             spec = SPECS[found[0]]
             params = found[1]
         else:
-            if tok is None or tok.type != "id" or tok.text not in SPECS or SPECS[tok.text].keyword \
+            if tok is None or tok.type != "id" or tok.text not in SPECS or SPECS[tok.text].keyword == "for" \
                     or self.text(1) != "(":
                 return None
             spec = SPECS[tok.text]

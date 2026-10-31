@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QDockWidget, QFileD
 from .. import __version__
 from .. import geometry as geo
 from ..catalog import CATEGORIES, SPECS, specs_in
+from ..edges import finish_edges
 from ..i18n import set_language, tr
 from ..model import Document, Node, RawCode, generate, make_node
 from ..parser import ParseError, parse
@@ -167,6 +168,8 @@ class Ribbon(QTabWidget):
             self.setTabText(idx, tr(title))
             self._hints[idx].setText(tr(hint))
         for name, spec in SPECS.items():
+            if name not in self.buttons:  # cube_edges y cylinder_edges no tienen botón
+                continue
             self.buttons[name].setText(self.button_text(spec))
             self.buttons[name].setToolTip(self._tooltip(spec))
         for _tab, command, _icon, text, tip in self.EXTRA_BUTTONS:
@@ -394,6 +397,7 @@ class MainWindow(QMainWindow):
                 self.viewer.gizmoStarted.connect(self.on_gizmo_started)
                 self.viewer.gizmoMoved.connect(self.on_gizmo_moved)
                 self.viewer.gizmoFinished.connect(self.on_gizmo_finished)
+                self.viewer.edgeFinish.connect(self.finish_edges)
             except Exception as exc:  # noqa: BLE001 - falta una biblioteca o falla OpenGL
                 self._gl_error = f"{type(exc).__name__}: {exc}"
         if not self.gl:
@@ -1002,6 +1006,22 @@ class MainWindow(QMainWindow):
                 self.select_ids([created["node"].id])
                 self.statusBar().showMessage(tr("Operación booleana aplicada: {kind}()").format(kind=kind), 4000)
 
+    def finish_edges(self, mode: str, value: float, edges: list) -> None:
+        """Redondea, achaflana o deja vivas las aristas elegidas en el visor."""
+        try:
+            finish_edges(self.doc.snapshot(), edges, mode, value)  # primero se comprueba en una copia
+        except ValueError as exc:
+            QMessageBox.warning(self, tr("Aristas"), str(exc))
+            return
+        changed = {}
+        self.mutate(lambda: changed.update(ids=finish_edges(self.doc, edges, mode, value)))
+        ids = changed.get("ids", [])
+        if ids:
+            self.select_ids(ids)
+        message = {"round": tr("Aristas redondeadas: {n}"), "chamfer": tr("Aristas achaflanadas: {n}"),
+                   "none": tr("Aristas sin tratar: {n}")}[mode]
+        self.statusBar().showMessage(message.format(n=len(edges)), 4000)
+
     def set_difference_base(self, diff_id: int, new_base_id: int) -> None:
         def change():
             self.doc.set_difference_base(diff_id, new_base_id)
@@ -1195,6 +1215,8 @@ class MainWindow(QMainWindow):
         colors = geo.node_colors(self.doc, resolve=_qt_color)
         self.viewer.set_ghosts(self.ghosts, colors, hashed, background,
                                part_of=geo.assembly_parts(self.doc), subtracted=geo.subtracted_ids(self.doc))
+        if self.gl:
+            self.viewer.set_edge_targets(geo.pickable_edges(self.doc))
         self._update_highlight()
 
     def _update_highlight(self) -> None:

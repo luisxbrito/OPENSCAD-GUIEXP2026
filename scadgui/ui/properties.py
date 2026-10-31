@@ -63,6 +63,8 @@ def conforms(p: Param, v: Any) -> bool:
         return _rows_of(v, None, ints=True)
     if k == "matrix":
         return _rows_of(v, 4) and len(v) in (3, 4)
+    if k == "edges":
+        return isinstance(v, list) and all(isinstance(x, str) and x in p.options for x in v)
     return False  # expr
 
 
@@ -444,7 +446,32 @@ class PropertyPanel(QScrollArea):
             return self._file_editor(node, p, value)
         if k in ("points2", "points3", "faces", "matrix"):
             return self._table_button(node, p, value)
+        if k == "edges":
+            return self._edges_editor(node, p, value)
         return self._expr_editor(node, p.name, value)
+
+    def _edges_editor(self, node: Node, p: Param, value: list) -> QWidget:
+        """Casillas con el nombre de cada arista; las del cubo, en filas según el eje al que son paralelas."""
+        box = QWidget()
+        grid = QGridLayout(box)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(4)
+        checks = []
+        rows = [p.options[i:i + 4] for i in range(0, len(p.options), 4)]
+        axes = ("∥Z", "∥X", "∥Y") if len(p.options) == 12 else ()
+        for r, keys in enumerate(rows):
+            if axes:
+                grid.addWidget(QLabel(axes[r]), r, 0)
+            for c, key in enumerate(keys):
+                check = QCheckBox(key)
+                check.setChecked(key in value)
+                grid.addWidget(check, r, c + 1)
+                checks.append((key, check))
+        for _key, check in checks:
+            check.toggled.connect(lambda _=False: self._emit(
+                node, p.name, [k for k, ch in checks if ch.isChecked()]))
+        box.setToolTip(tr("0 es el lado mínimo y 1 el máximo: x1y1 es la arista vertical en X e Y máximos."))
+        return box
 
     def _vector_editor(self, node: Node, p: Param, value: list) -> QWidget:
         box = QWidget()

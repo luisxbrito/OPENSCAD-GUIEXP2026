@@ -34,6 +34,8 @@ scadgui/                   lógica SIN Qt (se prueba sin PySide6)
   sketches.py              perfiles 2D paramétricos
   drawing.py               lámina técnica 2D (vistas en sistema europeo)
   operations.py            textos y ajustes rápidos de la guía de cada operación
+  library.py               módulos propios (cube_edges, cylinder_edges) que se escriben en el .scad
+  edges.py                 redondear/achaflanar: cube ↔ cube_edges, cylinder ↔ cylinder_edges
   code_assist.py           plantillas, fragmentos y ayuda de parámetros del editor
   runner.py                QProcess que llama a openscad (única pieza de Qt fuera de ui/)
   i18n.py, locales/*.py    tr() y un diccionario por idioma (español → idioma)
@@ -48,6 +50,7 @@ examples/                  rueda_con_eje_giratorio.scad (se abre al arrancar), p
 tests/test_core.py         modelo, parser, generador, tornillería, plano técnico, módulos…
 tests/test_geometry.py     geometría, colores, OFF/STL, selección, explosión
 tests/test_i18n.py         cobertura de traducciones
+tests/test_openscad.py     pasa el código generado por el OpenSCAD real (se omite si no está)
 tests/simulacion/          Qt/pyqtgraph simulados + 2 scripts que recorren la ventana
 build_portable.py, OpenSCAD_GUI_Mejorada.spec   ejecutable portable con PyInstaller
 ```
@@ -104,6 +107,18 @@ build_portable.py, OpenSCAD_GUI_Mejorada.spec   ejecutable portable con PyInstal
 13. **Plano técnico en sistema europeo** (ISO E): alzado arriba a la izquierda, planta debajo,
     perfil izquierdo a la derecha. Las rotaciones están en `drawing.VIEW_TRANSFORMS` y un test
     comprueba la orientación de cada vista.
+14. **Módulos propios (`library.py`).** Si el modelo usa `cube_edges` o `cylinder_edges`,
+    `generate()` añade su definición al final del archivo (también si la llamada quedó dentro
+    de un `module` del usuario); `parse()` la quita si no se modificó, y si se modificó la
+    conserva como `RawCode` y no la duplica. Una arista se nombra por la primitiva, no por la
+    malla: "x1y1" es la vertical en X e Y máximos; "top"/"bottom" en el cilindro.
+    El módulo es la intersección de tres prismas de perfil poligonal: las versiones con
+    `difference` de máscaras o `hull` de esquinas fallaban con CGAL ("assertion violation").
+    `geometry.cube_edges` corta la caja con los mismos planos, así que coincide con OpenSCAD.
+15. **Comprobar el `.scad` con OpenSCAD real** (`tests/test_openscad.py`) cuando se toque
+    `library.py` o la forma del código generado; hay que probar CGAL y Manifold.
+16. **Cada cambio se guarda en git** (repositorio en esta carpeta). Un commit por cambio
+    terminado y con las pruebas pasando.
 
 ## 4. Lecciones aprendidas (problemas que ya se resolvieron)
 
@@ -121,6 +136,11 @@ build_portable.py, OpenSCAD_GUI_Mejorada.spec   ejecutable portable con PyInstal
 - **Plano técnico:** `rotate([90,0,0])` deja el alzado boca abajo; el correcto es
   `rotate([-90,0,0])`. `use <...>` no puede ir dentro de un módulo.
 - **Variables:** un `Expr` se escribe con `.text`; `str(Expr)` producía `Expr('...')` en el archivo.
+- **CGAL:** un `for` dentro de `hull()` hace antes una unión de sus hijos, y uniones de
+  sólidos curvos que se tocan tangentes (esferas con cilindros) lanzan "assertion violation".
+  Preferir polígonos 2D extruidos e intersecciones.
+- **Elegir aristas:** se gana la candidata más cercana a la cámara, no la más cercana al ratón
+  en ángulo; si no, desde arriba junto a un borde se elegía la arista de abajo.
 
 ## 5. Cómo comprobar que no se rompe nada
 
@@ -144,7 +164,8 @@ python tests/simulacion/sim_ventana_visor_imagen.py
 
 ## 6. Estado actual
 
-- Cinta con 8 pestañas y 33 comandos (incluidas las matrices); árbol con multiselección, modificadores `# % ! *`,
+- Cinta con 8 pestañas y 33 comandos (incluidas las matrices); aristas redondeadas o
+  achaflanadas eligiéndolas en el visor (`cube_edges`, `cylinder_edges`); árbol con multiselección, modificadores `# % ! *`,
   arrastrar y soltar, envolver, sacar, duplicar; propiedades generadas desde el catálogo.
 - Código sincronizado con edición manual, ayuda de parámetros, autocompletado, búsqueda.
 - Visor OpenGL: selección con clic, resaltado, medición, gizmo de traslación, colores de

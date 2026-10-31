@@ -18,6 +18,7 @@ from typing import Optional
 
 import numpy as np
 
+from .library import CUBE_EDGE_KEYS
 from .model import Document, Expr, Node
 
 Tris = np.ndarray  # (M, 3, 3)
@@ -524,6 +525,275 @@ def shape2d(node: Node, ctx) -> Optional[list]:
     return None
 
 
+# --------------------------------------------------------------------------- aristas redondeadas
+
+ROUNDABLE_KINDS = {"cube", "cube_edges", "cylinder", "cylinder_edges"}
+_AXES = "xyz"
+
+
+def _edge_frame(key: str):
+    """Clave "x1y0" → (eje de la arista, eje u, lado u, eje v, lado v)."""
+    u, su, v, sv = _AXES.index(key[0]), int(key[1]), _AXES.index(key[2]), int(key[3])
+    axis = 3 - u - v
+    return axis, u, su, v, sv
+
+
+def _box_faces(size) -> list:
+    sx, sy, sz = size
+    v = np.array([[0, 0, 0], [sx, 0, 0], [sx, sy, 0], [0, sy, 0],
+                  [0, 0, sz], [sx, 0, sz], [sx, sy, sz], [0, sy, sz]], dtype=float)
+    quads = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
+    return [v[list(q)] for q in quads]
+
+
+def _clip_convex(faces: list, n: np.ndarray, d: float) -> list:
+    """Corta un poliedro convexo (caras en orden antihorario vistas desde fuera) por n·p <= d."""
+    eps = 1e-9
+    out, cut = [], []
+    for poly in faces:
+        dist = poly @ n - d
+        if np.all(dist <= eps):
+            out.append(poly)
+            cut += [q for q, dq in zip(poly, dist) if abs(dq) <= eps]
+            continue
+        kept = []
+        for i in range(len(poly)):
+            a, b = poly[i], poly[(i + 1) % len(poly)]
+            da, db = dist[i], dist[(i + 1) % len(poly)]
+            if da <= eps:
+                kept.append(a)
+            if (da < -eps and db > eps) or (da > eps and db < -eps):
+                q = a + (b - a) * (da / (da - db))
+                kept.append(q)
+                cut.append(q)
+            elif abs(da) <= eps:
+                cut.append(a)
+        if len(kept) >= 3:
+            out.append(np.array(kept))
+    if len(cut) >= 3:
+        pts = np.unique(np.round(np.array(cut), 9), axis=0)
+        if len(pts) >= 3:
+            c = pts.mean(axis=0)
+            ref = np.array([1.0, 0, 0]) if abs(n[0]) < 0.9 else np.array([0, 1.0, 0])
+            e1 = np.cross(n, ref)
+            e1 /= np.linalg.norm(e1)
+            e2 = np.cross(n, e1)
+            ang = np.arctan2((pts - c) @ e2, (pts - c) @ e1)
+            out.append(pts[np.argsort(ang)])
+    return out
+
+
+def _faces_to_tris(faces: list) -> Tris:
+    tris = [np.stack([f[0], f[k], f[k + 1]]) for f in faces for k in range(1, len(f) - 1)]
+    return np.array(tris) if tris else EMPTY
+
+
+def _edge_value(p) -> tuple[Optional[float], bool]:
+    """(radio o distancia, es chaflán) como lo interpreta el módulo: el chaflán manda."""
+    ch = _num(p.get("chamfer", 0), None)
+    ro = _num(p.get("rounding", 0), None)
+    if ch is None or ro is None:
+        return None, False
+    return (ch, True) if ch > 0 else (ro, False)
+
+
+def cube_edges(p, ctx) -> Optional[Tris]:
+    """Malla de cube_edges: la caja cortada por planos, igual que la construye el módulo de OpenSCAD.
+
+    Como en el módulo de OpenSCAD, donde se juntan tres aristas redondeadas la esquina es la
+    intersección de sus cilindros, no una esfera.
+    """
+    s = _vec(p.get("size", 1))
+    keys = p.get("edges", [])
+    value, chamfer = _edge_value(p)
+    if s is None or value is None or not isinstance(keys, list):
+        return None
+    keys = [k for k in keys if isinstance(k, str) and len(k) == 4 and k[0] in _AXES and k[2] in _AXES]
+    r = min(value, min(s) / 2)
+    faces = _box_faces(s)
+    if r > 1e-9:
+        # Los mismos tramos que el módulo: cada tramo del arco es un plano por dos vértices del círculo.
+        k_planes = max(1, int(math.ceil(fragments(r, ctx) / 4)))
+        inset = r * math.cos(math.pi / (4 * k_planes))
+        for key in keys:
+            axis, u, su, v, sv = _edge_frame(key)
+            eu, ev = np.eye(3)[u], np.eye(3)[v]
+            sign_u, sign_v = (1 if su else -1), (1 if sv else -1)
+            U, V = su * s[u], sv * s[v]
+            if chamfer:
+                n = (sign_u * eu + sign_v * ev) / math.sqrt(2)
+                faces = _clip_convex(faces, n, (sign_u * U + sign_v * V - r) / math.sqrt(2))
+                continue
+            for i in range(k_planes):
+                th = (i + 0.5) / k_planes * math.pi / 2
+                c, sn = math.cos(th), math.sin(th)
+                n = sign_u * c * eu + sign_v * sn * ev
+                faces = _clip_convex(faces, n, sign_u * c * U + sign_v * sn * V - r * c - r * sn + inset)
+    tris = _faces_to_tris(faces)
+    if p.get("center") is True:
+        tris = tris - np.array(s) / 2
+    return tris
+
+
+def _cylinder_edges_profile(h: float, r: float, b: float, t: float, chamfer: bool, ctx) -> np.ndarray:
+    pts = [(0.0, 0.0)]
+
+    def arc(cx, cy, rad, a0, a1):
+        n = max(2, int(math.ceil(fragments(rad, ctx) / 4)))
+        return [(cx + rad * math.cos(math.radians(a0 + (a1 - a0) * k / n)),
+                 cy + rad * math.sin(math.radians(a0 + (a1 - a0) * k / n))) for k in range(n + 1)]
+    if b > 0:
+        pts += [(r - b, 0.0), (r, b)] if chamfer else arc(r - b, b, b, -90, 0)
+    else:
+        pts.append((r, 0.0))
+    if t > 0:
+        pts += [(r, h - t), (r - t, h)] if chamfer else arc(r - t, h - t, t, 0, 90)
+    else:
+        pts.append((r, h))
+    pts.append((0.0, h))
+    clean = [pts[0]]
+    for q in pts[1:]:
+        if abs(q[0] - clean[-1][0]) > 1e-9 or abs(q[1] - clean[-1][1]) > 1e-9:
+            clean.append(q)
+    return np.array(clean)
+
+
+def cylinder_edges(p, ctx) -> Optional[Tris]:
+    h, r = _num(p.get("h", 10)), _num(p.get("r", 5))
+    keys = p.get("edges", [])
+    value, chamfer = _edge_value(p)
+    if h is None or r is None or value is None or not isinstance(keys, list) or h <= 0 or r <= 0:
+        return None
+    c = min(value, r, h / 2)
+    b = c if "bottom" in keys else 0.0
+    t = c if "top" in keys else 0.0
+    tris = revolve(_cylinder_edges_profile(h, r, b, t, chamfer, ctx), ctx)
+    return tris - [0, 0, h / 2] if p.get("center") is True else tris
+
+
+def _local_edges(node: Node, ctx) -> list:
+    """Aristas elegibles de una primitiva: (clave, polilínea Nx3) en coordenadas locales."""
+    p = node.params
+    if node.kind in ("cube", "cube_edges"):
+        s = _vec(p.get("size", 1))
+        if s is None:
+            return []
+        lo = -np.array(s) / 2 if p.get("center") is True else np.zeros(3)
+        out = []
+        for key in CUBE_EDGE_KEYS:
+            axis, u, su, v, sv = _edge_frame(key)
+            a = np.zeros(3)
+            a[u], a[v] = su * s[u], sv * s[v]
+            b = a.copy()
+            b[axis] = s[axis]
+            out.append((key, np.array([a, b]) + lo))
+        return out
+    if node.kind == "cylinder" and any(k in p for k in ("r1", "r2", "d1", "d2")):
+        return []
+    h = _num(p.get("h", 1))
+    r = _num(p.get("r"), None)
+    if "r" not in p and p.get("d") is not None:
+        d = _num(p.get("d"))
+        r = d / 2 if d is not None else None
+    if "r" not in p and "d" not in p:
+        r = 1.0
+    if h is None or r is None:
+        return []
+    z0 = -h / 2 if p.get("center") is True else 0.0
+    ring = circle_points(r, fragments(r, ctx))
+    ring = np.vstack([ring, ring[:1]])
+    return [("bottom", np.column_stack([ring, np.full(len(ring), z0)])),
+            ("top", np.column_stack([ring, np.full(len(ring), z0 + h)]))]
+
+
+_PASS_THROUGH = {"union", "difference", "intersection", "group", "color", "render"}
+_TRANSFORMS = {"translate", "rotate", "scale", "mirror", "multmatrix"}
+
+
+def pickable_edges(doc: Document) -> list:
+    """Aristas que se pueden elegir en el visor: (id del nodo, clave, polilínea Nx3 del mundo).
+
+    Solo las de cube y cylinder (y sus versiones redondeadas) que no estén dentro de una
+    extrusión, hull, minkowski, resize... ni con valores que no sean literales. Una pieza dentro
+    de una matriz da una polilínea por copia, todas con la misma clave.
+    """
+    out = []
+    ctx0 = {"fn": doc.fn or 0, "fa": 12, "fs": 2}
+
+    def rec(node, mats, ctx):
+        if not isinstance(node, Node) or node.modifier == "*":
+            return
+        ctx = _ctx(ctx, node)
+        k = node.kind
+        if k in ROUNDABLE_KINDS:
+            for key, local in _local_edges(node, ctx):
+                for m in mats:
+                    out.append((node.id, key, local @ m[:3, :3].T + m[:3, 3]))
+            return
+        if k in _TRANSFORMS:
+            m = node_matrix(node)
+            if m is None:
+                return
+            mats = [w @ m for w in mats]
+        elif k in ARRAYS:
+            mats = [w @ a for w in mats for a in array_matrices(node)]
+        elif k not in _PASS_THROUGH:
+            return
+        for c in node.children:
+            rec(c, mats, ctx)
+
+    for n in doc.children:
+        rec(n, [np.eye(4)], ctx0)
+    return out
+
+
+def pick_edge(edges: list, origin, direction, max_angle: float, occluders: Optional[Tris] = None,
+              ) -> Optional[int]:
+    """Índice de la arista bajo el ratón (o None).
+
+    Candidatas: las que pasan a menos de ``max_angle`` radianes del rayo (unos píxeles) y no
+    están tapadas por la malla ``occluders``. De ellas gana la más cercana a la cámara: al mirar
+    desde arriba junto al borde de una cara, la arista de arriba y no la de abajo, que se ve
+    rozando la pared.
+    """
+    if not edges:
+        return None
+    o = np.asarray(origin, dtype=float)
+    d = np.asarray(direction, dtype=float)
+    d = d / np.linalg.norm(d)
+    p0 = np.concatenate([e[2][:-1] for e in edges])
+    p1 = np.concatenate([e[2][1:] for e in edges])
+    owner = np.concatenate([np.full(len(e[2]) - 1, i) for i, e in enumerate(edges)])
+    u = p1 - p0
+    w = p0 - o
+    b = u @ d
+    c = np.einsum("ij,ij->i", u, u)
+    dw = w @ d
+    uw = np.einsum("ij,ij->i", u, w)
+    denom = c - b * b
+    # Una arista paralela al rayo (vista de punta) se toma por su extremo más cercano a la cámara.
+    nearest_end = np.where(dw <= (p1 - o) @ d, 0.0, 1.0)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        s = np.where(denom > 1e-9 * np.maximum(c, 1e-12), (b * dw - uw) / denom, nearest_end)
+    s = np.clip(s, 0.0, 1.0)
+    q = p0 + u * s[:, None]
+    t = np.maximum((q - o) @ d, 1e-9)
+    angle = np.linalg.norm(q - (o + t[:, None] * d), axis=1) / t
+    best, best_t = None, math.inf
+    for k in np.argsort(angle)[:24]:
+        if angle[k] > max_angle:
+            break
+        if occluders is not None and len(occluders):
+            to_q = q[k] - o
+            dist = float(np.linalg.norm(to_q))
+            hits = ray_hits(o, to_q / dist, occluders)
+            if len(hits) and hits.min() < dist * (1 - 1e-3) - 1e-3:
+                continue  # hay una cara delante
+        if t[k] < best_t * (1 - 1e-6):
+            best, best_t = int(owner[k]), float(t[k])
+    return best
+
+
 # --------------------------------------------------------------------------- recorrido del árbol
 
 def _ctx(ctx: dict, node) -> dict:
@@ -623,6 +893,37 @@ def linear_extrude(node: Node, ctx) -> dict:
     return out
 
 
+def revolve(poly: np.ndarray, ctx, angle: float = 360.0, start: float = 0.0) -> Tris:
+    """Gira un perfil 2D (x = radio, y = altura) alrededor de Z, como rotate_extrude."""
+    if len(poly) < 2:
+        return EMPTY
+    full = abs(angle) >= 360
+    rmax = float(np.abs(poly[:, 0]).max())
+    n = max(3, int(math.ceil(fragments(rmax, ctx) * abs(angle) / 360)))
+    steps = n if full else n + 1
+    rings = []
+    for k in range(steps):
+        a = math.radians(start + angle * k / n)
+        rings.append(np.column_stack([poly[:, 0] * math.cos(a), poly[:, 0] * math.sin(a), poly[:, 1]]))
+    pairs = list(zip(rings, rings[1:])) + ([(rings[-1], rings[0])] if full else [])
+    parts = [_quads(a, b) for a, b in pairs]
+    if not full:
+        tri = triangulate(poly)
+        if tri:
+            idx = np.array(tri)
+            parts.append(rings[0][idx])
+            parts.append(rings[-1][idx][:, ::-1])
+    tris = np.concatenate(parts) if parts else EMPTY
+    if len(tris) and signed_volume(tris) < 0:  # caras hacia fuera, sea cual sea el sentido del perfil
+        tris = tris[:, ::-1]
+    return tris
+
+
+def signed_volume(tris: Tris) -> float:
+    """Volumen de una malla cerrada; negativo si sus caras miran hacia dentro."""
+    return float(np.einsum("ij,ij->i", tris[:, 0], np.cross(tris[:, 1], tris[:, 2])).sum()) / 6
+
+
 def rotate_extrude(node: Node, ctx) -> dict:
     p = node.params
     angle = _num(p.get("angle", 360), None)
@@ -630,29 +931,10 @@ def rotate_extrude(node: Node, ctx) -> dict:
     if angle is None:
         return {}
     angle = max(-360.0, min(360.0, angle))
-    full = abs(angle) >= 360
     out = {}
     for nid, polys in flat_children(node, ctx).items():
-        parts = []
-        for poly in polys:
-            if len(poly) < 2:
-                continue
-            rmax = float(np.abs(poly[:, 0]).max())
-            n = max(3, int(math.ceil(fragments(rmax, ctx) * abs(angle) / 360)))
-            steps = n if full else n + 1
-            rings = []
-            for k in range(steps):
-                a = math.radians(start + angle * k / n)
-                rings.append(np.column_stack([poly[:, 0] * math.cos(a), poly[:, 0] * math.sin(a), poly[:, 1]]))
-            pairs = list(zip(rings, rings[1:])) + ([(rings[-1], rings[0])] if full else [])
-            for a, b in pairs:
-                parts.append(_quads(a, b))
-            if not full:
-                tri = triangulate(poly)
-                if tri:
-                    idx = np.array(tri)
-                    parts.append(rings[0][idx])
-                    parts.append(rings[-1][idx][:, ::-1])
+        parts = [revolve(poly, ctx, angle, start) for poly in polys if len(poly) >= 2]
+        parts = [t for t in parts if len(t)]
         if parts:
             out[nid] = np.concatenate(parts)
     return out
@@ -681,6 +963,10 @@ def solid(node, ctx) -> dict:
         mesh = cylinder(p, ctx)
     elif k == "polyhedron":
         mesh = polyhedron(p)
+    elif k == "cube_edges":
+        mesh = cube_edges(p, ctx)
+    elif k == "cylinder_edges":
+        mesh = cylinder_edges(p, ctx)
     elif k in ("square", "circle", "polygon"):
         polys = shape2d(node, ctx)
         if polys:

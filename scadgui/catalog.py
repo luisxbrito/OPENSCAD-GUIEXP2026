@@ -11,11 +11,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from .library import CUBE_EDGE_KEYS, CYLINDER_EDGE_KEYS
+
 
 @dataclass(frozen=True)
 class Param:
     name: str
-    kind: str  # num, int, bool, vec2, vec3, str, choice, color, file, points2, points3, faces, matrix, expr
+    kind: str  # num, int, bool, vec2, vec3, str, choice, color, file, points2, points3, faces, matrix, edges, expr
     default: Any = None
     optional: bool = False
     label: str = ""
@@ -39,7 +41,8 @@ class Spec:
     level: str = "direct"  # direct | editor | experimental
     hint: str = ""
     positional: tuple = ()  # orden de los argumentos posicionales que acepta OpenSCAD
-    # Palabra de OpenSCAD que genera si no es un módulo (las matrices escriben un "for").
+    # Qué escribe si no es un módulo de OpenSCAD: "for" (matrices) o "module" (un módulo propio
+    # cuya definición añade la interfaz al archivo, ver library.py).
     keyword: str = ""
 
     def param(self, name: str) -> Optional[Param]:
@@ -209,6 +212,28 @@ _add(Spec("grid_array", "Matriz rectangular", "array", True, (
     Param("step_y", "vec3", [0, 20, 0], label="Separación entre filas"),
 ), keyword="for", hint="Copias en filas y columnas. Genera for (i = ..., j = ...) translate(...)."))
 
+# --- Aristas redondeadas ----------------------------------------------------
+# Se crean al redondear o achaflanar aristas en el visor; no tienen botón en la cinta.
+_add(Spec("cube_edges", "Cubo con aristas", "edges", False, (
+    Param("size", "vec3", [10, 10, 10], label="Tamaño"),
+    Param("center", "bool", False, label="Centrado"),
+    Param("edges", "edges", [], label="Aristas", options=CUBE_EDGE_KEYS),
+    Param("rounding", "num", 2, optional=True, label="Radio de redondeo", minimum=0, step=0.5),
+    Param("chamfer", "num", 1, optional=True, label="Chaflán", minimum=0, step=0.5),
+    FN,
+), keyword="module", positional=("size", "center", "edges", "rounding", "chamfer"),
+    hint="Cubo con las aristas elegidas redondeadas o achaflanadas. Si se indica chaflán, manda sobre el redondeo."))
+_add(Spec("cylinder_edges", "Cilindro con bordes", "edges", False, (
+    Param("h", "num", 10, label="Altura (h)", minimum=0),
+    Param("r", "num", 5, label="Radio (r)", minimum=0),
+    Param("center", "bool", False, label="Centrado"),
+    Param("edges", "edges", [], label="Bordes", options=CYLINDER_EDGE_KEYS),
+    Param("rounding", "num", 2, optional=True, label="Radio de redondeo", minimum=0, step=0.5),
+    Param("chamfer", "num", 1, optional=True, label="Chaflán", minimum=0, step=0.5),
+    FN,
+), keyword="module", positional=("h", "r", "center", "edges", "rounding", "chamfer"),
+    hint="Cilindro con el borde superior (top) y/o inferior (bottom) redondeado o achaflanado."))
+
 # --- Importar ---------------------------------------------------------------
 _add(Spec("import", "Importar", "imp", False, (
     Param("file", "file", "", label="Archivo"),
@@ -287,6 +312,8 @@ ICONS = {
     "roof": "M3 18L12 6l9 12z M12 6v12",
     "import": "M12 3v12 M8 11l4 4 4-4 M4 17v3h16v-3",
     "surface": "M3 18l4-6 4 3 4-7 6 10z",
+    "cube_edges": "M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5 M12 12v9 M12 12L4 7.5 M17 4.2a4 4 0 0 1 3 3.3",
+    "cylinder_edges": "M5 8c0-1.7 3.1-3 7-3s7 1.3 7 3v10c0 1.7-3.1 3-7 3s-7-1.3-7-3z M5 8c0 1.7 3.1 3 7 3s7-1.3 7-3",
     "linear_array": "M2 9h5v6H2z M9.5 9h5v6h-5z M17 9h5v6h-5z M4 5h16 M17 2.5L20 5l-3 2.5",
     "polar_array": ("M10 4a2 2 0 1 0 4 0a2 2 0 1 0-4 0z M3.1 8a2 2 0 1 0 4 0a2 2 0 1 0-4 0z "
                     "M3.1 16a2 2 0 1 0 4 0a2 2 0 1 0-4 0z M10 20a2 2 0 1 0 4 0a2 2 0 1 0-4 0z "

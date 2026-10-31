@@ -32,7 +32,7 @@ def roundtrip(text):
 
 
 def test_catalogo_completo():
-    assert len(SPECS) == 33  # 30 módulos de OpenSCAD + 3 matrices
+    assert len(SPECS) == 35  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas
     for key, _, _ in CATEGORIES:
         assert specs_in(key), key
     for name in SPECS:
@@ -952,6 +952,76 @@ def test_presets_matriz_polar():
     fn, key = presets["Repartir en 360°"]
     assert key == "angle" and fn({"n": 6}) == 60 and fn({"n": Expr("k")}) == 360
     assert presets["Repartir en 180°"][0]({"n": 5}) == 45  # extremos incluidos: 0, 45, ..., 180
+
+
+
+def test_redondear_aristas_de_un_cubo():
+    from scadgui.edges import finish_edges
+    from scadgui.library import CUBE_EDGES
+    doc = parse("cube([40, 30, 10], center = true); // Base\n")
+    base = doc.children[0]
+    assert finish_edges(doc, [(base.id, "x1y1"), (base.id, "x0y0")], "round", 3) == [base.id]
+    assert base.kind == "cube_edges" and base.name == "Base"
+    text = generate(doc, header=False).text
+    assert text.startswith('cube_edges([40, 30, 10], center = true, edges = ["x0y0", "x1y1"], rounding = 3); // Base\n')
+    assert text.count("module cube_edges(") == 1 and CUBE_EDGES in text   # la definición va al final
+    again = parse(text)
+    assert len(again.children) == 1 and again.children[0].params == base.params  # la definición no se ve
+    assert generate(again, header=False).text == text
+    # un solo valor por pieza; el chaflán sustituye al redondeo
+    finish_edges(doc, [(base.id, "y1z1")], "chamfer", 1.5)
+    assert base.params["edges"] == ["x0y0", "x1y1", "y1z1"] and base.params["chamfer"] == 1.5
+    assert "rounding" not in base.params
+    # quitar todas las aristas devuelve el cube original
+    finish_edges(doc, [(base.id, k) for k in base.params["edges"]], "none", 0)
+    assert base.kind == "cube" and base.params == {"size": [40, 30, 10], "center": True}
+    assert "module" not in generate(doc).text
+
+
+def test_redondear_bordes_de_un_cilindro():
+    from scadgui.edges import finish_edges
+    doc = parse("cylinder(h = 20, d = 16, $fn = 48);\ncylinder(h = 5, r1 = 4, r2 = 2);\n")
+    cyl, cone = doc.children
+    finish_edges(doc, [(cyl.id, "top")], "round", 2)
+    assert cyl.kind == "cylinder_edges"
+    assert cyl.call() == 'cylinder_edges(h = 20, r = 8, edges = ["top"], rounding = 2, $fn = 48)'
+    try:
+        finish_edges(doc, [(cyl.id, "bottom"), (cone.id, "top")], "round", 1)
+        raise AssertionError("un cono no se puede redondear")
+    except ValueError:
+        pass
+    assert cyl.params["edges"] == ["top"]            # el error no deja el modelo a medias
+    try:
+        finish_edges(doc, [(cyl.id, "top")], "round", 0)
+        raise AssertionError("radio 0")
+    except ValueError:
+        pass
+    v = parse("cylinder(h = 5, d = ancho + 2);").children[0]
+    finish_edges(Document(children=[v]), [(v.id, "bottom")], "chamfer", 1)
+    assert v.params["r"] == Expr("(ancho + 2) / 2")
+
+
+def test_modulos_propios_y_modulo_de_usuario():
+    from scadgui.edges import finish_edges
+    doc = Document()
+    c = doc.add("cube")
+    finish_edges(doc, [(c.id, "x1y1")], "round", 1)
+    # al convertir la pieza en módulo, la llamada queda dentro de un texto: la definición se añade igual
+    doc.make_module([c.id], "pata", [])
+    text = generate(doc).text
+    assert text.count("module cube_edges(") == 1 and text.index("module pata(") < text.index("module cube_edges(")
+    # una definición modificada a mano se conserva y no se duplica
+    edited = text.replace("n = max(1, ", "n = max(2, ")
+    assert edited != text
+    again = parse(edited)
+    assert any(isinstance(n, RawCode) and "module cube_edges(" in n.text for n in again.children)
+    assert generate(again).text.count("module cube_edges(") == 1
+
+
+def test_lista_de_textos_es_literal():
+    assert literal('["x1y1", "top"]') == ["x1y1", "top"]
+    assert literal('[]') == []
+    assert isinstance(literal('["a", b]'), Expr)
 
 
 if __name__ == "__main__":

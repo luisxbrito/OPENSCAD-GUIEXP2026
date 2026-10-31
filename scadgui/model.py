@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any, Iterator, Optional
 
 from .catalog import SPECS, Spec
+from .library import needed_definitions
 
 HEADER = "// Generado con OpenSCAD GUI Mejorada"
 MODIFIERS = ("#", "%", "!", "*")
@@ -30,7 +31,7 @@ _VAR_RE = re.compile(r"^\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(.+?)\s*;\s*(?://\s*
 # Módulos cuyo primer argumento se escribe sin nombre, como es costumbre en OpenSCAD:
 # cube([10, 10, 10]), translate([0, 0, 5]), color("red")...
 FIRST_UNNAMED = {"cube", "square", "translate", "rotate", "scale", "mirror", "resize",
-                 "multmatrix", "color", "text", "import", "surface"}
+                 "multmatrix", "color", "text", "import", "surface", "cube_edges"}
 
 _ids = itertools.count(1)
 
@@ -658,7 +659,7 @@ class Document:
 
         temp_doc = Document()
         temp_doc.children = clones
-        body_lines = generate(temp_doc, header=False).text.splitlines()
+        body_lines = generate(temp_doc, header=False, library=False).text.splitlines()
         indented_body = "\n".join("  " + l if l.strip() else "" for l in body_lines)
 
         args_str = ", ".join(f"{b['var_name']} = {format_value(b['default_value'])}"
@@ -709,8 +710,12 @@ class Generated:
         return best
 
 
-def generate(doc: Document, highlight=(), header: bool = True) -> Generated:
-    """Convierte el documento en código. ``highlight`` antepone ``#`` (solo para la vista previa)."""
+def generate(doc: Document, highlight=(), header: bool = True, library: bool = True) -> Generated:
+    """Convierte el documento en código. ``highlight`` antepone ``#`` (solo para la vista previa).
+
+    Con ``library`` se añaden al final las definiciones de los módulos propios que use el modelo
+    (cube_edges...). ``make_module`` las desactiva porque su texto va dentro de otro módulo.
+    """
     out: list[str] = []
     spans: dict = {}
     highlight = set(highlight)
@@ -750,4 +755,7 @@ def generate(doc: Document, highlight=(), header: bool = True) -> Generated:
 
     for n in doc.children:
         emit(n, "")
+    if library:
+        for definition in needed_definitions("\n".join(out)):
+            out += [""] + definition.splitlines()
     return Generated("\n".join(out) + "\n", spans)

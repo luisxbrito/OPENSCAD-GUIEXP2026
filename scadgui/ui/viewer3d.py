@@ -15,7 +15,8 @@ import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 from OpenGL import GL
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QPushButton, QSlider, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (QCheckBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel, QPushButton, QSlider,
+                               QVBoxLayout, QWidget)
 
 from .. import geometry as geo
 from ..i18n import tr
@@ -41,6 +42,9 @@ SELECT_EDGE = (1.0, 0.62, 0.25, 1.0)
 HASH_COLOR = (1.0, 0.35, 0.55, 0.30)      # piezas con #
 BACKGROUND_COLOR = (0.75, 0.78, 0.82, 0.18)  # piezas con %
 MEASURE_COLOR = (0.35, 0.85, 1.0, 1.0)
+EDGE_HOVER_COLOR = (1.0, 0.85, 0.2, 1.0)    # arista bajo el ratón en el modo aristas
+EDGE_PICKED_COLOR = (1.0, 0.45, 0.1, 1.0)   # aristas elegidas
+EDGE_PICK_PIXELS = 8                        # distancia máxima al ratón para elegir una arista
 
 
 def _mesh_item(color, options, depth=0):
@@ -101,6 +105,7 @@ class _GLView(gl.GLViewWidget):
         self._active_axis: Optional[str] = None
         self._drag_start_s: float = 0.0
         self._drag_origin: Optional[np.ndarray] = None
+        self.setMouseTracking(True)  # para resaltar la arista bajo el ratón sin pulsar
 
     def mousePressEvent(self, ev):
         self._press = ev.position()
@@ -168,6 +173,8 @@ class _GLView(gl.GLViewWidget):
                 dz = total_s if self._active_axis == "Z" else 0.0
                 self.gizmoMoved.emit(dx, dy, dz)
             return
+        if ev.buttons() == Qt.MouseButton.NoButton:
+            self.hovered.emit(ev.position().x(), ev.position().y())
         super().mouseMoveEvent(ev)
 
     def mouseReleaseEvent(self, ev):
@@ -185,6 +192,10 @@ class _GLView(gl.GLViewWidget):
         if abs(d.x()) + abs(d.y()) < 5:
             ctrl = bool(ev.modifiers() & Qt.KeyboardModifier.ControlModifier)
             self.clicked.emit(ev.position().x(), ev.position().y(), ctrl)
+
+    def pixel_angle(self) -> float:
+        """Ángulo (radianes) que abarca un píxel en el centro de la vista."""
+        return 2 * math.tan(math.radians(self.opts["fov"]) / 2) / max(self.width(), 1)
 
     def ray(self, x: float, y: float):
         """Origen y dirección del rayo que sale de la cámara por el píxel (x, y)."""
@@ -217,6 +228,7 @@ class Viewer3D(QWidget):
     gizmoStarted = Signal()
     gizmoMoved = Signal(float, float, float)
     gizmoFinished = Signal()
+    edgeFinish = Signal(str, float, list)  # "round" | "chamfer" | "none", valor, [(id, clave)]
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -227,6 +239,11 @@ class Viewer3D(QWidget):
         self._fitted = False
         self.measuring = False
         self._points: list = []
+        self.edge_mode = False
+        self._edge_targets: list = []     # (id, clave, polilínea) de geo.pickable_edges
+        self.selected_edges: list = []    # [(id, clave)]
+        self._hover_edge: Optional[int] = None
+        self._occluders = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -254,6 +271,12 @@ class Viewer3D(QWidget):
         self.measure_btn.setCheckable(True)
         self.measure_btn.toggled.connect(self.set_measuring)
         row.addWidget(self.measure_btn)
+        self.edge_btn = QPushButton(tr("Elegir aristas"))
+        self.edge_btn.setObjectName("viewButton")
+        self.edge_btn.setCheckable(True)
+        self.edge_btn.setToolTip(tr("Elige aristas de cube y cylinder para redondearlas o achaflanarlas"))
+        self.edge_btn.toggled.connect(self.set_edge_mode)
+        row.addWidget(self.edge_btn)
         self.edges_check = QCheckBox(tr("Aristas"))
         self.edges_check.setObjectName("viewCheck")
         self.edges_check.setChecked(True)
@@ -316,6 +339,8 @@ class Viewer3D(QWidget):
                                                  pxMode=True, glOptions=SEE_THROUGH)
         self.measure_dots.setDepthValue(21)
         self.measure_dots.setVisible(False)
+        self.edge_picked_lines = _line_item(EDGE_PICKED_COLOR, 4.0, SEE_THROUGH, 24)
+        self.edge_hover_line = _line_item(EDGE_HOVER_COLOR, 3.0, SEE_THROUGH, 25)
 
         self.gizmo_lines = gl.GLLinePlotItem(
             pos=np.zeros((6, 3), dtype=np.float32),
@@ -337,7 +362,7 @@ class Viewer3D(QWidget):
 
         for item in (self.model, self.approx, self.edges, self.background, self.hashed, self.highlight,
                      self.highlight_edges, self.measure_line, self.measure_dots,
-                     self.gizmo_lines, self.gizmo_tips):
+                     self.edge_picked_lines, self.edge_hover_line, self.gizmo_lines, self.gizmo_tips):
             self.view.addItem(item)
 
         self.message = QLabel("", self.view)
@@ -357,8 +382,10 @@ class Viewer3D(QWidget):
         self.hint = QLabel(tr("Arrastrar: girar · Rueda: zoom · Botón central o Ctrl+arrastrar: mover · "
                               "Clic: seleccionar · Ctrl+clic: añadir"), self.view)
         self.hint.setObjectName("viewHint")
+        self._build_edge_panel()
 
         self.view.clicked.connect(self._on_click)
+        self.view.hovered.connect(self._on_hover)
         self.view.gizmoStarted.connect(self.gizmoStarted)
         self.view.gizmoMoved.connect(self.gizmoMoved)
         self.view.gizmoFinished.connect(self.gizmoFinished)
@@ -381,6 +408,9 @@ class Viewer3D(QWidget):
         self.measure_label.move(max(12, w - self.measure_label.width() - 12), 12)
         self.setup.adjustSize()
         self.setup.move((w - self.setup.width()) // 2, h // 2 + 30)
+        self.edge_panel.adjustSize()
+        self.edge_panel.move(max(12, w - self.edge_panel.width() - 12),
+                             max(12, h - self.edge_panel.height() - 12))
 
     # ------------------------------------------------------------- API usada por la ventana
     def request_render(self, now: bool = False) -> None:
@@ -453,6 +483,9 @@ class Viewer3D(QWidget):
     def set_explosion(self, percent: int) -> None:
         self._explosion = percent
         self._show_model()
+        if self.edge_mode:
+            self._hover_edge = None
+            self._draw_edges()
 
     def _show_model(self) -> None:
         """Dibuja la malla real (o la aproximada si no hay) aplicando la explosión actual."""
@@ -486,6 +519,7 @@ class Viewer3D(QWidget):
         self._display_ghosts = ghosts
         self._display_real = tris if self.real is not None else None
         self._picker = None
+        self._occluders = None
 
     def _move_ghosts(self, offsets: dict) -> dict:
         """Aplica a las mallas aproximadas el mismo desplazamiento que a su pieza (para seleccionar)."""
@@ -568,6 +602,9 @@ class Viewer3D(QWidget):
         return self._picker
 
     def _on_click(self, x: float, y: float, ctrl: bool) -> None:
+        if self.edge_mode:
+            self._click_edge(x, y, ctrl)
+            return
         origin, direction = self.view.ray(x, y)
         nid, hit = self._get_picker().pick(origin, direction)
         if self.measuring:
@@ -576,7 +613,121 @@ class Viewer3D(QWidget):
             return
         self.picked.emit(-1 if nid is None else nid, ctrl)
 
+    # ------------------------------------------------------------- aristas
+    def _build_edge_panel(self) -> None:
+        panel = QFrame(self.view)
+        panel.setObjectName("edgePanel")
+        lay = QVBoxLayout(panel)
+        lay.setContentsMargins(10, 8, 10, 8)
+        lay.setSpacing(6)
+        self.edge_info = QLabel("")
+        self.edge_info.setObjectName("edgeInfo")
+        lay.addWidget(self.edge_info)
+        row = QHBoxLayout()
+        row.addWidget(QLabel(tr("Radio / distancia (mm):")))
+        self.edge_value = QDoubleSpinBox()
+        self.edge_value.setRange(0.01, 10000)
+        self.edge_value.setDecimals(2)
+        self.edge_value.setSingleStep(0.5)
+        self.edge_value.setValue(2.0)
+        row.addWidget(self.edge_value)
+        lay.addLayout(row)
+        buttons = QHBoxLayout()
+        for text, mode in (("Redondear", "round"), ("Chaflán", "chamfer"), ("Quitar", "none")):
+            b = QPushButton(tr(text))
+            b.setObjectName("viewButton")
+            b.clicked.connect(lambda _=False, m=mode: self._finish_edges(m))
+            buttons.addWidget(b)
+        lay.addLayout(buttons)
+        panel.hide()
+        self.edge_panel = panel
+
+    def set_edge_targets(self, edges: list) -> None:
+        """Aristas elegibles del modelo actual (de geo.pickable_edges). Se conservan las elegidas que sigan."""
+        self._edge_targets = edges
+        present = {(e[0], e[1]) for e in edges}
+        self.selected_edges = [e for e in self.selected_edges if e in present]
+        self._hover_edge = None
+        self._draw_edges()
+
+    def set_edge_mode(self, on: bool) -> None:
+        self.edge_mode = on
+        if on and self.measure_btn.isChecked():
+            self.measure_btn.setChecked(False)
+        if not on:
+            self.selected_edges = []
+            self._hover_edge = None
+        self.edge_panel.setVisible(on)
+        self._draw_edges()
+
+    def _edge_occluders(self):
+        if self._occluders is None:
+            if self._display_real is not None:
+                self._occluders = self._display_real
+            elif self._display_ghosts:
+                self._occluders = np.concatenate(list(self._display_ghosts.values()))
+        return self._occluders
+
+    def _edge_at(self, x: float, y: float) -> Optional[int]:
+        if not self._edge_targets or self._explosion:
+            return None
+        origin, direction = self.view.ray(x, y)
+        return geo.pick_edge(self._edge_targets, origin, direction,
+                             EDGE_PICK_PIXELS * self.view.pixel_angle(), self._edge_occluders())
+
+    def _on_hover(self, x: float, y: float) -> None:
+        if not self.edge_mode:
+            return
+        idx = self._edge_at(x, y)
+        if idx != self._hover_edge:
+            self._hover_edge = idx
+            self._draw_edges()
+
+    def _click_edge(self, x: float, y: float, ctrl: bool) -> None:
+        idx = self._edge_at(x, y)
+        if idx is None:
+            if not ctrl:
+                self.selected_edges = []
+        else:
+            key = (self._edge_targets[idx][0], self._edge_targets[idx][1])
+            if ctrl:
+                if key in self.selected_edges:
+                    self.selected_edges.remove(key)
+                else:
+                    self.selected_edges.append(key)
+            else:
+                self.selected_edges = [] if self.selected_edges == [key] else [key]
+        self._draw_edges()
+
+    @staticmethod
+    def _segments(polylines: list) -> Optional[np.ndarray]:
+        segs = [np.stack([pl[:-1], pl[1:]], axis=1) for pl in polylines if len(pl) > 1]
+        return np.concatenate(segs) if segs else None
+
+    def _draw_edges(self) -> None:
+        on = self.edge_mode
+        chosen = set(self.selected_edges)
+        picked = [e[2] for e in self._edge_targets if (e[0], e[1]) in chosen] if on else []
+        _set_lines(self.edge_picked_lines, self._segments(picked))
+        hover = [self._edge_targets[self._hover_edge][2]] if on and self._hover_edge is not None else []
+        _set_lines(self.edge_hover_line, self._segments(hover))
+        n = len(self.selected_edges)
+        if self._explosion:
+            text = tr("Pon la explosión a 0 para elegir aristas.")
+        elif n:
+            text = tr("{n} aristas elegidas · Ctrl+clic: añadir o quitar").format(n=n)
+        else:
+            text = tr("Haz clic en una arista de un cube o un cylinder")
+        self.edge_info.setText(text)
+        self._place_overlays()
+
+    def _finish_edges(self, mode: str) -> None:
+        if self.selected_edges:
+            self.edgeFinish.emit(mode, float(self.edge_value.value()), list(self.selected_edges))
+
     def set_measuring(self, on: bool) -> None:
+        if on and self.edge_btn.isChecked():
+            self.edge_btn.setChecked(False)
         self.measuring = on
         self._points = []
         self.measure_line.setVisible(False)

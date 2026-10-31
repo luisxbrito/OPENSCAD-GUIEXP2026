@@ -13,6 +13,10 @@ Italian and Portuguese (*Edit › Preferences*).
 - **Model tree and properties.** Ribbon with the 30 OpenSCAD primitives, transformations,
   booleans and extrusions. The property panel is generated from each module's parameters.
   Each part's name is stored as a trailing comment: `cube([40, 30, 10]); // Base`.
+- **Rounded and chamfered edges.** With *Pick edges* in the 3D view you click the edges of a
+  `cube` or the top/bottom rim of a `cylinder` and round or chamfer them. The part becomes
+  `cube_edges(...)` or `cylinder_edges(...)`; the definition of those two modules is written
+  at the end of the file, so it opens in plain OpenSCAD without any library.
 - **Arrays.** Linear, polar and grid arrays of the selected parts. Each one is written as a
   plain `for` loop, for example `for (i = [0 : 3]) translate(i * [20, 0, 0]) { ... }`, and is
   recognised again when the file is reopened. Other `for` loops are kept as code.
@@ -87,6 +91,7 @@ scadgui/
   sketches.py            2D profile builders
   drawing.py             technical drawing sheet generator
   operations.py          help texts and quick presets for each operation
+  library.py, edges.py   cube_edges / cylinder_edges modules and the edge rounding logic
   code_assist.py         code templates and parameter hints for the editor
   i18n.py, locales/      translations (one file per language)
   ui/                    PySide6 windows and dialogs
@@ -99,7 +104,7 @@ property form, the generator and the parser all read from it.
 
 ## Tests
 
-None of these need OpenSCAD; the first three do not need Qt either.
+None of these need OpenSCAD except the last one; the first three do not need Qt either.
 
 ```bash
 python tests/test_core.py        # model, generator, parser round-trip, standard parts, drawing
@@ -107,6 +112,7 @@ python tests/test_geometry.py    # meshes, volumes, STL/OFF, picking, colours, e
 python tests/test_i18n.py        # every interface text translated, no duplicate keys
 python tests/simulacion/sim_ventana_visor_opengl.py   # whole window against a stub of Qt
 python tests/simulacion/sim_ventana_visor_imagen.py
+python tests/test_openscad.py    # renders generated code with the real OpenSCAD (skipped if not found)
 ```
 
 The two `sim_*` scripts drive the main window with a fake PySide6/pyqtgraph, so they catch
@@ -120,5 +126,9 @@ logic errors but not drawing problems; after changes, also open the real program
 - When OpenSCAD does not export face colours, colours are worked out by matching faces to
   parts, so faces produced by `hull`/`minkowski` come out grey.
 - Comments placed between the arguments of a call are lost when the code is regenerated.
+- Only edges of `cube` and straight `cylinder` parts can be rounded, and not inside an
+  extrusion, `hull`, `minkowski` or `resize`. Each part has a single radius for all its rounded
+  edges. Where three rounded edges meet, the corner is the intersection of their cylinders
+  rather than a sphere (that construction never fails with CGAL or Manifold).
 - The 2D profile dialog is form based; there is no constraint-driven sketcher.
 - No license has been chosen yet: add a `LICENSE` file before publishing the code.

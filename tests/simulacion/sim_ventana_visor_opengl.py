@@ -129,6 +129,55 @@ r._all_output = ""
 r._finished(r._proc, r._job, 0)
 assert len(QProcess.started_args) == 2 and QProcess.started_args[-1][1][1].endswith(".off")
 
+# --- aristas: elegir con el ratón en vista superior y redondear
+def pixel_of(view, p):
+    """Píxel por el que pasa el rayo hacia el punto p (inversa de _GLView.ray)."""
+    import math
+    cam, _ = view.ray(400, 300)
+    c = view.opts["center"]
+    center = np.array([c.x(), c.y(), c.z()], float)
+    fwd = (center - cam) / np.linalg.norm(center - cam)
+    elev, azim = math.radians(view.opts["elevation"]), math.radians(view.opts["azimuth"])
+    right = np.cross(fwd, [0, 0, 1.0])
+    if np.linalg.norm(right) < 1e-9:
+        right = np.array([-math.sin(azim), math.cos(azim), 0.0])
+    right /= np.linalg.norm(right)
+    up = np.cross(right, fwd)
+    d = np.asarray(p, float) - cam
+    tx = math.tan(math.radians(view.opts["fov"]) / 2)
+    ty = tx * view.height() / view.width()
+    nx, ny = (d @ right) / (d @ fwd) / tx, (d @ up) / (d @ fwd) / ty
+    return (nx + 1) / 2 * view.width(), (1 - ny) / 2 * view.height()
+
+w.new_file()
+w.run_command("cube"); box = w.current_node()
+w.on_param_changed(box.id, "size", [40, 30, 10])
+v.set_mesh(None)
+v.set_view("Superior")
+v.set_edge_mode(True)
+assert any(e[0] == box.id for e in v._edge_targets)
+x, y = pixel_of(v.view, [40, 30, 10])
+v._on_hover(x, y)
+assert v._hover_edge is not None and v.edge_hover_line.visible()
+sel_before = w.selected_ids()
+v._on_click(*pixel_of(v.view, [20, 30, 10]), False)          # mitad de la arista superior trasera
+assert v.selected_edges == [(box.id, "y1z1")], v.selected_edges
+assert w.selected_ids() == sel_before      # en modo aristas el clic no cambia la selección de piezas
+v._on_click(*pixel_of(v.view, [0, 15, 10]), True)            # Ctrl+clic: añade la de la izquierda
+assert v.selected_edges == [(box.id, "y1z1"), (box.id, "x0z1")], v.selected_edges
+v._on_click(*pixel_of(v.view, [20, 15, 10]), True)           # Ctrl+clic en mitad de la cara: nada cambia
+assert len(v.selected_edges) == 2
+w.finish_edges("round", 2.5, v.selected_edges)
+code = w.code.text.toPlainText()
+assert 'cube_edges([40, 30, 10], center = false, edges = ["y1z1", "x0z1"], rounding = 2.5);\n' in code, code
+assert "module cube_edges(" in code
+assert v.selected_edges == [(box.id, "y1z1"), (box.id, "x0z1")]   # siguen elegidas tras el cambio
+assert geo.signed_volume(w.ghosts[box.id]) < 12000
+w.undo()
+assert w.doc.find(box.id).kind == "cube" and "module" not in w.code.text.toPlainText()
+v.set_edge_mode(False)
+assert not v.edge_picked_lines.visible() and v.selected_edges == []
+
 # --- gizmo: arrastrar mueve, un clic sin arrastrar no deja rastro, deshacer vuelve atrás
 w.new_file()
 w.run_command("cube")

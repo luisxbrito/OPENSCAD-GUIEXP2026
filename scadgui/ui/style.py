@@ -89,6 +89,9 @@ QLabel#viewHint { color: #8C97A8; font-size: 8pt; background: transparent; }
 QLabel#measureBadge { background: #12384A; color: #BFEFFF; border-radius: 6px; padding: 5px 10px; font-family: "IBM Plex Mono", Consolas, monospace; font-size: 9pt; }
 QPushButton#viewButton:checked { background: #12384A; border-color: #5BD3FF; color: #FFFFFF; }
 QLabel#selectionBadge { background: #343A44; color: #E8ECF1; border-radius: 6px; padding: 5px 10px; font-size: 9pt; }
+QFrame#edgePanel { background: #1E232B; border: 1px solid #FF8A33; border-radius: 6px; }
+QFrame#edgePanel QLabel { color: #E8ECF1; font-size: 9pt; background: transparent; }
+QFrame#edgePanel QDoubleSpinBox { min-width: 70px; }
 
 QStatusBar { background: #FFFFFF; border-top: 1px solid #D5D9E0; color: #5A6474; }
 QSplitter::handle { background: #E4E7EC; }

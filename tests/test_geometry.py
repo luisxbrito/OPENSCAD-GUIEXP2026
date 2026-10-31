@@ -307,6 +307,61 @@ def test_matriz_2d_dentro_de_extrusion_y_con_variables():
     assert np.allclose(g.bbox(only(gh))[1], [1, 1, 1])
 
 
+
+def test_malla_de_cubo_con_aristas():
+    ctx = {"fn": 64, "fa": 12, "fs": 2}
+    t = g.cube_edges({"size": [40, 30, 10], "edges": ["y0z1", "x1y1", "x0z0"], "chamfer": 2}, ctx)
+    assert abs(g.signed_volume(t) - (12000 - 2 * (40 + 10 + 30))) < 1e-6   # cada chaflán quita r²/2 · largo
+    t = g.cube_edges({"size": [40, 30, 10], "edges": ["x1y1"], "rounding": 3}, ctx)
+    n = 16  # $fn = 64 → el cuarto de círculo tiene 16 tramos, como en OpenSCAD
+    removed = 9 - n * 0.5 * 9 * math.sin(math.pi / 2 / n)   # cuadrado r² menos el sector poligonal
+    assert abs(g.signed_volume(t) - (12000 - removed * 10)) < 1e-4
+    t = g.cube_edges({"size": [40, 30, 10], "center": True, "edges": [], "rounding": 3}, ctx)
+    assert np.allclose(g.bbox(t)[0], [-20, -15, -5]) and abs(g.signed_volume(t) - 12000) < 1e-6
+
+
+def test_malla_de_cilindro_con_bordes():
+    ctx = {"fn": 64, "fa": 12, "fs": 2}
+    t = g.cylinder_edges({"h": 20, "r": 8, "center": True, "edges": ["top"], "chamfer": 2}, ctx)
+    lo, hi = g.bbox(t)
+    assert g.signed_volume(t) > 0 and np.isclose(lo[2], -10) and np.isclose(hi[2], 10)
+    full = g.signed_volume(g.cylinder({"h": 20, "r": 8}, ctx))
+    assert 0 < full - g.signed_volume(t) < math.pi * 2 * 8 * 2  # se quita un anillo pequeño
+
+
+def test_aristas_elegibles_en_el_mundo():
+    doc = parse("translate([100, 0, 0]) cube([10, 20, 30]);\n"
+                "for (i = [0 : 1]) translate(i * [0, 50, 0]) cylinder(h = 5, r = 3);\n"
+                "linear_extrude(3) square(4);\n"
+                "hull() cube(1);\n")
+    edges = g.pickable_edges(doc)
+    cube_id = doc.children[0].children[0].id
+    by_key = {(e[0], e[1]): e[2] for e in edges if e[0] == cube_id}
+    assert len(by_key) == 12 and np.allclose(by_key[(cube_id, "x1y1")], [[110, 20, 0], [110, 20, 30]])
+    cyl_edges = [e for e in edges if e[0] != cube_id]
+    assert len(cyl_edges) == 4 and {e[1] for e in cyl_edges} == {"top", "bottom"}   # dos copias × 2 bordes
+    assert 52.5 < max(e[2][:, 1].max() for e in cyl_edges) <= 53 + 1e-9   # la copia está en y = 50
+
+
+def test_elegir_arista_con_el_raton():
+    doc = parse("cube([10, 20, 30]);")
+    edges = g.pickable_edges(doc)
+    mesh = g.build_ghosts(doc)[doc.children[0].id]
+    pick = lambda o, d, tol=0.01: (lambda i: None if i is None else edges[i][1])(
+        g.pick_edge(edges, np.array(o, float), np.array(d, float), tol, mesh))
+    assert pick([5, 20.1, 100], [0, 0, -1]) == "y1z1"           # desde arriba, junto a la arista de atrás
+    assert pick([100, 0.1, 15], [-1, 0, 0]) == "x1y0"           # desde +X, la arista de delante
+    assert pick([5, 10, 100], [0, 0, -1]) is None               # en mitad de la cara: ninguna
+    corner = np.array([10, 20, 15.0])
+    eye = np.array([100, 110, 15.0])
+    assert pick(eye, (corner - eye) / np.linalg.norm(corner - eye)) == "x1y1"   # la esquina vista en diagonal
+    # desde +X, apuntando a la arista de atrás (x0y0) a través de la pieza: está tapada
+    assert pick([100, 0.05, 15], [-1, 0, 0]) == "x1y0"
+    hidden = np.array([0, 0.0, 15.0])
+    eye = np.array([100, 2.0, 15.0])
+    assert pick(eye, (hidden - eye) / np.linalg.norm(hidden - eye), 0.001) is None
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):
