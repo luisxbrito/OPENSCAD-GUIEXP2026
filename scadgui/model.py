@@ -31,9 +31,14 @@ def header_line(lang: Optional[str] = None) -> str:
     return "// " + tr("Generado con {app}", lang).format(app=APP_NAME)
 
 
+def header_language(text: str) -> Optional[str]:
+    """Idioma de ``text`` si es nuestra cabecera (en cualquier idioma); si no, None."""
+    return next((lang for lang in LANGUAGES if text.strip() == header_line(lang)), None)
+
+
 def is_header(text: str) -> bool:
     """Si ``text`` es nuestra cabecera en cualquiera de los idiomas (se quita al abrir el archivo)."""
-    return text.strip() in {header_line(lang) for lang in LANGUAGES}
+    return header_language(text) is not None
 
 
 MODIFIERS = ("#", "%", "!", "*")
@@ -241,6 +246,9 @@ def clean_name(name: str) -> str:
 class Document:
     children: list = field(default_factory=list)
     fn: Optional[int] = None  # $fn global
+    # Idioma de la cabecera que tenía el archivo: al guardar se conserva, para que cambiar el idioma
+    # de la interfaz no modifique el archivo (el editor la muestra en el idioma de la interfaz).
+    header_lang: Optional[str] = None
 
     # ----- recorrido
     def walk(self) -> Iterator[tuple[AnyNode, int, Optional[Node]]]:
@@ -735,7 +743,8 @@ class Generated:
         return best
 
 
-def generate(doc: Document, highlight=(), header: bool = True, library: bool = True) -> Generated:
+def generate(doc: Document, highlight=(), header: bool = True, library: bool = True,
+             header_lang: Optional[str] = None) -> Generated:
     """Convierte el documento en código. ``highlight`` antepone ``#`` (solo para la vista previa).
 
     Con ``library`` se añaden al final las definiciones de los módulos propios que use el modelo
@@ -746,7 +755,7 @@ def generate(doc: Document, highlight=(), header: bool = True, library: bool = T
     highlight = set(highlight)
 
     if header:
-        out.append(header_line())
+        out.append(header_line(header_lang))
     if doc.fn:
         out.append(f"$fn = {int(doc.fn)};")
     if out:

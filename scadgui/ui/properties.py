@@ -515,8 +515,9 @@ class PropertyPanel(QScrollArea):
 
         def paint(text):
             c = QColor(text)
-            swatch.setStyleSheet(themed(f"background:{c.name() if c.isValid() else '#ffffff'};"
-                                 "border:1px solid #CBD1DA;border-radius:6px"))
+            # El fondo es el color de la pieza tal cual: no pasa por el tema (solo el borde).
+            swatch.setStyleSheet(f"background:{c.name() if c.isValid() else '#ffffff'};"
+                                 + themed("border:1px solid #CBD1DA;border-radius:6px"))
 
         def pick():
             c = QColorDialog.getColor(QColor(combo.currentText()), self, tr("Color"))

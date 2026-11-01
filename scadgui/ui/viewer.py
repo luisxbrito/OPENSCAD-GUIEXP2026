@@ -27,7 +27,7 @@ class _Canvas(QWidget):
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        p.fillRect(self.rect(), QColor("#262B33"))
+        p.fillRect(self.rect(), QColor(getattr(self.vp, "background", "#262B33")))
         vp = self.vp
         if vp.pixmap is not None and not vp.pixmap.isNull():
             pm = vp.pixmap
@@ -105,7 +105,7 @@ class Viewport(QWidget):
         self.zoom = 1.0
         self.render_zoom = 1.0
         self.pan = QPointF(0, 0)
-        self.message = "Crea una pieza con los botones de arriba para verla aquí."
+        self.message = tr("Crea una pieza con los botones de arriba para verla aquí.")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -201,6 +201,10 @@ class Viewport(QWidget):
         self.canvas.update()
         if render:
             self.request_render(now=True)
+
+    def set_render_delay(self, ms: int) -> None:
+        """Espera tras el último cambio antes de pedir la imagen a OpenSCAD (Preferencias)."""
+        self._render_timer.setInterval(max(50, int(ms)))
 
     def request_render(self, now: bool = False) -> None:
         if now:

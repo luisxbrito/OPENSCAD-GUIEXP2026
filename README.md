@@ -115,11 +115,16 @@ None of these need OpenSCAD except the last one; the first three do not need Qt 
 python tests/test_core.py        # model, generator, parser round-trip, standard parts, drawing
 python tests/test_geometry.py    # meshes, volumes, STL/OFF, picking, colours, exploded view
 python tests/test_i18n.py        # every interface text translated, no duplicate keys
+python tests/test_tema.py        # dark theme: text/background contrast, tooltips, colour schemes
 python tests/simulacion/sim_ventana_visor_opengl.py   # whole window against a stub of Qt
 python tests/simulacion/sim_ventana_visor_imagen.py
 python tests/test_openscad.py    # renders generated code with the real OpenSCAD (skipped if not found)
 python tests/test_ventana_qt.py  # real mouse events on the 3D view with real Qt (skipped without PySide6)
 ```
+
+On Windows, `run_tests.bat` runs all of them in order and says at the end whether any failed.
+Install `pyqtgraph` in the same Python you start the program with, or the window tests are skipped;
+those are the ones that catch Windows-only drawing problems.
 
 The two `sim_*` scripts drive the main window with a fake PySide6/pyqtgraph, so they catch
 logic errors but not drawing problems; after changes, also open the real program.

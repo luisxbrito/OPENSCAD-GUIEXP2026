@@ -53,6 +53,7 @@ VIEW_KEYS = {
     "6": ("orbit_right", "orbit_right"),
     ".": ("frame_selected", "frame_selected"),
     "R": ("ruler", "ruler"),
+    "G": ("grid", "grid"),
     "home": ("frame_all", "frame_all"),
 }
 SHORTCUT_OF = {"Isométrica": "0", "Frontal": "1", "Superior": "7", "Derecha": "3"}
@@ -64,6 +65,7 @@ CAMERA_NAMES = {"iso": N_("Isométrica"), "front": N_("Frontal"), "back": N_("Tr
 AXIS_COLORS = ("#E5645A", "#6CCB7A", "#5B9BFF")
 ORBIT_STEP = 15.0      # grados por pulsación, como Blender
 TREE_OVERLAY_WIDTH = 330
+PROPS_OVERLAY_WIDTH = 340   # propiedades flotando a la derecha (con el árbol sobre el visor)
 ORTHO_FOV = 1.0        # la vista ortográfica se imita con un ángulo de cámara casi nulo
 PERSPECTIVE_FOV = 45.0
 
@@ -73,6 +75,13 @@ SEE_THROUGH = {
     GL.GL_BLEND: True,
     GL.GL_CULL_FACE: False,
     "glBlendFunc": (GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA),
+}
+# El gizmo se dibuja siempre encima de las piezas. Sus conos son cerrados y con las caras hacia
+# fuera: sin prueba de profundidad, basta con no pintar las caras traseras para que se vean bien.
+ON_TOP_SOLID = {
+    GL.GL_DEPTH_TEST: False,
+    GL.GL_BLEND: False,
+    GL.GL_CULL_FACE: True,
 }
 
 EDGE_COLOR = (0.10, 0.12, 0.16, 0.85)
@@ -84,6 +93,9 @@ MEASURE_COLOR = (0.35, 0.85, 1.0, 1.0)
 EDGE_HOVER_COLOR = (1.0, 0.85, 0.2, 1.0)    # arista bajo el ratón en el modo aristas
 EDGE_PICKED_COLOR = (1.0, 0.45, 0.1, 1.0)   # aristas elegidas
 EDGE_PICK_PIXELS = 8                        # distancia máxima al ratón para elegir una arista
+GIZMO_COLORS = ((1.0, 0.2, 0.2, 1.0), (0.2, 0.9, 0.2, 1.0), (0.2, 0.5, 1.0, 1.0))   # X, Y, Z
+GIZMO_HEAD_LENGTH = 0.2     # largo de la punta de flecha, en fracción del eje
+GIZMO_HEAD_RADIUS = 0.06    # radio de su base
 GIZMO_PICK_PIXELS = 7                       # y para agarrar un eje del gizmo
 
 
@@ -349,6 +361,7 @@ class Viewer3D(QWidget):
     gizmoMoved = Signal(float, float, float)
     gizmoFinished = Signal()
     edgeFinish = Signal(str, float, list)  # "round" | "chamfer" | "none", valor, [(id, clave)]
+    gridToggled = Signal(bool)             # rejilla del suelo mostrada u ocultada (tecla G)
     treeOverlayToggled = Signal(bool)      # el usuario pide (o quita) el árbol sobre el visor
 
     def __init__(self, parent=None):
@@ -440,6 +453,8 @@ class Viewer3D(QWidget):
 
         self.view = _GLView()
         self.view.setBackgroundColor(pg.mkColor("#262B33"))
+        self.light_background = False            # lo cambia set_color_scheme()
+        self.explode_factor = 2.0                # Preferencias › Factor máx. vista explosionada
         self.view.opts["fov"] = PERSPECTIVE_FOV
         self.view.setCameraPosition(distance=120, elevation=30, azimuth=-55)
         self.view.cameraChanged.connect(self._update_view_name)
@@ -464,6 +479,7 @@ class Viewer3D(QWidget):
         self.ruler_neg = [_line_item(_rgba(c, 0.55), 1.0, "translucent") for c in AXIS_COLORS]
         self.ruler_labels: list = []           # GLTextItem reutilizados (no existen en pyqtgraph antiguo)
         self._label_points: list = []
+        self._ray_index = None                   # geo.RayIndex de la malla mostrada
         # Los textos de pyqtgraph se pintan encima de todo: los que quedan detrás de la pieza se
         # ocultan (como las marcas, que sí respetan la profundidad). Se mira al parar de girar.
         self._label_timer = QTimer(self)
@@ -503,18 +519,11 @@ class Viewer3D(QWidget):
             color=np.array([[1.0, 0.2, 0.2, 1.0]] * 2 +
                            [[0.2, 0.9, 0.2, 1.0]] * 2 +
                            [[0.2, 0.5, 1.0, 1.0]] * 2, dtype=np.float32),
-            mode="lines", width=3.5, antialias=True, glOptions="opaque")
+            mode="lines", width=3.5, antialias=True, glOptions=SEE_THROUGH)
         self.gizmo_lines.setDepthValue(30)
         self.gizmo_lines.setVisible(False)
 
-        self.gizmo_tips = gl.GLScatterPlotItem(
-            pos=np.zeros((3, 3), dtype=np.float32),
-            color=np.array([[1.0, 0.2, 0.2, 1.0],
-                           [0.2, 0.9, 0.2, 1.0],
-                           [0.2, 0.5, 1.0, 1.0]], dtype=np.float32),
-            size=10, pxMode=True, glOptions="opaque")
-        self.gizmo_tips.setDepthValue(31)
-        self.gizmo_tips.setVisible(False)
+        self.gizmo_tips = _mesh_item((1.0, 1.0, 1.0, 1.0), ON_TOP_SOLID, 31)   # puntas de flecha (conos)
 
         for item in (self.model, self.approx, self.edges, self.background, self.hashed, self.highlight,
                      self.highlight_edges, self.measure_line, self.measure_dots,
@@ -541,12 +550,17 @@ class Viewer3D(QWidget):
                               "Clic: seleccionar · Ctrl+clic: añadir") + "\n"
                            + tr("1 frontal · 3 derecha · 7 superior (Ctrl: la opuesta) · 0 isométrica · "
                                 "9 dar la vuelta · 2 4 6 8 girar · 5 perspectiva/ortográfica · . encuadrar")
-                           + " · " + tr("R regla"),
+                           + " · " + tr("R regla") + " · " + tr("G rejilla"),
                            self.view)
         self.triad = _AxisTriad(self.view)
         self.hint.setObjectName("viewHint")
         self._build_edge_panel()
         self._build_tree_overlay()
+        self.props_overlay = QFrame(self.view)   # propiedades de la selección, a la derecha
+        self.props_overlay.setObjectName("propsOverlay")
+        self.props_overlay_layout = QVBoxLayout(self.props_overlay)
+        self.props_overlay_layout.setContentsMargins(1, 1, 1, 1)
+        self.props_overlay.hide()
 
         self.view.clicked.connect(self._on_click)
         self.view.hovered.connect(self._on_hover)
@@ -582,6 +596,14 @@ class Viewer3D(QWidget):
         self.edge_panel.adjustSize()
         self.edge_panel.move(max(12, w - self.edge_panel.width() - 12),
                              max(12, h - self.edge_panel.height() - 12))
+        # Propiedades flotando a la derecha, debajo del nombre de la vista (y de la medida).
+        if self.props_overlay.isVisible():
+            top = 18 + self.view_name.height()
+            if self.measure_label.isVisible():
+                top += self.measure_label.height() + 6
+            bottom = h - 12 - (self.edge_panel.height() + 8 if self.edge_panel.isVisible() else 0)
+            self.props_overlay.setGeometry(max(12, w - PROPS_OVERLAY_WIDTH - 12), top,
+                                           PROPS_OVERLAY_WIDTH, max(120, bottom - top))
         # Árbol flotante arriba a la izquierda; la etiqueta de la selección pasa a su derecha.
         if self.tree_overlay.isVisible():
             collapsed = not self.tree_overlay_body.isVisible()
@@ -608,6 +630,20 @@ class Viewer3D(QWidget):
         self.ghosts = {}
         self.set_mesh(None)
         self.show_message(message)
+
+    def reset_scene(self) -> None:
+        """Documento nuevo: quita todo lo del anterior (malla calculada, selección, gizmo, medición,
+        aristas elegidas) y vuelve a encuadrar cuando llegue el modelo nuevo."""
+        self.real = None
+        self._face_colors = None
+        self._fitted = False
+        self.set_highlight(None)
+        self.set_gizmo(None)
+        self.set_measuring(self.measuring)          # borra los puntos medidos
+        self.selected_edges = []
+        self._hover_edge = None
+        self._draw_edges()
+        self._paint_model()
 
     def show_message(self, message: str) -> None:
         self.message.setText(message)
@@ -668,7 +704,7 @@ class Viewer3D(QWidget):
 
     def _show_model(self) -> None:
         """Dibuja la malla real (o la aproximada si no hay) aplicando la explosión actual."""
-        amount = self._explosion / 100.0 * 0.6
+        amount = self._explosion / 100.0 * 0.3 * self.explode_factor   # 2 (por defecto): 0.6
         ghosts = self.ghosts
         if self.real is not None:
             tris = self.real
@@ -699,6 +735,7 @@ class Viewer3D(QWidget):
         self._display_real = tris if self.real is not None else None
         self._picker = None
         self._occluders = None
+        self._ray_index = None
         if hasattr(self, "_label_timer"):
             self._label_timer.start()
 
@@ -724,21 +761,20 @@ class Viewer3D(QWidget):
         self.view.gizmo_origin = np.asarray(center, dtype=float)
         self.view.gizmo_len = L
 
-        lines_pos = np.array([
-            c, c + [L, 0.0, 0.0],
-            c, c + [0.0, L, 0.0],
-            c, c + [0.0, 0.0, L],
-        ], dtype=np.float32)
+        # Cada eje: una línea hasta la base de la punta y un cono (la flecha) que acaba en c + L.
+        head = L * GIZMO_HEAD_LENGTH
+        axes = np.eye(3, dtype=np.float32)
+        lines_pos = np.array([p for e in axes for p in (c, c + e * (L - head))], dtype=np.float32)
         self.gizmo_lines.setData(pos=lines_pos)
         self.gizmo_lines.setVisible(True)
 
-        tips_pos = np.array([
-            c + [L, 0.0, 0.0],
-            c + [0.0, L, 0.0],
-            c + [0.0, 0.0, L],
-        ], dtype=np.float32)
-        self.gizmo_tips.setData(pos=tips_pos)
-        self.gizmo_tips.setVisible(True)
+        cones, colors = [], []
+        for e, color in zip(axes, GIZMO_COLORS):
+            cone = geo.arrow_cone(c + e * L, e, head, L * GIZMO_HEAD_RADIUS)
+            cones.append(cone)
+            colors.append(np.tile(color, (len(cone), 1)))
+        tris = np.concatenate(cones)
+        _set_mesh(self.gizmo_tips, tris, geo.shade(geo.face_normals(tris), np.concatenate(colors)))
 
     # ------------------------------------------------------------- cámara
     def _scene_box(self):
@@ -789,6 +825,35 @@ class Viewer3D(QWidget):
             self.fit()
         elif action == "ruler":
             self.ruler_btn.toggle()
+        elif action == "grid":
+            self.set_grid(not self.grid.visible())
+
+    # ------------------------------------------------------------- rejilla
+    def set_render_delay(self, ms: int) -> None:
+        """Espera tras el último cambio antes de pedir la malla a OpenSCAD (Preferencias)."""
+        self._render_timer.setInterval(max(50, int(ms)))
+
+    def set_color_scheme(self, scheme) -> None:
+        """Esquema de color (Preferencias): fondo, color de las piezas sin color() y, si el fondo es
+        claro, textos y rejilla oscuros para que se sigan viendo."""
+        from .style import VIEWER_ON_LIGHT_STYLES
+        self.color_scheme = scheme
+        self.light_background = scheme.light
+        self.view.setBackgroundColor(pg.mkColor(scheme.background))
+        geo.set_default_color(scheme.rgba("face"))
+        for item in (self.model, self.approx):
+            item.base_color = geo.DEFAULT_COLOR
+        self.grid.setColor((0, 0, 0, 45) if scheme.light else (255, 255, 255, 28))
+        self.view.setStyleSheet(VIEWER_ON_LIGHT_STYLES if scheme.light else "")
+        self._paint_model()
+        self.view.update()
+
+    def set_grid(self, on: bool) -> None:
+        """Muestra u oculta la rejilla del suelo (menú Ver › Rejilla o tecla G)."""
+        on = bool(on)
+        if on != self.grid.visible():
+            self.grid.setVisible(on)
+            self.gridToggled.emit(on)
 
     # ------------------------------------------------------------- regla
     def set_ruler(self, on: bool) -> None:
@@ -841,16 +906,13 @@ class Viewer3D(QWidget):
         """Oculta los números de la regla que la pieza tapa desde la cámara actual."""
         if not self.ruler_on or not self._label_points:
             return
-        picker = self._get_picker()
-        tris = picker.real if picker.real is not None else picker.ghost_tris
+        if self._ray_index is None:               # se rehace solo cuando cambia la malla
+            picker = self._get_picker()
+            self._ray_index = geo.RayIndex(picker.real if picker.real is not None else picker.ghost_tris)
         cam = self.view.cameraPosition()
         origin = np.array([cam.x(), cam.y(), cam.z()], dtype=np.float64)
         for item, point in zip(self.ruler_labels, self._label_points):
-            covered = False
-            if len(tris):
-                t = geo.ray_hits(origin, point - origin, tris)    # t < 1: algo antes del número
-                covered = bool(len(t)) and bool(np.any((t > 1e-6) & (t < 0.999)))
-            item.setVisible(not covered)
+            item.setVisible(not self._ray_index.blocked(origin, point))
 
     def ruler_texts(self) -> list:
         """Números visibles de la regla (para las pruebas)."""
@@ -954,6 +1016,20 @@ class Viewer3D(QWidget):
         self.tree_overlay = panel
         self.tree_overlay_head = head
         self.tree_overlay_body = body
+
+    def show_props_overlay(self, content: Optional[QWidget]) -> None:
+        """Pone (o quita, con None) el panel de propiedades flotando a la derecha del visor."""
+        for _ in range(int(self.props_overlay_layout.count())):   # vaciar (count() fijo antes)
+            self.props_overlay_layout.takeAt(0)
+        if content is None:
+            self.props_overlay.hide()
+        else:
+            self.props_overlay_layout.addWidget(content)
+            content.show()
+
+    def set_props_overlay_visible(self, on: bool) -> None:
+        self.props_overlay.setVisible(bool(on) and int(self.props_overlay_layout.count()) > 0)
+        self._place_overlays()
 
     def show_tree_overlay(self, content: Optional[QWidget]) -> None:
         """Pone ``content`` (el árbol de la ventana) en el panel flotante; con None lo esconde.

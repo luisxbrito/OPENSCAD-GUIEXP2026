@@ -17,7 +17,7 @@ from typing import Any, Optional
 
 from .catalog import SPECS
 from .library import library_name
-from .model import MODIFIERS, Document, Expr, Node, RawCode, is_header
+from .model import MODIFIERS, Document, Expr, Node, RawCode, header_language
 
 
 class ParseError(Exception):
@@ -203,7 +203,9 @@ class _Parser:
         while self.ci < len(self.standalone) and self.standalone[self.ci].start < before:
             c = self.standalone[self.ci]
             self.ci += 1
-            if is_header(c.text):
+            lang = header_language(c.text)
+            if lang is not None:
+                self.doc.header_lang = lang
                 continue
             out.append(RawCode(self._dedent(c.text, c.start), is_comment=True))
 

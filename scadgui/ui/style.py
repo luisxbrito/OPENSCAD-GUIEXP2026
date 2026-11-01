@@ -30,6 +30,12 @@ DARK = {
     "#FEF08A": "#4A4520", "#FDE047": "#7A5F10",  # resaltados de búsqueda
 }
 
+# Colores que en el tema claro hacen de letra (y por eso DARK los aclara) pero que alguna regla
+# usa también de fondo: como fondo se quedan oscuros, para que la letra blanca se siga leyendo.
+DARK_BACKGROUND = {
+    "#174A96": "#174A96",   # botón principal al pasar el ratón
+}
+
 
 def set_theme(name: str) -> None:
     """Fija el tema; hay que llamarla antes de crear la ventana (no cambia los widgets ya hechos)."""
@@ -50,11 +56,14 @@ def _hex(h, l, s) -> str:
 
 
 @lru_cache(maxsize=1024)
-def _dark(color: str, text: bool = False) -> str:
-    """``text``: es un color de letra (no se deja por debajo de un brillo mínimo)."""
+def _dark(color: str, text: bool = False, background: bool = False) -> str:
+    """``text``: es un color de letra (no se deja por debajo de un brillo mínimo).
+    ``background``: es un fondo (se mira antes ``DARK_BACKGROUND``)."""
     key = color.upper()
     if len(key) == 4:
         key = "#" + "".join(ch * 2 for ch in key[1:])
+    if background and key in DARK_BACKGROUND:
+        return DARK_BACKGROUND[key]
     h, l, s = _hls(key)
     if text and l > 0.8:          # letra clara: ya iba sobre un fondo oscuro o de color
         return color
@@ -88,14 +97,78 @@ def themed(css: str) -> str:
 
     def decl(m):
         text = m.group(1) == "color"
-        value = _HEX.sub(lambda h: _dark(h.group(), text), m.group(3))
+        background = m.group(1).startswith("background")
+        value = _HEX.sub(lambda h: _dark(h.group(), text, background), m.group(3))
         return m.group(1) + m.group(2) + value
     return _DECL.sub(decl, css)
 
 
+# Textos sobre el visor cuando el esquema de color tiene el fondo claro (Cornfield, Tomorrow…):
+# se aplica al propio visor y sustituye a los colores claros de VIEWER_STYLES.
+VIEWER_ON_LIGHT_STYLES = """
+QLabel#viewMessage { color: #2B3340; }
+QLabel#viewHint { color: #4A5361; }
+QLabel#viewName { color: #2B3340; }
+QFrame#treeOverlay QLabel#sectionTitle { color: #3D4756; }
+QFrame#treeOverlay QTreeWidget#modelTree { color: #1B2230; }
+QFrame#treeOverlay QTreeWidget#modelTree::item:selected { background: rgba(31, 95, 191, 70); color: #0F2A55; }
+QFrame#treeOverlay QTreeWidget#modelTree::item:hover:!selected { background: rgba(0, 0, 0, 22); }
+QFrame#treeOverlay QHeaderView::section { color: #4A5361; border-bottom: 1px solid rgba(0, 0, 0, 45); }
+QFrame#treeOverlay QToolButton#treeTool:hover { background: rgba(0, 0, 0, 25); border-color: rgba(0, 0, 0, 40); }
+QFrame#treeOverlay QScrollBar::handle:vertical { background: rgba(0, 0, 0, 60); }
+QPushButton#overlayButton { color: #3D4756; }
+QPushButton#overlayButton:hover { background: rgba(0, 0, 0, 25); }
+"""
+
+
+def indicator_stylesheet(folder: str) -> str:
+    """Casillas y botones de opción con borde visible en el tema oscuro (Qt los pinta casi del
+    color del fondo). La marca se dibuja con un SVG propio que se escribe en ``folder``."""
+    if THEME != "dark":
+        return ""
+    import os
+    os.makedirs(folder, exist_ok=True)
+    files = {
+        "check.svg": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7" '
+                     'fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        "dot.svg": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.5" '
+                   'fill="#FFFFFF"/></svg>',
+    }
+    for name, svg in files.items():
+        with open(os.path.join(folder, name), "w", encoding="utf-8") as fh:
+            fh.write(svg)
+    url = folder.replace("\\", "/")
+    return f"""
+QCheckBox::indicator, QTableView::indicator, QTreeView::indicator, QListView::indicator {{
+    width: 14px; height: 14px; border: 1px solid #7A8494; border-radius: 3px; background: #1B1F26; }}
+QCheckBox::indicator:hover, QTableView::indicator:hover {{ border-color: #A9B3C1; }}
+QCheckBox::indicator:checked, QTableView::indicator:checked, QTreeView::indicator:checked,
+QListView::indicator:checked {{ background: #2F6FCC; border-color: #2F6FCC; image: url({url}/check.svg); }}
+QCheckBox::indicator:disabled {{ border-color: #4A5260; background: #22272F; }}
+QRadioButton::indicator {{ width: 14px; height: 14px; border: 1px solid #7A8494; border-radius: 8px; background: #1B1F26; }}
+QRadioButton::indicator:hover {{ border-color: #A9B3C1; }}
+QRadioButton::indicator:checked {{ background: #2F6FCC; border-color: #2F6FCC; image: url({url}/dot.svg); }}
+"""
+
+
+def tooltip_stylesheet() -> str:
+    """Estilo de las ayudas emergentes para toda la aplicación. Windows les pone su fondo claro
+    aunque la paleta diga otra cosa, y con el tema oscuro la letra clara no se leía."""
+    return themed("QToolTip { background: #FFFFFF; color: #1B2230; border: 1px solid #CBD1DA; "
+                  "padding: 4px 6px; }")
+
+
+# Solo en el tema claro: los botones de la cinta con su recuadro, como antes del tema oscuro.
+LIGHT_ONLY_STYLES = """
+QToolButton#ribbonButton { background: #FAFBFC; border: 1px solid #E4E7EC; }
+QToolButton#ribbonButton:hover { background: #EEF3FB; border-color: #9FB9E6; }
+"""
+
+
 def stylesheet() -> str:
     """Hoja de estilos de la ventana para el tema actual."""
-    return themed(THEMED_STYLES) + VIEWER_STYLES
+    extra = LIGHT_ONLY_STYLES if THEME != "dark" else ""
+    return themed(THEMED_STYLES) + extra + VIEWER_STYLES
 
 
 def dark_palette():
@@ -123,6 +196,7 @@ QMenuBar::item:selected { background: #EEF0F3; }
 QMenu { background: #FFFFFF; border: 1px solid #D5D9E0; padding: 4px; }
 QMenu::item { padding: 6px 22px 6px 26px; border-radius: 4px; }
 QMenu::item:selected { background: #E3ECFA; color: #174A96; }
+QToolTip { background: #FFFFFF; color: #1B2230; border: 1px solid #CBD1DA; padding: 4px 6px; }
 QMenu::separator { height: 1px; background: #E4E7EC; margin: 4px 6px; }
 
 QToolBar#mainToolbar { background: #F7F8FA; border: 0; border-bottom: 1px solid #D5D9E0; padding: 4px 8px; spacing: 2px; }
@@ -136,6 +210,7 @@ QTabWidget#ribbon QTabBar { background: #262B33; qproperty-drawBase: 0; }
 QTabWidget#ribbon QTabBar::tab { padding: 8px 16px; border: 0; border-bottom: 2px solid transparent; color: #FFFFFF; background: #262B33; }
 QTabWidget#ribbon QTabBar::tab:selected { color: #FFFFFF; border-bottom: 2px solid #5B9BFF; background: #343A44; font-weight: 600; }
 QTabWidget#ribbon QTabBar::tab:hover:!selected { background: #2F3540; }
+QFrame#propsOverlay { background: #FFFFFF; border: 1px solid #CBD1DA; border-radius: 8px; }
 QWidget#ribbonPage { background: #FFFFFF; }
 QToolButton#ribbonButton { background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 4px 6px; font-size: 9pt; }
 QToolButton#ribbonButton[command="true"] { font-family: "IBM Plex Mono", Consolas, "Courier New", monospace; }

@@ -187,6 +187,9 @@ python tests/simulacion/sim_ventana_visor_imagen.py
 - Árbol sobre el visor (`MainWindow.set_tree_overlay`): se cambia de sitio el MISMO
   `QTreeWidget` (con su barra de herramientas) al panel flotante del visor, no se copia; las
   propiedades se quedan en el panel Modelo. Se recuerda en la configuración (`tree_overlay`).
+  Con el árbol en el visor, el contenido del panel Modelo (propiedades y # % ! *) flota a la
+  derecha del visor (`props_overlay`, `_move_props_to_viewer`) y solo se ve con algo
+  seleccionado (`_sync_model_panel`); el visor no cambia de tamaño. Modelo y Variables se ocultan.
   Ahí el fondo es transparente: iconos y textos pasan a colores claros (`TREE_COLORS[True]`,
   `tree_on_viewer`) porque el fondo del visor es oscuro; al cambiar se reconstruye el árbol.
 - Tema claro / oscuro (`ui/style.py`, Ver › Tema oscuro, se guarda en `theme`, por defecto
@@ -200,8 +203,36 @@ python tests/simulacion/sim_ventana_visor_imagen.py
   marcas para el ancho visible (paso 1-2-5, se rehace al hacer zoom). Los números son GLTextItem,
   que se pintan encima de todo: `_hide_covered_labels` oculta los que tapa la pieza (rayo desde
   la cámara), al parar de girar. `_AxisTriad`: indicador de ejes abajo a la izquierda.
+- Rejilla: menú Ver › Rejilla o tecla G en el visor (sin botón), se guarda en `grid`. El menú Ver
+  se rellena en `_fill_view_menu()`, también al cambiar de idioma (antes se quedaba vacío).
+- Gizmo: puntas en cono (`geometry.arrow_cone`), dibujado siempre encima de las piezas
+  (`SEE_THROUGH` / `ON_TOP_SOLID`: sin profundidad y sin caras traseras). Ver › Flechas de
+  arrastre (gizmo) y Preferencias usan la misma opción `gizmo_enabled`.
+- Preferencias: TODA opción que se guarda debe leerse en algún sitio (`apply_settings`,
+  `_openscad_args`, `_new_document`). Se colaron cinco sin usar; la prueba
+  `test_preferencias_que_antes_no_hacian_nada` las cubre.
+- Regla: `geometry.RayIndex` (grupos de triángulos con su caja) para saber qué números tapa la
+  pieza; se rehace solo al cambiar la malla. Recorrer todos los triángulos tardaba ~1 s con 200k.
+- Cabecera: el archivo conserva la de su idioma (`Document.header_lang`); el editor la muestra en
+  el de la interfaz. Caras sin color() en el OFF de OpenSCAD: `UNCOLORED`, se pintan con el color
+  por defecto del momento (esquema).
+- Tema oscuro: casillas y botones de opción con borde y marca propios (`indicator_stylesheet`,
+  SVG en la carpeta temporal); en claro la cinta lleva recuadros (`LIGHT_ONLY_STYLES`). Cambiar
+  tema o visor ofrece «Reiniciar ahora» (`MainWindow.restart`, vuelve a abrir el archivo).
+- Simulaciones (qtstub): `layout.count()` devuelve un objeto «verdadero»; no usar
+  `while layout.count()` (cuelga la simulación), sino `for _ in range(int(layout.count()))`.
+  El stub también toma `self.x ==` por una asignación: escribir `valor == self.x`.
+- Botones: `clicked` pasa un bool; no conectar `clicked` directamente a un método con parámetros
+  opcionales (`fit(box=None)` lo tomaba por la caja): usar `lambda: self.fit()`.
 - Para ver el OpenGL real en el contenedor de pruebas: Xvfb + QT_QPA_PLATFORM=xcb (hace falta
   libxcb-cursor o un sustituto) y `view.grabFramebuffer()`; `window.grab()` no saca los textos 3D.
+- Esquema de color del visor (Preferencias): `scadgui/colorschemes.py` con los colores de los
+  JSON de OpenSCAD (`color-schemes/render`) más el propio (`DEFAULT`). `MainWindow.apply_color_scheme`
+  lo aplica al visor OpenGL (fondo, color de piezas sin color(), rejilla y textos oscuros si el fondo
+  es claro: `VIEWER_ON_LIGHT_STYLES`) y al de imágenes (`--colorscheme`). Los colores de las
+  piezas (muestra del panel) NO pasan por `themed()`.
+- Contraste del tema oscuro: `tests/test_tema.py` mide letra/fondo en cada regla. Un color que en
+  claro es letra (DARK lo aclara) y alguna regla usa de fondo va en `DARK_BACKGROUND`.
 - Cinta: `Ribbon.GROUPS` reparte los botones de cada pestaña en grupos con título (marcados con
   `N_()` para que `test_i18n` exija su traducción); un comando nuevo sin grupo va al último.
 - Atajos de vista como Blender (`viewer3d.VIEW_KEYS`), solo en el visor OpenGL: valen con el

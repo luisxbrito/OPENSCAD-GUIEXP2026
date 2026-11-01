@@ -5,12 +5,14 @@ from __future__ import annotations
 import html
 import os
 import re
+import shlex
 import sys
+import tempfile
 import time
 from typing import Optional
 
 import numpy as np
-from PySide6.QtCore import QItemSelectionModel, QSettings, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QItemSelectionModel, QProcess, QSettings, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QDockWidget, QFileDialog, QFrame,
                                QHBoxLayout,
@@ -19,17 +21,18 @@ from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QDock
                                QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from .. import __version__
+from .. import colorschemes
 from .. import geometry as geo
 from ..catalog import CATEGORIES, SPECS, specs_in
 from ..edges import finish_edges
-from ..i18n import set_language, tr
+from ..i18n import get_language, set_language, tr
 from ..model import Document, Node, RawCode, generate, make_node
 from ..parser import ParseError, parse
 from ..runner import OpenScadRunner, find_openscad
 from .codeview import CodeView, mono_font
 from .icons import icon
 from .properties import PropertyPanel, choose_import_file
-from .style import ACCENT, c, dark_palette, set_theme, stylesheet
+from .style import ACCENT, c, dark_palette, indicator_stylesheet, set_theme, stylesheet, tooltip_stylesheet
 
 def _resolve_example_path(filename: str) -> str:
     """Resuelve la ruta a un archivo de ejemplo tanto en modo desarrollo como congelado (PyInstaller)."""
@@ -229,14 +232,15 @@ class Ribbon(QTabWidget):
             self.buttons[name].setText(self.button_text(spec))
             self.buttons[name].setToolTip(self._tooltip(spec))
         for _tab, command, _icon, text, tip in self.EXTRA_BUTTONS:
-            self.buttons[command].setText(tr(text))
+            self.buttons[command].setText(tr(text).replace(" ·", ""))   # sin la marca antigua «·»
             self.buttons[command].setToolTip(tr(tip))
 
     @staticmethod
     def button_text(spec) -> str:
         """El botón lleva el nombre de OpenSCAD tal cual (cube, translate...), el mismo que se
         ve en el código; la descripción traducida queda en el tooltip."""
-        suffix = {"editor": " ·", "experimental": " (exp.)"}.get(spec.level, "")
+        # Los que tienen editor propio ya lo dicen en su ayuda; aquí solo se marca lo experimental.
+        suffix = " (exp.)" if spec.level == "experimental" else ""
         return f"{spec.name}{suffix}"
 
     @staticmethod
@@ -260,10 +264,11 @@ TREE_COLORS = {
 }
 
 
-def tree_colors(on_viewer: bool) -> dict:
-    """Colores del árbol: sobre el visor, los claros tal cual; en el panel, los del tema."""
+def tree_colors(on_viewer: bool, light_viewer: bool = False) -> dict:
+    """Colores del árbol: sobre el visor, los claros (o los oscuros si el fondo del visor es claro)
+    tal cual; en el panel, los del tema."""
     if on_viewer:
-        return TREE_COLORS[True]
+        return TREE_COLORS[not light_viewer]
     return {k: c(v, text=k != "icon") for k, v in TREE_COLORS[False].items()}
 
 
@@ -317,6 +322,9 @@ class MainWindow(QMainWindow):
         if self.theme == "dark" and app is not None:
             app.setStyle("Fusion")          # el estilo nativo de Windows no sigue la paleta oscura
             app.setPalette(dark_palette())
+        if app is not None:                  # ventanas aparte (tooltips, diálogos): estilo de aplicación
+            folder = os.path.join(tempfile.gettempdir(), "scadgui_indicadores")
+            app.setStyleSheet(tooltip_stylesheet() + indicator_stylesheet(folder))
         self.doc = Document()
         self.path = ""
         self.modified = False
@@ -484,21 +492,28 @@ class MainWindow(QMainWindow):
         self.a_gl.setCheckable(True)
         self.a_gl.setChecked(self.settings.value("viewer", "gl", str) != "image")
         self.a_gl.toggled.connect(self._toggle_gl)
-        self.view_menu.addAction(self.a_gl)
         self.a_dark = QAction(tr("Tema oscuro (requiere reiniciar)"), self)
         self.a_dark.setCheckable(True)
         self.a_dark.setChecked(self.theme == "dark")
         self.a_dark.toggled.connect(self._toggle_theme)
-        self.view_menu.addAction(self.a_dark)
         self.a_tree_overlay = QAction(tr("Árbol sobre el visor 3D"), self)
         self.a_tree_overlay.setCheckable(True)
         self.a_tree_overlay.setEnabled(self.gl)
         self.a_tree_overlay.toggled.connect(self.set_tree_overlay)
-        self.view_menu.addAction(self.a_tree_overlay)
+        self.a_grid = QAction(tr("Rejilla"), self)
+        self.a_grid.setCheckable(True)
+        self.a_grid.setChecked(True)
+        self.a_grid.setEnabled(self.gl)
+        self.a_grid.toggled.connect(lambda on: self.viewer.set_grid(on) if self.gl else None)
+        self.a_gizmo = QAction(tr("Flechas de arrastre (gizmo)"), self)
+        self.a_gizmo.setCheckable(True)
+        self.a_gizmo.setChecked(self.settings.value("gizmo_enabled", True, bool))
+        self.a_gizmo.setEnabled(self.gl)
+        self.a_gizmo.toggled.connect(self._toggle_gizmo)
         if self.gl:
+            self.viewer.gridToggled.connect(self._grid_changed)
             self.viewer.treeOverlayToggled.connect(self.a_tree_overlay.setChecked)
             self.viewer.ruler_btn.toggled.connect(lambda on: self.settings.setValue("ruler", on))
-        self.view_menu.addSeparator()
 
     def _build_docks(self) -> None:
         # ----- Modelo: árbol + propiedades
@@ -580,6 +595,7 @@ class MainWindow(QMainWindow):
         self.model_layout = lay
         self.tree_box = None  # contenedor del árbol cuando está sobre el visor
         self.tree_on_viewer = False  # colores claros: el árbol está sobre el fondo oscuro del visor
+        self._docks_hidden_by_tree: list = []  # paneles que se ocultaron por no haber selección
         split.setStretchFactor(0, 2)
         split.setStretchFactor(1, 3)
         lay.addWidget(split, 1)
@@ -613,8 +629,36 @@ class MainWindow(QMainWindow):
         self.vars_panel.variableChanged.connect(self.on_variable_changed)
         self.vars_panel.variableDeleted.connect(self.on_variable_deleted)
 
+        self._fill_view_menu()
+
+    def _fill_view_menu(self) -> None:
+        """Menú Ver. Se rellena aquí (y no en _build_menus) porque sus acciones se crean con el visor
+        y los paneles, y al cambiar de idioma el menú se rehace."""
+        m = self.view_menu
+        m.clear()
+        for action, text in ((self.a_gl, "Visor OpenGL (requiere reiniciar)"),
+                             (self.a_dark, "Tema oscuro (requiere reiniciar)"),
+                             (self.a_tree_overlay, "Árbol sobre el visor 3D")):
+            action.setText(tr(text))
+            m.addAction(action)
+        self.a_grid.setText(tr("Rejilla") + "\tG")    # G con el ratón sobre el visor (no es atajo global)
+        m.addAction(self.a_grid)
+        self.a_gizmo.setText(tr("Flechas de arrastre (gizmo)"))
+        m.addAction(self.a_gizmo)
+        m.addSeparator()
         for d in (self.dock_model, self.dock_vars, self.dock_code, self.dock_console):
-            self.view_menu.addAction(d.toggleViewAction())
+            m.addAction(d.toggleViewAction())
+
+    def _toggle_gizmo(self, on: bool) -> None:
+        """Ver › Flechas de arrastre: la misma opción que en Preferencias."""
+        self.settings.setValue("gizmo_enabled", bool(on))
+        self._update_highlight()
+
+    def _grid_changed(self, on: bool) -> None:
+        self.a_grid.blockSignals(True)
+        self.a_grid.setChecked(on)
+        self.a_grid.blockSignals(False)
+        self.settings.setValue("grid", on)
 
     def _dock(self, title, widget, area, width) -> QDockWidget:
         d = QDockWidget(title, self)
@@ -661,8 +705,10 @@ class MainWindow(QMainWindow):
     def _startup(self, path: str) -> None:
         if self.settings.value("tree_overlay", False, bool):
             self.set_tree_overlay(True)
+        self.apply_settings()
         if self.gl:
             self.viewer.set_ruler(self.settings.value("ruler", True, bool))
+            self.viewer.set_grid(self.settings.value("grid", True, bool))
         version = self.runner.version()
         if self.runner.exe:
             self.runner.check_backend_support(version)
@@ -679,10 +725,15 @@ class MainWindow(QMainWindow):
         if path:
             self.load(path)
         else:
-            self.set_document(Document())  # se empieza en blanco; los ejemplos están en el menú Archivo
+            self.set_document(self._new_document())  # en blanco; los ejemplos están en el menú Archivo
 
     # ------------------------------------------------------------- documento
     def set_document(self, doc: Document, path: str = "", keep_history: bool = False) -> None:
+        self.runner.cancel_preview()       # el cálculo del documento anterior ya no sirve
+        if self.gl:
+            self.viewer.reset_scene()
+        else:
+            self.viewer.clear("")
         self.doc = doc
         self.path = path
         self.modified = False
@@ -747,7 +798,7 @@ class MainWindow(QMainWindow):
         self.on_selection()
 
     def _fill_item(self, item: QTreeWidgetItem, node, parent_node=None, child_index: int = 0) -> None:
-        colors = tree_colors(self.tree_on_viewer)
+        colors = tree_colors(self.tree_on_viewer, self._light_viewer())
         item.setData(0, Qt.ItemDataRole.UserRole, node.id)
         item.setText(0, node.label)
         if isinstance(node, RawCode):
@@ -842,6 +893,78 @@ class MainWindow(QMainWindow):
             self._update_highlight()
         else:
             self.schedule_preview()  # el visor de imágenes resalta con # y necesita otra imagen
+        self._sync_model_panel()
+
+    def _openscad_args(self) -> list:
+        """Opciones para OpenSCAD: roof() (si se usa o está activado en Preferencias) y los
+        parámetros extra que se escriban allí."""
+        args = []
+        if self.settings.value("enable_roof", False, bool) or any(
+                getattr(n, "kind", "") == "roof" for n, _, _ in self.doc.walk()):
+            args.append("--enable=roof")
+        extra = str(self.settings.value("extra_flags", "", str) or "")
+        try:
+            args += [a.strip('"') for a in shlex.split(extra, posix=False)]
+        except ValueError:                       # comillas sin cerrar: se ignoran los extra
+            self.log(tr("Parámetros CLI extra no válidos: {flags}").format(flags=extra), "warn")
+        return args
+
+    def _new_document(self) -> Document:
+        """Documento en blanco con el $fn por defecto de Preferencias (0: el de OpenSCAD)."""
+        fn = int(self.settings.value("default_fn", 0) or 0)
+        return Document(fn=fn if fn > 0 else None)
+
+    def apply_settings(self) -> None:
+        """Aplica las Preferencias que afectan a la ventana ya abierta."""
+        self.apply_color_scheme()
+        delay = int(self.settings.value("debounce_ms", 500) or 500)
+        self.viewer.set_render_delay(delay)
+        if self.gl:
+            self.viewer.explode_factor = float(self.settings.value("explode_max_mult", 2.0) or 2.0)
+            self.viewer.set_explosion(self.viewer._explosion)
+
+    def _light_viewer(self) -> bool:
+        return bool(getattr(self.viewer, "light_background", False))
+
+    def apply_color_scheme(self) -> None:
+        """Aplica el esquema de color de Preferencias a los dos visores."""
+        scheme = colorschemes.get(self.settings.value("colorscheme", colorschemes.DEFAULT, str))
+        self.runner.colorscheme = scheme.openscad_name
+        if self.gl:
+            self.viewer.set_color_scheme(scheme)
+            self._update_ghosts()                  # los colores de las piezas sin color() cambian
+            if self.tree_box is not None:          # el árbol sobre el visor cambia de colores
+                for b in self.tree_tools:
+                    b.setIcon(icon(b.property("icon_name"), tree_colors(True, self._light_viewer())["icon"],
+                                   fixed=True))
+                self.rebuild_tree(self.selected_ids())
+        else:
+            self.viewer.background = scheme.background
+            self.viewer.update()
+
+    def _sync_model_panel(self) -> None:
+        """Con el árbol sobre el visor, las propiedades flotan a la derecha del visor y solo se ven
+        con algo seleccionado. El visor no cambia de tamaño (antes se ocultaba el panel Modelo y
+        el modelo se movía en pantalla con cada selección)."""
+        if self.tree_box is not None:
+            self.viewer.set_props_overlay_visible(bool(self.selected_ids()))
+
+    def _move_props_to_viewer(self, on: bool) -> None:
+        """Lleva el contenido del panel Modelo (propiedades y # % ! *) al visor, o lo devuelve.
+        El panel Modelo y Variables, si es su pestaña vecina, se ocultan mientras tanto."""
+        if on:
+            for dock in [self.dock_model] + self.tabifiedDockWidgets(self.dock_model):
+                if dock.isVisible():
+                    dock.hide()
+                    self._docks_hidden_by_tree.append(dock)
+            self.viewer.show_props_overlay(self.model_panel)
+        else:
+            self.viewer.show_props_overlay(None)
+            self.dock_model.setWidget(self.model_panel)
+            hidden, self._docks_hidden_by_tree = self._docks_hidden_by_tree, []
+            for dock in hidden:
+                dock.show()
+            self.dock_model.raise_()
 
     def select_ids(self, ids) -> None:
         self._syncing = True
@@ -1030,7 +1153,7 @@ class MainWindow(QMainWindow):
                 base = os.path.splitext(self.path)[0] if self.path else os.path.join(
                     self.settings.value("last_dir", "", str), "plano_tecnico")
                 filters = "SVG (*.svg);;DXF (*.dxf);;PDF (*.pdf);;Todos (*)"
-                path, chosen = QFileDialog.getSaveFileName(self, "Exportar plano técnico", base + ".svg", filters)
+                path, chosen = QFileDialog.getSaveFileName(self, tr("Exportar plano técnico"), base + ".svg", filters)
                 if not path:
                     return
                 if not os.path.splitext(path)[1]:
@@ -1509,37 +1632,47 @@ class MainWindow(QMainWindow):
             self._render_mesh()
             return
         if not any(True for _ in self.doc.walk()):
-            self.viewer.clear("Crea una pieza con los botones de arriba para verla aquí.")
+            self.viewer.clear(tr("Crea una pieza con los botones de arriba para verla aquí."))
             self.viewer.status.setText("")
             return
         if not self.runner.exe:
-            self.viewer.clear("No se encontró OpenSCAD.\nInstálalo desde openscad.org o indica dónde está.")
+            self.viewer.clear(tr("No se encontró OpenSCAD.\nInstálalo desde openscad.org o indica dónde está."))
             self.viewer.show_setup_button(True)
             return
         self.viewer.show_setup_button(False)
         highlight = [] if full else [i for i in self.selected_ids() if isinstance(self.doc.find(i), Node)]
         code = generate(self.doc, highlight=highlight, header=False).text
-        self.runner.extra_args = ["--enable=roof"] if any(
-            getattr(n, "kind", "") == "roof" for n, _, _ in self.doc.walk()) else []
+        self.runner.extra_args = self._openscad_args()
         base = os.path.dirname(self.path) if self.path else ""
         self.runner.render_image(code, base, self.viewer.render_size(), self.viewer.camera, full_render=full)
+
+    def _retranslate_view_message(self) -> None:
+        """Vuelve a escribir en el idioma nuevo el aviso del visor (sin volver a renderizar)."""
+        if not any(True for _ in self.doc.walk()):
+            self.viewer.clear(tr("Crea una pieza con los botones de arriba para verla aquí."))
+        elif not self.runner.exe:
+            if self.gl:
+                self.viewer.show_message(tr("Vista aproximada (sin operaciones booleanas).\n"
+                                            "Instala OpenSCAD o indica dónde está para ver el resultado real."))
+            else:
+                self.viewer.clear(tr("No se encontró OpenSCAD.\nInstálalo desde openscad.org o indica dónde está."))
 
     def _render_mesh(self) -> None:
         """Visor OpenGL: pide a OpenSCAD la malla final del modelo."""
         if not any(True for _ in self.doc.walk()):
-            self.viewer.clear("Crea una pieza con los botones de arriba para verla aquí.")
+            self.runner.cancel_preview()
+            self.viewer.clear(tr("Crea una pieza con los botones de arriba para verla aquí."))
             self.viewer.status.setText("")
             return
         if not self.runner.exe:
             self.viewer.set_mesh(None)
-            self.viewer.show_message("Vista aproximada (sin operaciones booleanas).\n"
-                                     "Instala OpenSCAD o indica dónde está para ver el resultado real.")
+            self.viewer.show_message(tr("Vista aproximada (sin operaciones booleanas).\n"
+                                        "Instala OpenSCAD o indica dónde está para ver el resultado real."))
             self.viewer.show_setup_button(True)
             return
         self.viewer.show_setup_button(False)
         code = generate(self.doc, header=False).text
-        self.runner.extra_args = ["--enable=roof"] if any(
-            getattr(n, "kind", "") == "roof" for n, _, _ in self.doc.walk()) else []
+        self.runner.extra_args = self._openscad_args()
         base = os.path.dirname(self.path) if self.path else ""
         self.runner.export_mesh(code, base)
 
@@ -1595,6 +1728,7 @@ class MainWindow(QMainWindow):
             box_lay.addWidget(self.tree, 1)
             self.tree_box = box
             self.viewer.show_tree_overlay(box)
+            self._move_props_to_viewer(True)
         else:
             self.model_layout.insertWidget(1, self.tree_tools_box)
             self.model_split.insertWidget(0, self.tree)
@@ -1603,9 +1737,10 @@ class MainWindow(QMainWindow):
             self.viewer.show_tree_overlay(None)
             self.tree_box.deleteLater()
             self.tree_box = None
+            self._move_props_to_viewer(False)        # las propiedades vuelven al panel Modelo
         self.tree_on_viewer = on
         for b in self.tree_tools:
-            b.setIcon(icon(b.property("icon_name"), tree_colors(on)["icon"], fixed=True))
+            b.setIcon(icon(b.property("icon_name"), tree_colors(on, self._light_viewer())["icon"], fixed=True))
         self.rebuild_tree(self.selected_ids())
         self.a_tree_overlay.blockSignals(True)
         self.a_tree_overlay.setChecked(on)
@@ -1614,11 +1749,31 @@ class MainWindow(QMainWindow):
 
     def _toggle_gl(self, on: bool) -> None:
         self.settings.setValue("viewer", "gl" if on else "image")
-        QMessageBox.information(self, tr("Visor 3D"), tr("El cambio de visor se aplica al reiniciar la aplicación."))
+        self._offer_restart(tr("Visor 3D"), tr("El cambio de visor se aplica al reiniciar la aplicación."))
 
     def _toggle_theme(self, dark: bool) -> None:
         self.settings.setValue("theme", "dark" if dark else "light")
-        QMessageBox.information(self, tr("Tema"), tr("El cambio de tema se aplica al reiniciar la aplicación."))
+        self._offer_restart(tr("Tema"), tr("El cambio de tema se aplica al reiniciar la aplicación."))
+
+    def _offer_restart(self, title: str, text: str) -> None:
+        """Ofrece reiniciar ya (guardando antes si hace falta) y vuelve a abrir el mismo archivo."""
+        box = QMessageBox(QMessageBox.Icon.Information, title, text, parent=self)
+        now = box.addButton(tr("Reiniciar ahora"), QMessageBox.ButtonRole.AcceptRole)
+        box.addButton(tr("Más tarde"), QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        if box.clickedButton() is now and self.maybe_save():
+            self.restart()
+
+    def restart(self) -> None:
+        """Cierra la aplicación y la abre de nuevo con el archivo actual."""
+        files = [self.path] if self.path else []
+        if getattr(sys, "frozen", False):            # ejecutable empaquetado (.exe)
+            program, args = sys.executable, files
+        else:
+            program, args = sys.executable, [os.path.abspath(sys.argv[0])] + files
+        if QProcess.startDetached(program, args):
+            self.modified = False                    # ya se guardó (o se descartó) en maybe_save
+            QApplication.instance().quit()
 
     def on_image(self, path: str, seconds: float) -> None:
         self.viewer.set_image(path)
@@ -1660,14 +1815,14 @@ class MainWindow(QMainWindow):
 
     def new_file(self) -> None:
         if self.maybe_save():
-            self.set_document(Document())
+            self.set_document(self._new_document())
 
     def open_example(self, path: str) -> None:
         """Abre un ejemplo como documento sin guardar (no se sobrescribe el archivo del ejemplo)."""
         if not self.maybe_save():
             return
         if not os.path.isfile(path):
-            self.set_document(Document())
+            self.set_document(self._new_document())
             return
         with open(path, encoding="utf-8") as fh:
             self.set_document(parse(fh.read()))
@@ -1699,8 +1854,10 @@ class MainWindow(QMainWindow):
         if not self.path:
             return self.save_file_as()
         try:
+            if self.doc.header_lang is None:        # archivo nuevo: la cabecera en el idioma de hoy
+                self.doc.header_lang = get_language()
             with open(self.path, "w", encoding="utf-8", newline="\n") as fh:
-                fh.write(generate(self.doc).text)
+                fh.write(generate(self.doc, header_lang=self.doc.header_lang).text)
         except OSError as exc:
             QMessageBox.warning(self, tr("No se pudo guardar"), str(exc))
             return False
@@ -1734,8 +1891,7 @@ class MainWindow(QMainWindow):
         if not os.path.splitext(path)[1]:
             path += "." + chosen.split("*.")[1].rstrip(")")
         code = generate(self.doc, header=False).text
-        self.runner.extra_args = ["--enable=roof"] if any(
-            getattr(n, "kind", "") == "roof" for n, _, _ in self.doc.walk()) else []
+        self.runner.extra_args = self._openscad_args()
         self.runner.export(code, os.path.dirname(self.path) if self.path else "", path)
 
     def on_exported(self, path: str, ok: bool) -> None:
@@ -1770,9 +1926,13 @@ class MainWindow(QMainWindow):
 
             if self.gl:
                 self.viewer.gizmo_enabled = self.settings.value("gizmo_enabled", True, bool)
+                self.a_gizmo.blockSignals(True)       # Preferencias y Ver › Flechas, siempre iguales
+                self.a_gizmo.setChecked(self.viewer.gizmo_enabled)
+                self.a_gizmo.blockSignals(False)
                 self.viewer.snap_step = float(self.settings.value("gizmo_snap", 1.0) or 1.0)
                 self._update_highlight()
 
+            self.apply_settings()
             self.render_view(False)
             self.statusBar().showMessage(tr("Preferencias guardadas"), 4000)
             self.log(f"{tr('Preferencias guardadas')}. OpenSCAD: {exe or tr('no configurado')}", "info")
@@ -1791,6 +1951,8 @@ class MainWindow(QMainWindow):
 
         self.menuBar().clear()
         self._build_menus()
+        self._fill_view_menu()
+        self._retranslate_view_message()
 
         self.ribbon.retranslate_ui()
         self.dock_model.setWindowTitle(tr("Modelo"))

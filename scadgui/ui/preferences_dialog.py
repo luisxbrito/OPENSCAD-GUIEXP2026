@@ -12,20 +12,10 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDoubleSpinBox,
 
 from ..i18n import LANGUAGES, get_language, set_language, tr
 from ..runner import find_openscad
+from .. import colorschemes
 from .style import themed
 
 
-COLOR_SCHEMES = [
-    "Tomorrow Night",
-    "Metallic",
-    "Sunset",
-    "Starnight",
-    "DeepOcean",
-    "Solarized",
-    "BeforeDawn",
-    "Nature",
-    "Monospaced",
-]
 
 
 class PreferencesDialog(QDialog):
@@ -84,9 +74,10 @@ class PreferencesDialog(QDialog):
         form_csg.addRow(self.lbl_csg, self.combo_backend)
 
         self.combo_colorscheme = QComboBox()
-        for scheme in COLOR_SCHEMES:
+        for scheme in colorschemes.SCHEMES:
             self.combo_colorscheme.addItem(scheme, scheme)
-        saved_scheme = self.settings.value("colorscheme", "Tomorrow Night", str)
+        self.combo_colorscheme.setItemText(0, tr("Propio de la aplicación"))   # el DEFAULT
+        saved_scheme = self.settings.value("colorscheme", colorschemes.DEFAULT, str)
         idx_c = self.combo_colorscheme.findData(saved_scheme)
         if idx_c >= 0:
             self.combo_colorscheme.setCurrentIndex(idx_c)
@@ -287,7 +278,8 @@ class PreferencesDialog(QDialog):
         self.combo_backend.setItemText(1, tr("Manifold (rápido)"))
         self.combo_backend.setItemText(2, tr("CGAL (clásico)"))
 
-        self.lbl_colorscheme.setText(tr("Esquema de colores (vista previa):"))
+        self.lbl_colorscheme.setText(tr("Esquema de colores del visor:"))
+        self.combo_colorscheme.setItemText(0, tr("Propio de la aplicación"))
         self.chk_roof.setText(tr("Habilitar primitiva experimental roof() (--enable=roof)"))
         self.lbl_extra_flags.setText(tr("Parámetros CLI extra:"))
         self.edit_extra_flags.setPlaceholderText(tr("Ej: --enable=fast-csg"))
@@ -377,7 +369,7 @@ class PreferencesDialog(QDialog):
         # Guardar en QSettings
         self.settings.setValue("openscad_path", self.edit_exe.text().strip())
         self.settings.setValue("backend", self.combo_backend.currentData() or "")
-        self.settings.setValue("colorscheme", self.combo_colorscheme.currentData() or "Tomorrow Night")
+        self.settings.setValue("colorscheme", self.combo_colorscheme.currentData() or colorschemes.DEFAULT)
         self.settings.setValue("enable_roof", self.chk_roof.isChecked())
         self.settings.setValue("extra_flags", self.edit_extra_flags.text().strip())
 
@@ -408,7 +400,7 @@ class PreferencesDialog(QDialog):
         return {
             "openscad_path": self.edit_exe.text().strip(),
             "backend": self.combo_backend.currentData() or "",
-            "colorscheme": self.combo_colorscheme.currentData() or "Tomorrow Night",
+            "colorscheme": self.combo_colorscheme.currentData() or colorschemes.DEFAULT,
             "enable_roof": self.chk_roof.isChecked(),
             "extra_flags": self.edit_extra_flags.text().strip(),
             "viewer": self.combo_viewer_type.currentData() or "gl",

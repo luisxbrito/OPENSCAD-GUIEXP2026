@@ -107,7 +107,7 @@ class VariablesPanel(QWidget):
             idx += 1
             name = f"var_{idx}"
 
-        self.variableAdded.emit(name, "10", "Parámetro")
+        self.variableAdded.emit(name, "10", tr("Parámetro"))
 
     def _delete_variable(self) -> None:
         if self._doc is None:

@@ -378,6 +378,47 @@ def test_regla_paso_redondo_y_marcas():
     assert all(seg[1][0] <= 0 for seg in r["neg"][0])                       # lado negativo
     assert any(t == "-80" for axis, _p, t, negative in r["labels"] if axis == 2 and negative)
 
+
+def test_punta_de_flecha_del_gizmo():
+    from scadgui.geometry import arrow_cone, signed_volume
+    cone = arrow_cone([0, 0, 10], [0, 0, 1], 3.0, 1.0, n=64)
+    assert np.isclose(cone[..., 2].max(), 10) and np.isclose(cone[..., 2].min(), 7)
+    assert abs(signed_volume(cone) - math.pi * 1.0 ** 2 * 3.0 / 3) < 0.01      # cerrado y hacia fuera
+    tilted = arrow_cone([5, 5, 5], [1, 1, 0], 2.0, 0.5)
+    assert signed_volume(tilted) > 0
+
+
+def test_indice_de_rayos_igual_que_recorrer_todo():
+    """RayIndex da lo mismo que comparar el rayo con todos los triángulos."""
+    from scadgui.geometry import RayIndex, ray_hits
+    rng = np.random.default_rng(7)
+    tris = rng.random((3000, 1, 3)) * 100 + (rng.random((3000, 3, 3)) - 0.5) * 4
+    index = RayIndex(tris)
+    origin = np.array([250.0, -250.0, 200.0])
+    for _ in range(60):
+        point = rng.random(3) * 120 - 10
+        t = ray_hits(origin, point - origin, tris)
+        assert index.blocked(origin, point) == bool(np.any((t > 1e-3) & (t < 1 - 1e-3)))
+    assert not RayIndex(np.zeros((0, 3, 3))).blocked(origin, [0, 0, 0])
+
+
+def test_caras_sin_color_siguen_al_esquema():
+    """En un OFF con unas caras rojas y otras sin color, las sin color toman el color por defecto
+    que haya al pintar (el del esquema), aunque cambie después de leer el archivo."""
+    import tempfile
+    from scadgui import geometry as geo
+    path = os.path.join(tempfile.mkdtemp(), "m.off")
+    with open(path, "w") as fh:
+        fh.write("OFF\n4 2 0\n0 0 0\n1 0 0\n0 1 0\n0 0 1\n3 0 1 2 255 0 0\n3 0 1 3\n")
+    tris, cols = geo.load_off(path)
+    before = geo.DEFAULT_COLOR
+    try:
+        geo.set_default_color((0.0, 0.0, 1.0, 1.0))
+        base = geo.colored(tris, None, {}, cols)
+        assert base[0][0] > base[0][2] and base[1][2] > base[1][0]   # roja / azul (la por defecto)
+    finally:
+        geo.set_default_color(before)
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

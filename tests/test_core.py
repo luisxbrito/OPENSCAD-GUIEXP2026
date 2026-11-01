@@ -1090,6 +1090,24 @@ def test_cabecera_en_el_idioma_de_la_interfaz():
     finally:
         set_language(before)
 
+
+def test_cabecera_del_archivo_no_cambia_con_el_idioma():
+    """Abrir un archivo con la cabecera en francés y guardarlo con la interfaz en inglés la deja en
+    francés (el archivo no cambia); el editor la muestra en el idioma de la interfaz."""
+    from scadgui.i18n import get_language, set_language
+    from scadgui.model import header_line
+    before = get_language()
+    try:
+        doc = parse(header_line("fr") + "\ncube(5);\n")
+        assert doc.header_lang == "fr"
+        set_language("en")
+        assert generate(doc).text.startswith(header_line("en"))                         # editor
+        assert generate(doc, header_lang=doc.header_lang).text.startswith(header_line("fr"))   # archivo
+        assert doc.snapshot().header_lang == "fr"
+        assert parse("cube(5);").header_lang is None
+    finally:
+        set_language(before)
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

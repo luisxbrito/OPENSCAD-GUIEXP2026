@@ -1052,6 +1052,15 @@ def with_modifier(doc: Document, ghosts: dict, mod: str) -> Tris:
 
 DEFAULT_COLOR = (0.80, 0.82, 0.86, 1.0)
 
+
+UNCOLORED = (-1.0, -1.0, -1.0, -1.0)   # marca de cara sin color() en una malla de OpenSCAD
+
+
+def set_default_color(rgba) -> None:
+    """Color de las piezas sin color() (lo cambia el esquema de color del visor)."""
+    global DEFAULT_COLOR
+    DEFAULT_COLOR = tuple(float(v) for v in rgba)
+
 # Luces fijas en el mundo (z hacia arriba): principal desde arriba-delante, relleno lateral y contraluz.
 _LIGHTS = [
     (np.array([0.35, -0.55, 0.85]), 0.50),
@@ -1108,7 +1117,9 @@ def load_off(path: str):
     out = verts[np.array(tris)]
     if not has_color:
         return out, None
-    return out, np.array([c if c is not None else DEFAULT_COLOR for c in colors], dtype=np.float64)
+    # Caras sin color() (OpenSCAD no les escribe color): alfa -1, y colored() les pone el color por
+    # defecto del momento, así siguen al esquema de color aunque se cambie después de cargar.
+    return out, np.array([c if c is not None else UNCOLORED for c in colors], dtype=np.float64)
 
 
 def load_mesh(path: str):
@@ -1210,7 +1221,8 @@ def assign_faces(real: Tris, ghosts: dict) -> np.ndarray:
 def colored(tris: Tris, owner: Optional[np.ndarray], colors: dict, face_colors=None) -> np.ndarray:
     """Colores por cara ya iluminados, listos para el visor."""
     if face_colors is not None:
-        base = face_colors
+        base = np.array(face_colors, dtype=np.float64)
+        base[base[:, 3] < 0] = DEFAULT_COLOR
     else:
         base = np.tile(np.array(DEFAULT_COLOR), (len(tris), 1))
         if owner is not None:
@@ -1337,3 +1349,76 @@ def ruler(span: float) -> dict:
         pos.append(np.array(p_segs, dtype=np.float64))
         neg.append(np.array(n_segs, dtype=np.float64))
     return {"major": major, "extent": extent, "pos": pos, "neg": neg, "labels": labels}
+
+
+# --------------------------------------------------------------------------- flechas del gizmo
+
+def arrow_cone(tip, direction, length: float, radius: float, n: int = 20) -> Tris:
+    """Cono cerrado (punta de flecha) con la punta en ``tip`` y apuntando hacia ``direction``."""
+    d = np.asarray(direction, dtype=np.float64)
+    d = d / np.linalg.norm(d)
+    tip = np.asarray(tip, dtype=np.float64)
+    helper = np.array([1.0, 0.0, 0.0]) if abs(d[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
+    u = np.cross(d, helper)
+    u /= np.linalg.norm(u)
+    v = np.cross(d, u)
+    base = tip - d * length
+    a = np.linspace(0.0, 2 * math.pi, n, endpoint=False)
+    ring = base + radius * (np.cos(a)[:, None] * u + np.sin(a)[:, None] * v)
+    nxt = np.roll(ring, -1, axis=0)
+    sides = np.stack([ring, nxt, np.broadcast_to(tip, ring.shape)], axis=1)
+    cap = np.stack([np.broadcast_to(base, ring.shape), nxt, ring], axis=1)
+    return np.concatenate([sides, cap])
+
+
+# --------------------------------------------------------------------------- rayos rápidos
+
+class RayIndex:
+    """Triángulos agrupados por cercanía, cada grupo con su caja: un rayo solo se compara con los
+    triángulos de las cajas que atraviesa. Para saber si algo tapa un punto (números de la regla)
+    sin recorrer toda la malla."""
+
+    LEAF = 256
+
+    def __init__(self, tris: Tris):
+        tris = np.asarray(tris, dtype=np.float64)
+        self.tris = tris
+        leaves = []
+        if len(tris):
+            centers = tris.mean(axis=1)
+            stack = [np.arange(len(tris))]
+            while stack:                       # división por la mediana del eje más largo
+                idx = stack.pop()
+                if len(idx) <= self.LEAF:
+                    leaves.append(idx)
+                    continue
+                c = centers[idx]
+                axis = int(np.argmax(c.max(axis=0) - c.min(axis=0)))
+                order = idx[np.argsort(c[:, axis], kind="stable")]
+                half = len(order) // 2
+                stack += [order[:half], order[half:]]
+        self.leaves = leaves
+        if leaves:
+            self.lo = np.array([tris[i].reshape(-1, 3).min(axis=0) for i in leaves])
+            self.hi = np.array([tris[i].reshape(-1, 3).max(axis=0) for i in leaves])
+
+    def blocked(self, origin, point, eps: float = 1e-3) -> bool:
+        """Si algún triángulo corta el segmento de ``origin`` a ``point`` (sin contar sus extremos)."""
+        if not self.leaves:
+            return False
+        o = np.asarray(origin, dtype=np.float64)
+        d = np.asarray(point, dtype=np.float64) - o
+        with np.errstate(divide="ignore", invalid="ignore"):
+            inv = 1.0 / d
+            t1 = (self.lo - o) * inv
+            t2 = (self.hi - o) * inv
+        t1 = np.where(np.isnan(t1), -np.inf, t1)
+        t2 = np.where(np.isnan(t2), np.inf, t2)
+        near = np.minimum(t1, t2).max(axis=1)
+        far = np.maximum(t1, t2).min(axis=1)
+        hit = np.nonzero((near <= far) & (far >= 0) & (near <= 1))[0]
+        if not len(hit):
+            return False
+        cand = self.tris[np.concatenate([self.leaves[i] for i in hit])]
+        t = ray_hits(o, d, cand)
+        return bool(np.any((t > eps) & (t < 1 - eps)))

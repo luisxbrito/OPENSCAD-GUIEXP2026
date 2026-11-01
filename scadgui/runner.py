@@ -108,6 +108,7 @@ class OpenScadRunner(QObject):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.colorscheme = "Tomorrow Night"   # esquema de color del visor de imágenes
         self.exe = ""
         self.backend = ""          # "", "manifold" o "cgal"
         self.extra_args: list[str] = []
@@ -149,6 +150,14 @@ class OpenScadRunner(QObject):
             proc.waitForFinished(2000)
             self._remove_source(self._job[2])
 
+    def cancel_preview(self) -> None:
+        """Descarta el cálculo de la vista en curso o en espera (no las exportaciones): al cambiar
+        de documento, una malla del archivo anterior no debe llegar al visor."""
+        if self._pending is not None and self._pending[0][0] in ("mesh", "image"):
+            self._pending = None
+        if self.busy() and self._job and self._job[0] in ("mesh", "image"):
+            self.cancel()
+
     def _remove_source(self, src: str) -> None:
         if os.path.dirname(src) != self._tmp:
             try:
@@ -162,7 +171,7 @@ class OpenScadRunner(QObject):
         src = self._write_source(code, base_dir)
         png = os.path.join(self._tmp, f"view_{self._counter}.png")
         args = ["-o", png, f"--imgsize={max(64, size[0])},{max(64, size[1])}", camera.arg(),
-                "--viewall", "--autocenter", "--projection=p", "--colorscheme=Tomorrow Night",
+                "--viewall", "--autocenter", "--projection=p", f"--colorscheme={self.colorscheme}",
                 "--view=axes"]
         args.append("--render" if full_render else "--preview")
         args += self._common() + [src]

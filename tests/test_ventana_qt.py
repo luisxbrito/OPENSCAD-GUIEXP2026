@@ -233,6 +233,246 @@ def test_boton_ajustar_encuadra():
     assert np.allclose([center.x(), center.y(), center.z()], (lo + hi) / 2, atol=1e-3)
     assert v.view.opts["distance"] < 1000
 
+
+def test_rejilla_desde_el_menu_y_con_la_tecla_g():
+    """La rejilla se oculta con Ver › Rejilla o con la tecla G, y el menú Ver sobrevive al cambio de idioma."""
+    from PySide6.QtCore import QSettings
+    from scadgui.i18n import set_language, tr
+    settings = QSettings("OpenSCAD-GUI-Mejorada", "app")
+    saved = settings.value("grid")
+    w = window()
+    v = w.viewer
+    v.set_grid(True)
+    assert v.grid.visible() and w.a_grid.isChecked()
+    v.key_command("G")                                     # tecla G en el visor
+    assert not v.grid.visible() and not w.a_grid.isChecked()
+    w.a_grid.trigger()                                     # menú Ver › Rejilla
+    assert v.grid.visible() and w.a_grid.isChecked()
+    set_language("en")
+    w.retranslate_ui()
+    texts = [a.text() for a in w.view_menu.actions()]
+    set_language("es")
+    w.retranslate_ui()
+    assert "Grid\tG" in texts and "Tree over the 3D view" in texts, texts
+    assert w.a_grid in w.view_menu.actions() and w.a_gl in w.view_menu.actions()
+    w.code.start_editing()                                 # escribir una G en el código no la oculta
+    w.code.text.setFocus()
+    QTest.keyClick(w.code.text, Qt.Key.Key_G)
+    app.processEvents()
+    assert v.grid.visible() and w.code.text.toPlainText().count("G") > 0
+    w.code.stop_editing(discard=True)
+    if saved is None:
+        settings.remove("grid")
+    else:
+        settings.setValue("grid", saved)
+
+
+def test_mensaje_del_visor_en_el_idioma_de_la_interfaz():
+    """El aviso del visor vacío sale traducido y cambia al cambiar de idioma."""
+    from scadgui.i18n import set_language
+    from scadgui.model import Document
+    w = window()
+    w.set_document(Document())
+    w.render_view(False)
+    app.processEvents()
+    assert w.viewer.message.text().startswith("Crea una pieza"), w.viewer.message.text()
+    set_language("en")
+    try:
+        w.retranslate_ui()
+        app.processEvents()
+        assert w.viewer.message.text() == "Create a part with the buttons above to see it here.", w.viewer.message.text()
+    finally:
+        set_language("es")
+        w.retranslate_ui()
+
+
+def test_gizmo_con_flechas_y_se_puede_apagar():
+    """Las puntas del gizmo son conos en el extremo de cada eje; Ver › Flechas lo enciende y apaga."""
+    from PySide6.QtCore import QSettings
+    settings = QSettings("OpenSCAD-GUI-Mejorada", "app")
+    saved = settings.value("gizmo_enabled")
+    w = window()
+    v = w.viewer
+    w.a_gizmo.setChecked(True)
+    cube = w.doc.children[0].children[0]
+    w.select_ids([cube.id])
+    app.processEvents()
+    assert v.gizmo_tips.visible() and v.view.gizmo_origin is not None
+    o, L = v.view.gizmo_origin, v.view.gizmo_len
+    verts = v.gizmo_tips.opts["meshdata"].vertexes()
+    assert np.isclose(verts[:, 0].max(), o[0] + L, atol=1e-3)     # la flecha de X acaba en el extremo
+    assert w.a_gizmo in w.view_menu.actions()
+    w.a_gizmo.setChecked(False)                                    # apagar
+    app.processEvents()
+    assert not v.gizmo_tips.visible() and not v.gizmo_lines.visible() and v.view.gizmo_origin is None
+    assert settings.value("gizmo_enabled", True, bool) is False
+    w.a_gizmo.setChecked(True)
+    app.processEvents()
+    assert v.gizmo_tips.visible()
+    if saved is None:
+        settings.remove("gizmo_enabled")
+    else:
+        settings.setValue("gizmo_enabled", saved)
+
+
+def test_documento_nuevo_no_deja_rastros_del_anterior():
+    """Al abrir otro archivo o empezar uno nuevo no queda nada del anterior en el visor."""
+    from scadgui import geometry as geo
+    from scadgui.model import Document
+    from scadgui.parser import parse
+    w = window()
+    v = w.viewer
+    cube = w.doc.children[0].children[0]
+    v.set_mesh(np.concatenate(list(w.ghosts.values())))       # como si OpenSCAD hubiera calculado la malla
+    w.select_ids([cube.id])
+    v.measure_btn.setChecked(True)
+    v._add_measure_point([0, 0, 0])
+    w.runner._pending = (("mesh", "x.off", "x.scad", "", "", False), [], "")   # cálculo del anterior en espera
+    app.processEvents()
+    assert v.model.visible() and v.highlight.visible() and v.measure_dots.visible()
+    w.set_document(parse("sphere(5);"))                          # abrir otro archivo
+    app.processEvents()
+    assert v.real is None and not v.model.visible(), "sigue la malla calculada del archivo anterior"
+    assert not v.highlight.visible() and v.view.gizmo_origin is None and not v.measure_dots.visible()
+    assert w.runner._pending is None
+    box = geo.bbox(v._display_ghosts and np.concatenate(list(v._display_ghosts.values())))
+    assert box is not None and np.allclose(box[1], [5, 5, 5], atol=0.5)    # solo la esfera nueva
+    v.measure_btn.setChecked(False)
+    w.set_document(Document())                                   # Archivo › Nuevo
+    app.processEvents()
+    assert not v.model.visible() and not v.approx.visible()
+
+
+def test_panel_modelo_solo_con_seleccion_cuando_el_arbol_esta_en_el_visor():
+    """Árbol en el visor: las propiedades flotan a la derecha y solo se ven con algo
+    seleccionado, sin cambiar el tamaño del visor; al devolver el árbol vuelve todo al panel."""
+    from PySide6.QtCore import QSettings
+    settings = QSettings("OpenSCAD-GUI-Mejorada", "app")
+    saved = settings.value("tree_overlay")
+    w = window()
+    w.set_tree_overlay(False)
+    w.dock_model.show()
+    w.dock_vars.show()
+    w.select_ids([])
+    w.set_tree_overlay(True)
+    app.processEvents()
+    v = w.viewer
+    assert not w.dock_model.isVisible() and not w.dock_vars.isVisible()
+    assert not v.props_overlay.isVisible()
+    width = v.view.width()
+    cube = w.doc.children[0].children[0]
+    item = w._item_for(cube.id)
+    QTest.mouseClick(w.tree.viewport(), LEFT, NONE, w.tree.visualItemRect(item).center())   # clic en el árbol
+    app.processEvents()
+    assert w.selected_ids() == [cube.id]
+    assert v.props_overlay.isVisible() and w.props.isVisible()
+    assert w.model_panel.parentWidget() is v.props_overlay
+    assert v.view.width() == width                    # el visor no cambia de tamaño
+    w.select_ids([])
+    app.processEvents()
+    assert not v.props_overlay.isVisible()
+    w.set_tree_overlay(False)                         # árbol de vuelta: propiedades al panel Modelo
+    app.processEvents()
+    assert w.dock_model.widget() is w.model_panel and w.dock_model.isVisible()
+    assert w.dock_vars in w.tabifiedDockWidgets(w.dock_model) and w.dock_vars.toggleViewAction().isChecked()
+    if saved is None:
+        settings.remove("tree_overlay")
+    else:
+        settings.setValue("tree_overlay", saved)
+
+
+def test_esquema_de_color_de_preferencias_se_aplica():
+    """El esquema elegido en Preferencias cambia el fondo, el color de las piezas sin color() y,
+    con fondo claro, los textos y el árbol sobre el visor pasan a oscuros."""
+    from PySide6.QtCore import QSettings
+    from scadgui import colorschemes
+    from scadgui import geometry as geo
+    from scadgui.parser import parse
+    settings = QSettings("OpenSCAD-GUI-Mejorada", "app")
+    saved = settings.value("colorscheme")
+    w = window()
+    v = w.viewer
+    w.set_document(parse("cube(10);"))
+    try:
+        settings.setValue("colorscheme", "Cornfield")
+        w.apply_color_scheme()
+        app.processEvents()
+        assert w.runner.colorscheme == "Cornfield"
+        assert v.light_background and "viewName" in v.view.styleSheet()
+        assert np.allclose(geo.DEFAULT_COLOR[:3], colorschemes.get("Cornfield").rgba()[:3])
+        assert tree_icon_dark(w)
+        settings.setValue("colorscheme", "Tomorrow Night")
+        w.apply_color_scheme()
+        assert not v.light_background and v.view.styleSheet() == "" and w.runner.colorscheme == "Tomorrow Night"
+    finally:
+        if saved is None:
+            settings.remove("colorscheme")
+        else:
+            settings.setValue("colorscheme", saved)
+        w.apply_color_scheme()
+
+
+def tree_icon_dark(w) -> bool:
+    """Con el fondo del visor claro, el árbol flotante usa los colores oscuros."""
+    return mw.tree_colors(True, w._light_viewer()) == mw.TREE_COLORS[False]
+
+
+def test_preferencias_que_antes_no_hacian_nada():
+    """roof, parámetros extra, factor de explosión, retardo y $fn por defecto se aplican de verdad."""
+    from PySide6.QtCore import QSettings
+    settings = QSettings("OpenSCAD-GUI-Mejorada", "app")
+    keys = ("enable_roof", "extra_flags", "explode_max_mult", "debounce_ms", "default_fn")
+    saved = {k: settings.value(k) for k in keys}
+    w = window()
+    try:
+        settings.setValue("enable_roof", True)
+        settings.setValue("extra_flags", '--enable=manifold -D "nombre=1"')
+        assert w._openscad_args() == ["--enable=roof", "--enable=manifold", "-D", "nombre=1"]
+        settings.setValue("enable_roof", False)
+        settings.setValue("extra_flags", "")
+        assert w._openscad_args() == []
+        settings.setValue("default_fn", 48)
+        assert w._new_document().fn == 48
+        settings.setValue("default_fn", 0)
+        assert w._new_document().fn is None
+        settings.setValue("debounce_ms", 800)
+        settings.setValue("explode_max_mult", 4.0)
+        w.apply_settings()
+        assert w.viewer._render_timer.interval() == 800
+        assert not w.gl or w.viewer.explode_factor == 4.0
+    finally:
+        for k, v in saved.items():
+            settings.remove(k) if v is None else settings.setValue(k, v)
+        w.apply_settings()
+
+
+def test_reiniciar_vuelve_a_abrir_el_mismo_archivo():
+    """«Reiniciar ahora» (tema o visor) lanza otra vez la aplicación con el archivo abierto y cierra esta."""
+    w = window()
+    calls, quits = [], []
+
+    class FakeProcess:
+        @staticmethod
+        def startDetached(program, args):
+            calls.append((program, list(args)))
+            return True
+
+    class FakeApp:
+        @staticmethod
+        def instance():
+            return type("A", (), {"quit": staticmethod(lambda: quits.append(1))})
+
+    real = mw.QProcess, mw.QApplication
+    mw.QProcess, mw.QApplication = FakeProcess, FakeApp
+    try:
+        w.path = os.path.join(ROOT, "examples", "rueda_con_eje_giratorio.scad")
+        w.restart()
+    finally:
+        mw.QProcess, mw.QApplication = real
+        w.path = ""
+    assert quits and calls[0][0] == sys.executable
+    assert calls[0][1][-1].endswith("rueda_con_eje_giratorio.scad"), calls
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):
