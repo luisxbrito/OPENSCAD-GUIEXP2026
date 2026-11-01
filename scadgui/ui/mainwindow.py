@@ -196,6 +196,13 @@ class Ribbon(QTabWidget):
 
 # --------------------------------------------------------------------------- árbol con arrastrar y soltar
 
+# Colores del árbol: en el panel (fondo blanco) y sobre el visor 3D (transparente, fondo oscuro).
+TREE_COLORS = {
+    False: {"icon": "#3D4756", "raw": "#8A5A00", "muted": "#5A6474", "disabled": "#9AA3AF"},
+    True: {"icon": "#DDE3EA", "raw": "#F2C46B", "muted": "#AEB7C3", "disabled": "#7D8794"},
+}
+
+
 class ModelTree(QTreeWidget):
     dropped = Signal(list, object, str)
 
@@ -462,7 +469,8 @@ class MainWindow(QMainWindow):
                                 ("duplicate", tr("Duplicar (Ctrl+D)"), self.duplicate),
                                 ("delete", tr("Eliminar (Supr)"), self.delete_selected)):
             b = QToolButton()
-            b.setIcon(icon(name, "#3D4756"))
+            b.setIcon(icon(name, TREE_COLORS[False]["icon"]))
+            b.setProperty("icon_name", name)
             b.setIconSize(QSize(16, 16))
             b.setToolTip(tip)
             b.setObjectName("treeTool")
@@ -495,6 +503,7 @@ class MainWindow(QMainWindow):
         self.model_split = split
         self.model_layout = lay
         self.tree_box = None  # contenedor del árbol cuando está sobre el visor
+        self.tree_on_viewer = False  # colores claros: el árbol está sobre el fondo oscuro del visor
         split.setStretchFactor(0, 2)
         split.setStretchFactor(1, 3)
         lay.addWidget(split, 1)
@@ -660,18 +669,19 @@ class MainWindow(QMainWindow):
         self.on_selection()
 
     def _fill_item(self, item: QTreeWidgetItem, node, parent_node=None, child_index: int = 0) -> None:
+        colors = TREE_COLORS[self.tree_on_viewer]
         item.setData(0, Qt.ItemDataRole.UserRole, node.id)
         item.setText(0, node.label)
         if isinstance(node, RawCode):
-            item.setIcon(0, icon("comment" if node.is_comment else "lock", "#8A5A00"))
+            item.setIcon(0, icon("comment" if node.is_comment else "lock", colors["raw"]))
             item.setText(1, tr("comentario") if node.is_comment else tr("código"))
             item.setToolTip(0, node.text)
             f = item.font(0)
             f.setItalic(True)
             item.setFont(0, f)
-            item.setForeground(0, QColor("#5A6474"))
+            item.setForeground(0, QColor(colors["muted"]))
         else:
-            item.setIcon(0, icon(node.kind, "#3D4756"))
+            item.setIcon(0, icon(node.kind, colors["icon"]))
             cmd_text = f"{node.modifier}{node.kind}"
             extra_tip = ""
 
@@ -695,8 +705,8 @@ class MainWindow(QMainWindow):
             item.setToolTip(0, node.call() + extra_tip)
             item.setFont(1, mono_font(9))
             if node.modifier == "*":
-                item.setForeground(0, QColor("#9AA3AF"))
-        item.setForeground(1, QColor("#5A6474"))
+                item.setForeground(0, QColor(colors["disabled"]))
+        item.setForeground(1, QColor(colors["muted"]))
         flags = Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsDragEnabled
         if getattr(node, "is_container", False):
             flags |= Qt.ItemFlag.ItemIsDropEnabled
@@ -1515,6 +1525,10 @@ class MainWindow(QMainWindow):
             self.viewer.show_tree_overlay(None)
             self.tree_box.deleteLater()
             self.tree_box = None
+        self.tree_on_viewer = on
+        for b in self.tree_tools:
+            b.setIcon(icon(b.property("icon_name"), TREE_COLORS[on]["icon"]))
+        self.rebuild_tree(self.selected_ids())
         self.a_tree_overlay.blockSignals(True)
         self.a_tree_overlay.setChecked(on)
         self.a_tree_overlay.blockSignals(False)

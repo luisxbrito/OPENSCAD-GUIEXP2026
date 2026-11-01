@@ -89,16 +89,20 @@ QLabel#viewHint { color: #8C97A8; font-size: 8pt; background: transparent; }
 QLabel#measureBadge { background: #12384A; color: #BFEFFF; border-radius: 6px; padding: 5px 10px; font-family: "IBM Plex Mono", Consolas, monospace; font-size: 9pt; }
 QPushButton#viewButton:checked { background: #12384A; border-color: #5BD3FF; color: #FFFFFF; }
 QLabel#selectionBadge { background: #343A44; color: #E8ECF1; border-radius: 6px; padding: 5px 10px; font-size: 9pt; }
-QFrame#treeOverlay { background: rgba(255, 255, 255, 228); border: 1px solid #CBD1DA; border-radius: 8px; }
-QFrame#treeOverlay QTreeWidget#modelTree { background: transparent; border-top: 1px solid #E4E7EC; }
-QFrame#treeOverlay QLabel { background: transparent; }
+QFrame#treeOverlay { background: transparent; border: 0; }
+QFrame#treeOverlay QLabel#sectionTitle { background: transparent; color: #C9D1DB; }
 QFrame#treeOverlay QWidget#treeTools { background: transparent; }
-QFrame#treeOverlay QScrollBar:vertical { background: #F3F5F8; width: 10px; margin: 0; border: 0; }
-QFrame#treeOverlay QScrollBar::handle:vertical { background: #C3CAD5; border-radius: 4px; min-height: 24px; margin: 1px; }
+QFrame#treeOverlay QTreeWidget#modelTree { background: transparent; border: 0; color: #EEF2F6; }
+QFrame#treeOverlay QTreeWidget#modelTree::item:selected { background: rgba(77, 140, 230, 110); color: #FFFFFF; }
+QFrame#treeOverlay QTreeWidget#modelTree::item:hover:!selected { background: rgba(255, 255, 255, 28); }
+QFrame#treeOverlay QHeaderView::section { background: transparent; color: #AEB7C3; border: 0; border-bottom: 1px solid rgba(255, 255, 255, 40); }
+QFrame#treeOverlay QToolButton#treeTool:hover { background: rgba(255, 255, 255, 30); border-color: rgba(255, 255, 255, 50); }
+QFrame#treeOverlay QScrollBar:vertical { background: transparent; width: 8px; margin: 0; border: 0; }
+QFrame#treeOverlay QScrollBar::handle:vertical { background: rgba(255, 255, 255, 70); border-radius: 4px; min-height: 24px; margin: 1px; }
 QFrame#treeOverlay QScrollBar::add-line:vertical, QFrame#treeOverlay QScrollBar::sub-line:vertical { height: 0; }
 QFrame#treeOverlay QScrollBar::add-page:vertical, QFrame#treeOverlay QScrollBar::sub-page:vertical { background: transparent; }
-QPushButton#overlayButton { background: transparent; border: 0; color: #3D4756; font-size: 11pt; padding: 0 6px; }
-QPushButton#overlayButton:hover { background: #E4E7EC; border-radius: 4px; }
+QPushButton#overlayButton { background: transparent; border: 0; color: #DDE3EA; font-size: 11pt; padding: 0 6px; }
+QPushButton#overlayButton:hover { background: rgba(255, 255, 255, 30); border-radius: 4px; }
 QFrame#edgePanel { background: #1E232B; border: 1px solid #FF8A33; border-radius: 6px; }
 QFrame#edgePanel QLabel { color: #E8ECF1; font-size: 9pt; background: transparent; }
 QFrame#edgePanel QDoubleSpinBox { min-width: 70px; }

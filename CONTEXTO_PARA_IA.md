@@ -187,6 +187,8 @@ python tests/simulacion/sim_ventana_visor_imagen.py
 - Árbol sobre el visor (`MainWindow.set_tree_overlay`): se cambia de sitio el MISMO
   `QTreeWidget` (con su barra de herramientas) al panel flotante del visor, no se copia; las
   propiedades se quedan en el panel Modelo. Se recuerda en la configuración (`tree_overlay`).
+  Ahí el fondo es transparente: iconos y textos pasan a colores claros (`TREE_COLORS[True]`,
+  `tree_on_viewer`) porque el fondo del visor es oscuro; al cambiar se reconstruye el árbol.
 - Atajos de vista como Blender (`viewer3d.VIEW_KEYS`), solo en el visor OpenGL: valen con el
   ratón encima salvo si el foco está en un campo de texto. La ortográfica se imita con fov 1°.
 - Visor OpenGL: selección con clic, resaltado, medición, gizmo de traslación, colores de
