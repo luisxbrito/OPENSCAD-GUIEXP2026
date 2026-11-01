@@ -1177,6 +1177,26 @@ def test_cremallera_con_su_engranaje():
     assert generate(again).text == text
     assert [n.kind for n in again.children] == ["rack", "translate"]
 
+
+def test_cremallera_helicoidal_pide_un_helicoidal_de_la_misma_mano():
+    import math
+    doc = Document()
+    r = doc.add("rack")
+    for key, value in (("mod", 1), ("teeth", 12), ("thickness", 10), ("helix_angle", 20)):
+        doc.set_param(r.id, key, value)
+    new = doc.add_meshing_gear(r.id, 20)
+    assert new.kind == "helical_gear" and new.params["helix_angle"] == 20
+    assert new.params["left_hand"] is False                          # la misma mano que la cremallera
+    mt = 1 / math.cos(math.radians(20))
+    shift = doc.children[1].params["v"]
+    assert abs(shift[0] - 6 * math.pi * mt) < 1e-5                   # paso aparente, no el normal
+    assert abs(shift[1] - mt * 20 / 2) < 1e-5
+    doc.set_param(r.id, "left_hand", True)
+    assert doc.add_meshing_gear(r.id, 20).params["left_hand"] is True
+    text = generate(doc).text
+    assert text.count("module rack(") == 1 and text.count("module helical_gear(") == 1
+    assert generate(parse(text)).text == text                        # ida y vuelta
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

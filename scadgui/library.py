@@ -166,19 +166,26 @@ HELICAL_GEAR = '''module helical_gear(mod = 1, teeth = 20, thickness = 10, helix
   }
 }'''
 
-RACK = '''module rack(mod = 1, teeth = 10, thickness = 5, base = 5, pressure_angle = 20, backlash = 0, center = false) {
-  // Cremallera recta del sistema por módulo (lo escribe OpenSCAD GUI Mejorada).
+RACK = '''module rack(mod = 1, teeth = 10, thickness = 5, base = 5, pressure_angle = 20, backlash = 0, helix_angle = 0, left_hand = false, center = false) {
+  // Cremallera del sistema por módulo (lo escribe OpenSCAD GUI Mejorada).
   // Es el "dentado básico" que define la forma del diente: flancos rectos inclinados el ángulo
   // de presión, paso PI * mod, cabeza mod y pie 1.25 * mod. Engrana con cualquier engranaje del
   // mismo módulo. La línea primitiva queda en y = 0 y los dientes miran a +Y, así que el
   // engranaje va con su centro a su radio primitivo de altura; cada diente está centrado en su
   // paso, o sea que los huecos caen en los múltiplos del paso.
+  // Con helix_angle engrana con un engranaje helicoidal DE LA MISMA MANO: el diente es una recta
+  // que forma ese ángulo con el eje del engranaje, o sea que el perfil se sesga tan(hélice) por
+  // cada mm de grueso. Entonces mod y pressure_angle son los NORMALES y el paso y los flancos
+  // salen de los aparentes, como en helical_gear. Los extremos quedan al sesgo del dentado; si se
+  // quieren a escuadra, recortarlos con una resta.
   z = max(1, round(teeth));
-  p = PI * mod;                 // paso
+  mt = mod / cos(helix_angle);                        // módulo aparente
+  at = atan(tan(pressure_angle) / cos(helix_angle));  // ángulo de presión aparente
+  p = PI * mt;                  // paso (en el plano de giro)
   total = z * p;                // longitud total
-  ha = mod;                     // cabeza (sobre la línea primitiva)
-  hf = 1.25 * mod;              // pie
-  t = tan(pressure_angle);
+  ha = mod;                     // cabeza (sobre la línea primitiva), con el módulo normal
+  hf = 1.25 * mod;              // pie, también
+  t = tan(at);
   hp = p / 4 - backlash / 4;    // medio grueso del diente en la línea primitiva
   // Con un ángulo de presión grande los flancos de dos dientes vecinos se cortan antes de llegar
   // al fondo: el hueco acaba en V en vez de tener meseta.
@@ -196,7 +203,10 @@ RACK = '''module rack(mod = 1, teeth = 10, thickness = 5, base = 5, pressure_ang
        [[c + hb, y_bot]])],
     land ? [[total, y_bot]] : [],
     [[total, y_back], [0, y_back]]);
-  translate([0, 0, center ? -thickness / 2 : 0]) linear_extrude(thickness) polygon(pts);
+  shear = (left_hand ? -1 : 1) * tan(helix_angle);    // lo que se corre el dentado con el grueso
+  translate([0, 0, center ? -thickness / 2 : 0])
+    multmatrix([[1, 0, shear, 0], [0, 1, 0, 0], [0, 0, 1, 0]])
+      linear_extrude(thickness) polygon(pts);
 }'''
 
 LIBRARY = {"cube_edges": CUBE_EDGES, "cylinder_edges": CYLINDER_EDGES, "spur_gear": SPUR_GEAR,

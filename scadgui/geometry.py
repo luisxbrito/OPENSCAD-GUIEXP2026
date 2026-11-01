@@ -605,12 +605,16 @@ def _edge_value(p) -> tuple[Optional[float], bool]:
     return (ch, True) if ch > 0 else (ro, False)
 
 
-def prism(poly: np.ndarray, h: float, z0: float = 0.0) -> Tris:
-    """Polígono simple extruido a la altura h (caras hacia fuera)."""
+def prism(poly: np.ndarray, h: float, z0: float = 0.0, shift: float = 0.0) -> Tris:
+    """Polígono simple extruido a la altura h (caras hacia fuera).
+
+    Con shift la cara de arriba va corrida esa distancia en X, o sea que el prisma sale sesgado
+    (como un ``multmatrix`` de sesgo sobre el extruido). Al correrse todos los puntos lo mismo,
+    las caras laterales siguen siendo planas y da igual por qué diagonal se partan."""
     if _area(poly) < 0:
         poly = poly[::-1]
     lo = np.column_stack([poly, np.full(len(poly), z0)])
-    hi = np.column_stack([poly, np.full(len(poly), z0 + h)])
+    hi = np.column_stack([poly + [shift, 0], np.full(len(poly), z0 + h)])
     parts = [_quads(lo, hi)]
     tri = triangulate(poly)
     if tri:
@@ -673,15 +677,16 @@ def helical_gear(p) -> Optional[Tris]:
 
 
 def rack(p) -> Optional[Tris]:
-    """Cremallera recta."""
+    """Cremallera, recta o helicoidal (el dentado inclinado sale sesgando el prisma)."""
     from . import gears
     mod, z = _num(p.get("mod", 1)), _num(p.get("teeth", 10))
     t, pa = _num(p.get("thickness", 5)), _num(p.get("pressure_angle", 20))
-    base = _num(p.get("base", 5), 0.0)
-    if None in (mod, z, t, pa, base) or mod <= 0 or t <= 0 or z < 1:
+    base, psi = _num(p.get("base", 5), 0.0), _num(p.get("helix_angle", 0), 0.0)
+    if None in (mod, z, t, pa, base, psi) or mod <= 0 or t <= 0 or z < 1 or not -89 < psi < 89:
         return None
-    poly = gears.rack_polygon(mod, int(z), pa, _num(p.get("backlash", 0), 0.0) or 0.0, base)
-    return prism(poly, t, -t / 2 if p.get("center") is True else 0.0)
+    poly = gears.rack_polygon(mod, int(z), pa, _num(p.get("backlash", 0), 0.0) or 0.0, base, psi)
+    shift = gears.rack_shear(psi) * t * (-1 if p.get("left_hand") is True else 1)
+    return prism(poly, t, -t / 2 if p.get("center") is True else 0.0, shift)
 
 
 def cube_edges(p, ctx) -> Optional[Tris]:

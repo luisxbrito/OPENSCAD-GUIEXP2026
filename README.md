@@ -32,7 +32,11 @@ Italian and Portuguese (*Edit › Preferences*).
     gears of the same hand do not mesh) and placed at m·(z1 + z2)/(2·cos ψ).
   - **Rack** (module, teeth, thickness, base, pressure angle, backlash): the basic tooth form of
     the module system, with straight flanks. Its pitch line sits at y = 0 and the teeth point
-    towards +Y, so the gear put on it has its centre one pitch radius above.
+    towards +Y, so the gear put on it has its centre one pitch radius above. Tick **helix angle**
+    and the teeth slant: the profile is sheared tan ψ per mm of thickness, the pitch becomes the
+    transverse one, and the gear button then makes a **helical gear of the same hand** (a rack and
+    a gear mesh with the same hand, unlike two gears). The ends of a helical rack come out at the
+    slant of the teeth; square them off with a `difference()` if you need a flat end.
 
   Like the edge modules, the three are written at the end of the file, so the `.scad` opens in
   plain OpenSCAD without any library.

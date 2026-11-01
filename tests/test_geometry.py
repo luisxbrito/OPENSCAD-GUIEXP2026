@@ -514,6 +514,44 @@ def test_engranaje_rodando_sobre_la_cremallera_no_se_solapa():
     assert interferes(2, 10, 20, 0.1, reverse=True)                  # la prueba sí detecta choques
 
 
+def test_cremallera_helicoidal_engrana_con_un_helicoidal_de_la_misma_mano():
+    """El diente inclinado sesga el perfil tan ψ por mm de grueso. A lo largo de todo el grueso y
+    rodando un diente no se solapan; con el engranaje de la otra mano, sí."""
+    from scadgui import gears
+
+    def spin(poly, a):
+        m = np.array([[math.cos(a), -math.sin(a)], [math.sin(a), math.cos(a)]])
+        return poly @ m.T
+
+    def interferes(m, zr, zg, psi, thick, backlash, other_hand=False):
+        rack = gears.rack_polygon(m, zr, 20, backlash, 5, psi)
+        gear = gears.helical_polygon(m, zg, psi, 20, backlash)
+        x0, y0, base = gears.rack_gear_position(m, zr, zg, psi)
+        shear = gears.rack_shear(psi)
+        spun = math.radians(gears.helix_twist(m, zg, psi, thick)) * (-1 if other_hand else 1)
+        radius = gears.rack_transverse(m, 20, psi)[0] * zg / 2
+        for j in range(5):                                           # alturas del grueso
+            h = j / 4
+            for k in range(13):                                      # girando un diente
+                t = k / 12 * 2 * math.pi / zg
+                here = spin(gear, math.radians(base) + t + spun * h) + [x0, y0]
+                moved = rack + [shear * thick * h + radius * t, 0]
+                if _inside(here, moved).any() or _inside(moved, here).any():
+                    return True
+        return False
+    for args in ((1, 12, 20, 20, 10), (2, 8, 25, 30, 15), (1, 10, 31, 15, 12)):
+        assert not interferes(*args, 0.1), args
+    assert interferes(1, 12, 20, 20, 10, 0.1, other_hand=True)
+    # El perfil del plano de giro es el del módulo y el ángulo aparentes…
+    mt, at = gears.rack_transverse(2, 20, 30)
+    assert np.isclose(mt, 2 / math.cos(math.radians(30)))
+    assert np.isclose(at, math.degrees(math.atan(math.tan(math.radians(20)) / math.cos(math.radians(30)))))
+    poly = gears.rack_polygon(2, 6, 20, 0, 5, 30)
+    assert np.isclose(poly[:, 0].max(), 6 * math.pi * mt)
+    # …pero la cabeza y el pie se siguen midiendo con el módulo normal
+    assert np.isclose(poly[:, 1].max(), 2) and np.isclose(poly[:, 1].min(), -2.5 - 5)
+
+
 def test_helicoidal_medidas_y_dientes_minimos():
     """Machinery's Handbook, «Rules and Formulas for Helical Gear Calculations» y AGMA 908 ec. 4."""
     from scadgui import gears
@@ -567,6 +605,13 @@ def test_cremallera_y_helicoidal_en_la_vista_aproximada():
     doc = parse("rack(mod = 2, teeth = 6, thickness = 5, base = 4, backlash = 0.1);")
     tris = next(iter(geo.build_ghosts(doc).values()))
     assert np.isclose(tris[..., 2].min(), 0) and np.isclose(tris[..., 2].max(), 5)
+    assert geo.signed_volume(tris) > 0
+    doc = parse("rack(mod = 1, teeth = 6, thickness = 10, base = 5, helix_angle = 20);")
+    tris = next(iter(geo.build_ghosts(doc).values()))
+    low = tris[np.isclose(tris[..., 2], 0).all(axis=1)].reshape(-1, 3)
+    high = tris[np.isclose(tris[..., 2], 10).all(axis=1)].reshape(-1, 3)
+    from scadgui import gears as g
+    assert np.isclose(high[:, 0].min() - low[:, 0].min(), 10 * g.rack_shear(20))   # dentado sesgado
     assert geo.signed_volume(tris) > 0
     doc = parse("helical_gear(mod = 1, teeth = 20, thickness = 10, helix_angle = 20, center = true);")
     tris = next(iter(geo.build_ghosts(doc).values()))

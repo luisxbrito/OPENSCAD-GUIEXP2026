@@ -162,18 +162,20 @@ def test_helicoidal_como_en_la_vista_aproximada():
 
 
 def test_cremallera_y_su_engranaje():
-    """La cremallera sale con el volumen calculado y el engranaje que se le pone encima no la toca."""
+    """La cremallera sale con el volumen calculado y el engranaje que se le pone encima no la toca.
+    Lo mismo con el dentado inclinado y su helicoidal."""
     from scadgui import geometry
-    doc = Document()
-    r = doc.add("rack")
-    for key, value in (("mod", 2), ("teeth", 8), ("thickness", 5), ("base", 4)):
-        doc.set_param(r.id, key, value)
-    mine = abs(signed_volume(geometry.rack(r.params)))
-    assert abs(volume_of(generate(doc).text) - mine) < 1
-    doc.add_meshing_gear(r.id, 25)
-    pair = generate(doc).text
-    body = pair.split("module ", 1)
-    assert volume_of("intersection() {\n" + body[0] + "}\nmodule " + body[1]) == 0
+    for extra in ((), (("helix_angle", 20),)):
+        doc = Document()
+        r = doc.add("rack")
+        for key, value in (("mod", 2), ("teeth", 8), ("thickness", 5), ("base", 4)) + extra:
+            doc.set_param(r.id, key, value)
+        mine = abs(signed_volume(geometry.rack(r.params)))
+        assert abs(volume_of(generate(doc).text) - mine) < 1, extra
+        doc.add_meshing_gear(r.id, 25)
+        pair = generate(doc).text
+        body = pair.split("module ", 1)
+        assert volume_of("intersection() {\n" + body[0] + "}\nmodule " + body[1]) == 0, extra
 
 
 if __name__ == "__main__":

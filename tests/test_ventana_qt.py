@@ -537,6 +537,23 @@ def test_helicoidal_y_cremallera_desde_la_cinta():
     assert w.doc.find(w.selected_ids()[0]).kind == "spur_gear"
     assert "module rack(" in w.code.text.toPlainText()
 
+    # Y con el dentado inclinado: la hélice es un parámetro opcional, se activa con su casilla.
+    from PySide6.QtWidgets import QCheckBox
+    w.select_ids([rack.id])                                          # el botón dejó elegido el engranaje
+    app.processEvents()
+    box = next(c for c in w.props.findChildren(QCheckBox) if c.text() == tr("Ángulo de hélice (°)"))
+    box.setChecked(True)
+    app.processEvents()
+    assert rack.params["helix_angle"] == 20
+    texts = [l.text() for l in w.props.findChildren(QLabel)]
+    assert any("el dentado se corre 1.82 mm" in t for t in texts), texts
+    add = next(b for b in w.props.findChildren(QPushButton)
+               if b.text() == tr("Añadir engranaje sobre la cremallera"))
+    add.click()
+    app.processEvents()
+    pair = w.doc.find(w.selected_ids()[0])                           # …la pareja es un helicoidal
+    assert pair.kind == "helical_gear" and pair.params["helix_angle"] == 20
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

@@ -248,6 +248,15 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     dientes hacia +Y, cada diente centrado en su paso (los huecos caen en los múltiplos del paso).
     Con un ángulo de presión grande el hueco acaba en V y el diente en punta: los dos casos están
     contemplados en el perfil y avisados en el panel.
+  - Cremallera helicoidal: los parámetros `helix_angle` y `left_hand` del mismo `rack` (opcionales,
+    así la recta no se llena de datos inútiles). El diente es una recta que forma el ángulo de
+    hélice con el eje del engranaje, o sea que el perfil del plano de giro se SESGA tan ψ por mm
+    de grueso (`multmatrix` en OpenSCAD, `prism(shift=…)` en la vista; las caras laterales siguen
+    siendo planas, así que la diagonal da igual y las dos coinciden exactas). El paso y los flancos
+    son los aparentes y la cabeza y el pie, el módulo normal, igual que en el helicoidal. OJO: la
+    cremallera y su engranaje llevan LA MISMA mano (al revés que dos engranajes), comprobado en
+    Python y en OpenSCAD real. Los extremos quedan al sesgo del dentado; recortarlos a escuadra
+    pediría una intersección, y entonces la vista aproximada ya no coincidiría con el modelo.
   - `geometry.twisted_prism` parte el retorcido en rebanadas como OpenSCAD y usa SU misma diagonal
     al triangular las caras laterales (`_quads(flip=…)`, que depende del signo del giro), así que
     la vista aproximada pesa exactamente lo mismo que el modelo de verdad.

@@ -272,10 +272,16 @@ _add(Spec("rack", "Cremallera", "solid", False, (
     Param("base", "num", 5, label="Base (bajo los dientes)", minimum=0, step=0.5),
     Param("pressure_angle", "num", 20, label="Ángulo de presión (°)", minimum=10, maximum=35, step=0.5),
     Param("backlash", "num", 0.1, label="Holgura (mm)", minimum=0, step=0.05),
+    # Con estos dos el dentado se inclina y engrana con un helicoidal de la misma mano. Opcionales:
+    # la cremallera normal es recta y así el panel no se llena de datos que no hacen nada.
+    Param("helix_angle", "num", 20, optional=True, label="Ángulo de hélice (°)", minimum=0,
+          maximum=45, step=1),
+    Param("left_hand", "bool", False, optional=True, label="Hélice a izquierdas"),
     Param("center", "bool", False, label="Centrado"),
-), keyword="module", hint="Cremallera recta: el dentado básico del sistema por módulo, de flancos rectos. "
+), keyword="module", hint="Cremallera: el dentado básico del sistema por módulo, de flancos rectos. "
    "Su línea primitiva queda en y = 0 y los dientes miran a +Y, así que un engranaje del mismo módulo "
-   "engrana con su centro a su radio primitivo de altura."))
+   "engrana con su centro a su radio primitivo de altura. Con ángulo de hélice el dentado se inclina y "
+   "engrana con un helicoidal de la misma mano; entonces los extremos quedan al sesgo del dentado."))
 
 # --- Importar ---------------------------------------------------------------
 _add(Spec("import", "Importar", "imp", False, (

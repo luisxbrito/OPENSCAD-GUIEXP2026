@@ -243,14 +243,24 @@ class PropertyPanel(QScrollArea):
             return                                   # con expresiones no se puede calcular aquí
         num = lambda k: val(k, 0) or 0
         if node.kind == "rack":
-            d = gears.rack_dims(mod, int(z), pa, num("base"))
+            psi, thick = val("helix_angle", 0), val("thickness", 5)
+            if None in (psi, thick):
+                return
+            d = gears.rack_dims(mod, int(z), pa, num("base"), psi, thick)
             self._hint(tr("Paso {p:.3f} mm · longitud {l:g} mm · altura {h:g} mm · grueso del diente "
                           "{t:.3f} mm").format(p=d["pitch"], l=round(d["length"], 3),
                                                h=round(d["height"], 3), t=d["tooth_thickness"]))
-            problems = gears.rack_warnings(mod, int(z), pa, num("backlash"), num("base"))
+            if psi:
+                self._hint(tr("Módulo aparente {mt:.3f} · presión aparente {at:.2f}° · el dentado se "
+                              "corre {s:.2f} mm sobre el grueso · engrana con un helicoidal de "
+                              "{h:g}° de la misma mano").format(mt=d["transverse_mod"],
+                                                                at=d["transverse_angle"],
+                                                                s=d["shift"], h=psi))
+            problems = gears.rack_warnings(mod, int(z), pa, num("backlash"), num("base"), psi)
             label = tr("Añadir engranaje sobre la cremallera")
-            tip = tr("Crea un engranaje recto del mismo módulo, ya colocado sobre la cremallera y "
-                     "girado para que los dientes encajen.")
+            tip = tr("Crea el engranaje del mismo módulo que le corresponde (helicoidal de la misma "
+                     "mano si el dentado va inclinado), ya colocado sobre la cremallera y girado "
+                     "para que los dientes encajen.")
             start = 20
         elif node.kind == "helical_gear":
             psi, thick = val("helix_angle", 20), val("thickness", 10)

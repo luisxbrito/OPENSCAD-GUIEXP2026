@@ -305,8 +305,9 @@ class Document:
 
         * engranaje recto: otro del mismo módulo a m·(z1 + z2)/2 en +X;
         * helicoidal: otro de la misma hélice pero de mano contraria, a m·(z1 + z2)/(2·cos ψ);
-        * cremallera: un engranaje recto del mismo módulo sobre ella, con su centro a su radio
-          primitivo de altura y en el centro de un hueco.
+        * cremallera: el engranaje del mismo módulo que le corresponde (recto, o helicoidal de
+          LA MISMA MANO si el dentado va inclinado), con su centro a su radio primitivo de altura
+          y en el centro de un hueco.
 
         En todos los casos va girado para que los dientes encajen. Devuelve el engranaje nuevo."""
         from . import gears
@@ -319,13 +320,22 @@ class Document:
             raise ValueError(tr("El módulo y los dientes deben ser números para calcular la pareja."))
         z2 = int(teeth or (20 if gear.kind == "rack" else z1))
         if gear.kind == "rack":
+            rack_psi = gear.params.get("helix_angle", 0)
+            if not isinstance(rack_psi, (int, float)) or isinstance(rack_psi, bool):
+                raise ValueError(tr("El módulo y los dientes deben ser números para calcular la pareja."))
+            # Una cremallera inclinada pide un helicoidal; una recta, un engranaje recto.
+            shared = ["mod", "thickness", "pressure_angle", "backlash", "center"]
+            if rack_psi:
+                kind, shared = "helical_gear", shared + ["helix_angle", "left_hand"]
+            else:
+                kind = "spur_gear"
             # El engranaje es nuevo: solo hereda del dentado lo que tienen en común.
-            new = make_node("spur_gear", self.unique_name("spur_gear"))
-            for key in ("mod", "thickness", "pressure_angle", "backlash", "center"):
+            new = make_node(kind, self.unique_name(kind))
+            for key in shared:
                 if key in gear.params:
                     new.params[key] = copy.deepcopy(gear.params[key])
             new.params["teeth"] = z2
-            x, y, rot = gears.rack_gear_position(mod, int(z1), z2)
+            x, y, rot = gears.rack_gear_position(mod, int(z1), z2, rack_psi)
             shift_v = [round(x, 6), round(y, 6), 0]
         else:
             new = Node(kind=gear.kind, params=copy.deepcopy(gear.params), name=self.unique_name(gear.kind))

@@ -145,10 +145,27 @@ def warnings(mod: float, teeth: int, pressure_angle: float = 20.0, backlash: flo
 
 # --- Cremallera -------------------------------------------------------------
 
-def rack_dims(mod: float, teeth: int, pressure_angle: float = 20.0, base: float = 0.0) -> dict:
+def rack_transverse(mod: float, pressure_angle: float = 20.0,
+                    helix_angle: float = 0.0) -> tuple[float, float]:
+    """Módulo y ángulo de presión de la cremallera en el plano de giro, que son los que ve el
+    engranaje. Con el dentado recto son los mismos que se dan."""
+    cos_psi = max(1e-9, math.cos(math.radians(helix_angle)))
+    return mod / cos_psi, math.degrees(math.atan(math.tan(math.radians(pressure_angle)) / cos_psi))
+
+
+def rack_shear(helix_angle: float) -> float:
+    """Cuánto se corre el dentado en X por cada mm de grueso. El diente de una cremallera
+    helicoidal es una recta que forma el ángulo de hélice con el eje del engranaje, así que el
+    perfil del plano de giro se sesga con la altura (tan ψ por mm)."""
+    return math.tan(math.radians(helix_angle))
+
+
+def rack_dims(mod: float, teeth: int, pressure_angle: float = 20.0, base: float = 0.0,
+              helix_angle: float = 0.0, thickness: float = 0.0) -> dict:
     """Medidas de la cremallera (mm). La línea primitiva está en y = 0 y los dientes miran a +Y."""
     z = max(1, int(round(teeth)))
-    p = math.pi * mod
+    mt, at = rack_transverse(mod, pressure_angle, helix_angle)
+    p = math.pi * mt
     return {
         "teeth": z,
         "pitch": p,
@@ -157,19 +174,27 @@ def rack_dims(mod: float, teeth: int, pressure_angle: float = 20.0, base: float 
         "dedendum": 1.25 * mod,
         "height": 2.25 * mod + max(0.0, base),
         "tooth_thickness": p / 2,
+        "transverse_mod": mt,
+        "transverse_angle": at,
+        "shift": thickness * rack_shear(helix_angle),
     }
 
 
 def rack_polygon(mod: float, teeth: int, pressure_angle: float = 20.0, backlash: float = 0.0,
-                 base: float = 0.0) -> np.ndarray:
+                 base: float = 0.0, helix_angle: float = 0.0) -> np.ndarray:
     """Perfil de la cremallera (N × 2) en XY: línea primitiva en y = 0, dientes hacia +Y, de
-    x = 0 a x = z·π·m. Cada diente queda centrado en su paso, así que los huecos están en los
-    múltiplos del paso (ahí se pone el engranaje que engrana)."""
+    x = 0 a x = z·π·mt. Cada diente queda centrado en su paso, así que los huecos están en los
+    múltiplos del paso (ahí se pone el engranaje que engrana).
+
+    Si es helicoidal, este es el perfil del plano de giro: paso y flancos del módulo y el ángulo
+    aparentes, pero cabeza y pie con el módulo normal, igual que en el engranaje helicoidal. El
+    sesgo con la altura lo pone quien lo extruye (ver ``rack_shear``)."""
     z = max(1, int(round(teeth)))
-    p = math.pi * mod
+    mt, at = rack_transverse(mod, pressure_angle, helix_angle)
+    p = math.pi * mt
     length = z * p
     ha, hf = mod, 1.25 * mod
-    t = math.tan(math.radians(pressure_angle))
+    t = math.tan(math.radians(at))
     hp = p / 4 - backlash / 4                 # medio grueso del diente en la línea primitiva
     # Con un ángulo de presión grande los flancos de dos dientes vecinos se cortan antes de llegar
     # al fondo: el hueco acaba en V en vez de tener meseta.
@@ -194,32 +219,39 @@ def rack_polygon(mod: float, teeth: int, pressure_angle: float = 20.0, backlash:
     return np.array(pts, dtype=np.float64)
 
 
-def rack_gear_position(mod: float, teeth: int, gear_teeth: int) -> tuple[float, float, float]:
-    """Dónde poner un engranaje recto para que engrane con la cremallera: (x, y, giro en grados).
+def rack_gear_position(mod: float, teeth: int, gear_teeth: int,
+                       helix_angle: float = 0.0) -> tuple[float, float, float]:
+    """Dónde poner el engranaje que engrana con la cremallera: (x, y, giro en grados).
 
     El engranaje va con su centro a su radio primitivo sobre la línea primitiva (y = 0) y en el
-    centro de un hueco de la cremallera; el giro pone uno de sus dientes mirando hacia abajo."""
+    centro de un hueco de la cremallera; el giro pone uno de sus dientes mirando hacia abajo. Si
+    la cremallera es helicoidal, las dos medidas salen del módulo aparente, que es el que marca
+    tanto su paso como el diámetro del engranaje."""
     z = max(1, int(round(teeth)))
     zg = max(3, int(round(gear_teeth)))
-    x = (z // 2) * math.pi * mod              # un hueco cerca de la mitad de la cremallera
+    mt, _at = rack_transverse(mod, 20.0, helix_angle)
+    x = (z // 2) * math.pi * mt               # un hueco cerca de la mitad de la cremallera
     k = round(0.75 * zg)                      # el diente que queda más cerca de los 270°
-    return x, mod * zg / 2, 270.0 - 360.0 * k / zg
+    return x, mt * zg / 2, 270.0 - 360.0 * k / zg
 
 
 def rack_warnings(mod: float, teeth: int, pressure_angle: float = 20.0, backlash: float = 0.0,
-                  base: float = 0.0) -> list[tuple[str, dict]]:
+                  base: float = 0.0, helix_angle: float = 0.0) -> list[tuple[str, dict]]:
     """Problemas de diseño de la cremallera: (texto en español, valores para format)."""
     out = []
-    d = rack_dims(mod, teeth, pressure_angle, base)
-    t = math.tan(math.radians(pressure_angle))
+    d = rack_dims(mod, teeth, pressure_angle, base, helix_angle)
+    t = math.tan(math.radians(d["transverse_angle"]))
+    if helix_angle > 35:
+        out.append((N_("Con {h}° de hélice el empuje axial sobre los cojinetes es muy grande: para "
+                    "ejes paralelos se usan de 15° a 30°."), {"h": f"{helix_angle:g}"}))
     if base < mod:
         out.append((N_("La base ({b} mm) es más fina que el módulo: la cremallera se dobla con la "
                     "carga. Dale al menos {n:g} mm por debajo de los dientes."),
                     {"b": f"{base:g}", "n": round(mod, 3)}))
-    if math.pi * mod / 4 - mod * t <= 0:
+    if d["pitch"] / 4 - mod * t <= 0:
         out.append((N_("Con {a}° de presión el diente acaba en punta y pierde la cabeza: usa un "
                     "ángulo menor (20° o 25°)."), {"a": f"{pressure_angle:g}"}))
-    elif (2 * (math.pi * mod / 4) - math.pi * mod) / (2 * t) > -1.25 * mod:
+    elif -d["pitch"] / (4 * t) > -1.25 * mod:
         out.append((N_("Con {a}° de presión los flancos de dos dientes vecinos se cortan antes del "
                     "fondo: el hueco acaba en V y la cremallera no llega a su profundidad."),
                     {"a": f"{pressure_angle:g}"}))
