@@ -1024,6 +1024,18 @@ def test_lista_de_textos_es_literal():
     assert isinstance(literal('["a", b]'), Expr)
 
 
+
+def test_archivos_con_la_version_anterior_de_cube_edges_se_actualizan():
+    """La primera versión dejaba las esquinas pellizcadas; al abrir un archivo guardado con ella
+    se reconoce y se escribe la actual."""
+    from scadgui.library import CUBE_EDGES, PREVIOUS_VERSIONS
+    old = PREVIOUS_VERSIONS["cube_edges"][0]
+    doc = parse('cube_edges([30, 30, 5], edges = ["x0y0"], rounding = 1);\n\n' + old + "\n")
+    assert len(doc.children) == 1 and doc.children[0].kind == "cube_edges"
+    text = generate(doc).text
+    assert CUBE_EDGES in text and old not in text
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

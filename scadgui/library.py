@@ -24,30 +24,58 @@ CYLINDER_EDGE_KEYS = ("bottom", "top")
 CUBE_EDGES = '''module cube_edges(size = [10, 10, 10], center = false, edges = [], rounding = 0, chamfer = 0) {
   // Cubo con aristas redondeadas o achaflanadas (lo escribe OpenSCAD GUI Mejorada).
   // "x1y1" es la arista vertical en X máximo e Y máximo; 0 es el lado mínimo.
-  // Es la intersección de tres prismas, uno por eje, cada uno con las esquinas de su perfil
-  // tratadas: solo usa polígonos e intersecciones, que no fallan ni con CGAL ni con Manifold.
   s = is_list(size) ? size : [size, size, size];
-  r = min(chamfer > 0 ? chamfer : rounding, min(s) / 2);
+  // Un pelo menos que la mitad del lado: si dos redondeos se tocaran, sus puntos coincidirían.
+  r = min(chamfer > 0 ? chamfer : rounding, min(s) / 2 * 0.9999);
   function has(k) = len([for (x = edges) if (x == k) 1]) > 0;
   n = max(1, ceil(($fn > 0 ? max($fn, 3) : ceil(max(min(360 / $fa, r * 2 * PI / $fs), 5))) / 4));
-  // Puntos de la esquina c = [lado en u, lado en v] de un rectángulo w x h, en sentido antihorario:
-  // redondeada, un arco de n tramos; achaflanada, los dos extremos del arco; viva, la esquina.
-  function corner(w, h, c, cut) =
-    let(p = [c[0] * w, c[1] * h], o = p + r * [c[0] ? -1 : 1, c[1] ? -1 : 1],
-        a0 = c == [0, 0] ? 180 : c == [1, 0] ? 270 : c == [1, 1] ? 0 : 90)
-    !cut || r <= 0 ? [p]
-    : [for (k = chamfer > 0 ? [0, n] : [0 : n]) o + r * [cos(a0 + 90 * k / n), sin(a0 + 90 * k / n)]];
-  // Rectángulo w x h con las esquinas de keys tratadas, en orden (0,0), (1,0), (1,1), (0,1).
-  module profile(w, h, keys) {
-    polygon(concat(corner(w, h, [0, 0], has(keys[0])), corner(w, h, [1, 0], has(keys[1])),
-                   corner(w, h, [1, 1], has(keys[2])), corner(w, h, [0, 1], has(keys[3]))));
+  translate(center ? -s / 2 : [0, 0, 0])
+    if (r <= 0) cube(s);
+    else if (chamfer > 0) chamfered();
+    else rounded();
+
+  // Redondeo: el cubo redondeado es convexo, así que es la envolvente (hull) de los puntos de sus
+  // ocho esquinas. Una esquina con sus tres aristas redondeadas es un octante de esfera; si no, la
+  // superficie de cada cilindro dentro de la esquina, recortada por el otro (lift sube el punto
+  // hasta ese corte). CGAL falla con puntos repetidos o alineados: se evitan los dos.
+  module rounded() {
+    arc = [for (i = [0 : n]) let(a = 90 * i / n) [r - r * cos(a), r - r * sin(a)]];
+    function lift(t, q) = q < r ? max(t, r - sqrt(max(0, r * r - (r - q) * (r - q)))) : t;
+    function unique(v) = [for (i = [0 : len(v) - 1])
+                            if (len([for (j = [0 : 1 : i - 1]) if (norm(v[j] - v[i]) < 1e-6) 1]) == 0) v[i]];
+    // Esquina en el origen con la pieza hacia +X+Y+Z; z, x, y: si están redondeadas sus aristas
+    // paralelas a Z, X e Y. A lo largo de cada cilindro bastan los extremos del tramo (0 y r).
+    function corner(z, x, y) =
+      z && x && y ? concat([for (i = [0 : n], j = [0 : n - 1]) let(a = 90 * i / n, b = 90 * j / n)
+                             [r, r, r] - r * [cos(b) * cos(a), cos(b) * sin(a), sin(b)]], [[r, r, 0]])
+      : !z && !x && !y ? [[0, 0, 0]]
+      : unique(concat(
+          z ? [for (p = arc, t = [0, r]) [p[0], p[1], x ? lift(t, p[1]) : y ? lift(t, p[0]) : t]] : [],
+          x ? [for (p = arc, t = [0, r]) [z ? lift(t, p[0]) : y ? lift(t, p[1]) : t, p[0], p[1]]] : [],
+          y ? [for (p = arc, t = [0, r]) [p[1], z ? lift(t, p[1]) : x ? lift(t, p[0]) : t, p[0]]] : []));
+    pts = [for (i = [0, 1], j = [0, 1], k = [0, 1])
+             for (p = corner(has(str("x", i, "y", j)), has(str("y", j, "z", k)), has(str("x", i, "z", k))))
+               [i ? s.x - p[0] : p[0], j ? s.y - p[1] : p[1], k ? s.z - p[2] : p[2]]];
+    hull() polyhedron(pts, [[for (i = [0 : len(pts) - 1]) i]]);
   }
-  translate(center ? -s / 2 : [0, 0, 0]) intersection() {
-    linear_extrude(s.z) profile(s.x, s.y, ["x0y0", "x1y0", "x1y1", "x0y1"]);
-    multmatrix([[0, 0, 1, 0], [1, 0, 0, 0], [0, 1, 0, 0]])
-      linear_extrude(s.x) profile(s.y, s.z, ["y0z0", "y1z0", "y1z1", "y0z1"]);
-    multmatrix([[0, 1, 0, 0], [0, 0, 1, 0], [1, 0, 0, 0]])
-      linear_extrude(s.y) profile(s.z, s.x, ["x0z0", "x0z1", "x1z1", "x1z0"]);
+
+  // Chaflán: intersección de tres prismas, uno por eje, con las esquinas de su perfil cortadas.
+  module chamfered() {
+    function corner(w, h, c, cut) = let(p = [c[0] * w, c[1] * h]) !cut ? [p]
+      : c == [0, 0] ? [p + [0, r], p + [r, 0]] : c == [1, 0] ? [p - [r, 0], p + [0, r]]
+      : c == [1, 1] ? [p - [0, r], p - [r, 0]] : [p + [r, 0], p - [0, r]];
+    // Rectángulo w x h con las esquinas de keys cortadas, en orden (0,0), (1,0), (1,1), (0,1).
+    module profile(w, h, keys) {
+      polygon(concat(corner(w, h, [0, 0], has(keys[0])), corner(w, h, [1, 0], has(keys[1])),
+                     corner(w, h, [1, 1], has(keys[2])), corner(w, h, [0, 1], has(keys[3]))));
+    }
+    intersection() {
+      linear_extrude(s.z) profile(s.x, s.y, ["x0y0", "x1y0", "x1y1", "x0y1"]);
+      multmatrix([[0, 0, 1, 0], [1, 0, 0, 0], [0, 1, 0, 0]])
+        linear_extrude(s.x) profile(s.y, s.z, ["y0z0", "y1z0", "y1z1", "y0z1"]);
+      multmatrix([[0, 1, 0, 0], [0, 0, 1, 0], [1, 0, 0, 0]])
+        linear_extrude(s.y) profile(s.z, s.x, ["x0z0", "x0z1", "x1z1", "x1z0"]);
+    }
   }
 }'''
 
@@ -74,12 +102,50 @@ CYLINDER_EDGES = '''module cylinder_edges(h = 10, r = 5, center = false, edges =
 
 LIBRARY = {"cube_edges": CUBE_EDGES, "cylinder_edges": CYLINDER_EDGES}
 
+# Versiones anteriores que ya pueden estar en archivos guardados. Al abrir el archivo se
+# reconocen como nuestras y se sustituyen por la versión actual (no se conservan como código
+# del usuario). No borrar: los archivos viejos dejarían de actualizarse.
+PREVIOUS_VERSIONS = {
+    # 2026-10-31: intersección de tres prismas; las esquinas con tres aristas redondeadas
+    # salían como cruce de cilindros ("pellizcadas") en vez de esféricas.
+    "cube_edges": ('''module cube_edges(size = [10, 10, 10], center = false, edges = [], rounding = 0, chamfer = 0) {
+  // Cubo con aristas redondeadas o achaflanadas (lo escribe OpenSCAD GUI Mejorada).
+  // "x1y1" es la arista vertical en X máximo e Y máximo; 0 es el lado mínimo.
+  // Es la intersección de tres prismas, uno por eje, cada uno con las esquinas de su perfil
+  // tratadas: solo usa polígonos e intersecciones, que no fallan ni con CGAL ni con Manifold.
+  s = is_list(size) ? size : [size, size, size];
+  r = min(chamfer > 0 ? chamfer : rounding, min(s) / 2);
+  function has(k) = len([for (x = edges) if (x == k) 1]) > 0;
+  n = max(1, ceil(($fn > 0 ? max($fn, 3) : ceil(max(min(360 / $fa, r * 2 * PI / $fs), 5))) / 4));
+  // Puntos de la esquina c = [lado en u, lado en v] de un rectángulo w x h, en sentido antihorario:
+  // redondeada, un arco de n tramos; achaflanada, los dos extremos del arco; viva, la esquina.
+  function corner(w, h, c, cut) =
+    let(p = [c[0] * w, c[1] * h], o = p + r * [c[0] ? -1 : 1, c[1] ? -1 : 1],
+        a0 = c == [0, 0] ? 180 : c == [1, 0] ? 270 : c == [1, 1] ? 0 : 90)
+    !cut || r <= 0 ? [p]
+    : [for (k = chamfer > 0 ? [0, n] : [0 : n]) o + r * [cos(a0 + 90 * k / n), sin(a0 + 90 * k / n)]];
+  // Rectángulo w x h con las esquinas de keys tratadas, en orden (0,0), (1,0), (1,1), (0,1).
+  module profile(w, h, keys) {
+    polygon(concat(corner(w, h, [0, 0], has(keys[0])), corner(w, h, [1, 0], has(keys[1])),
+                   corner(w, h, [1, 1], has(keys[2])), corner(w, h, [0, 1], has(keys[3]))));
+  }
+  translate(center ? -s / 2 : [0, 0, 0]) intersection() {
+    linear_extrude(s.z) profile(s.x, s.y, ["x0y0", "x1y0", "x1y1", "x0y1"]);
+    multmatrix([[0, 0, 1, 0], [1, 0, 0, 0], [0, 1, 0, 0]])
+      linear_extrude(s.x) profile(s.y, s.z, ["y0z0", "y1z0", "y1z1", "y0z1"]);
+    multmatrix([[0, 1, 0, 0], [0, 0, 1, 0], [1, 0, 0, 0]])
+      linear_extrude(s.y) profile(s.z, s.x, ["x0z0", "x0z1", "x1z1", "x1z0"]);
+  }
+}''',),
+}
+
 
 def _normalized(text: str) -> str:
     return " ".join(text.split())
 
 
 _NORMALIZED = {_normalized(code): name for name, code in LIBRARY.items()}
+_NORMALIZED.update({_normalized(code): name for name, codes in PREVIOUS_VERSIONS.items() for code in codes})
 
 
 def library_name(text: str) -> str:

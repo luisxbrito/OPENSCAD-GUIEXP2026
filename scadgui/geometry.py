@@ -598,10 +598,11 @@ def _edge_value(p) -> tuple[Optional[float], bool]:
 
 
 def cube_edges(p, ctx) -> Optional[Tris]:
-    """Malla de cube_edges: la caja cortada por planos, igual que la construye el módulo de OpenSCAD.
+    """Malla de cube_edges: la caja cortada por planos.
 
-    Como en el módulo de OpenSCAD, donde se juntan tres aristas redondeadas la esquina es la
-    intersección de sus cilindros, no una esfera.
+    Las aristas salen igual que en el módulo de OpenSCAD (cada tramo del arco es un plano). Donde
+    se juntan tres aristas redondeadas, el módulo pone un octante de esfera; aquí se aproxima con
+    unos cuantos planos tangentes, suficiente para la vista y para elegir con el ratón.
     """
     s = _vec(p.get("size", 1))
     keys = p.get("edges", [])
@@ -609,7 +610,7 @@ def cube_edges(p, ctx) -> Optional[Tris]:
     if s is None or value is None or not isinstance(keys, list):
         return None
     keys = [k for k in keys if isinstance(k, str) and len(k) == 4 and k[0] in _AXES and k[2] in _AXES]
-    r = min(value, min(s) / 2)
+    r = min(value, min(s) / 2 * 0.9999)  # como el módulo
     faces = _box_faces(s)
     if r > 1e-9:
         # Los mismos tramos que el módulo: cada tramo del arco es un plano por dos vértices del círculo.
@@ -629,6 +630,18 @@ def cube_edges(p, ctx) -> Optional[Tris]:
                 c, sn = math.cos(th), math.sin(th)
                 n = sign_u * c * eu + sign_v * sn * ev
                 faces = _clip_convex(faces, n, sign_u * c * U + sign_v * sn * V - r * c - r * sn + inset)
+        if not chamfer:
+            k_sphere = min(k_planes, 4)
+            for i, j, k in np.ndindex(2, 2, 2):
+                if not {f"x{i}y{j}", f"y{j}z{k}", f"x{i}z{k}"} <= set(keys):
+                    continue
+                sign = np.array([1 if i else -1, 1 if j else -1, 1 if k else -1], dtype=float)
+                center = np.array([i, j, k]) * s - sign * r
+                for a, b in np.ndindex(k_sphere, k_sphere):
+                    az = (a + 0.5) / k_sphere * math.pi / 2
+                    el = (b + 0.5) / k_sphere * math.pi / 2
+                    n = sign * np.array([math.cos(el) * math.cos(az), math.cos(el) * math.sin(az), math.sin(el)])
+                    faces = _clip_convex(faces, n, float(n @ center) + r)
     tris = _faces_to_tris(faces)
     if p.get("center") is True:
         tris = tris - np.array(s) / 2

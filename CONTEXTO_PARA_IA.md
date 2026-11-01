@@ -113,9 +113,16 @@ build_portable.py, OpenSCAD_GUI_Mejorada.spec   ejecutable portable con PyInstal
     de un `module` del usuario); `parse()` la quita si no se modificó, y si se modificó la
     conserva como `RawCode` y no la duplica. Una arista se nombra por la primitiva, no por la
     malla: "x1y1" es la vertical en X e Y máximos; "top"/"bottom" en el cilindro.
-    El módulo es la intersección de tres prismas de perfil poligonal: las versiones con
-    `difference` de máscaras o `hull` de esquinas fallaban con CGAL ("assertion violation").
-    `geometry.cube_edges` corta la caja con los mismos planos, así que coincide con OpenSCAD.
+    Redondeo: `hull()` de una nube de puntos (un `polyhedron` con una sola cara que los usa
+    todos): octante de esfera en las esquinas con tres aristas redondeadas, y en las demás la
+    superficie de cada cilindro recortada por el otro. Chaflán: intersección de tres prismas.
+    Lo que falló con CGAL ("assertion violation") y no hay que repetir: `difference` con
+    máscaras curvas que se tocan tangentes, `hull` de hijos hechos con booleanas, un `for`
+    dentro de `hull` (une los hijos antes), y una nube con puntos repetidos o alineados
+    (por eso `unique()`, solo los extremos de cada tramo de cilindro y el radio a 0,9999 de la
+    mitad del lado). La intersección de prismas da esquinas "pellizcadas" (cruce de tres
+    cilindros), que fue lo que se vio en la primera versión.
+    `geometry.cube_edges` es una aproximación por planos (las esferas con pocos planos).
 15. **Comprobar el `.scad` con OpenSCAD real** (`tests/test_openscad.py`) cuando se toque
     `library.py` o la forma del código generado; hay que probar CGAL y Manifold.
 16. **Cada cambio se guarda en git** (repositorio en esta carpeta). Un commit por cambio
@@ -137,9 +144,8 @@ build_portable.py, OpenSCAD_GUI_Mejorada.spec   ejecutable portable con PyInstal
 - **Plano técnico:** `rotate([90,0,0])` deja el alzado boca abajo; el correcto es
   `rotate([-90,0,0])`. `use <...>` no puede ir dentro de un módulo.
 - **Variables:** un `Expr` se escribe con `.text`; `str(Expr)` producía `Expr('...')` en el archivo.
-- **CGAL:** un `for` dentro de `hull()` hace antes una unión de sus hijos, y uniones de
-  sólidos curvos que se tocan tangentes (esferas con cilindros) lanzan "assertion violation".
-  Preferir polígonos 2D extruidos e intersecciones.
+- **CGAL:** ver la regla 14; probar siempre con muchas combinaciones de aristas al azar en
+  los dos motores (`--backend=manifold` y el de por defecto), no solo con los casos bonitos.
 - **Gizmo:** la tolerancia para agarrar un eje va en píxeles de pantalla. Con una tolerancia en
   mm (4 % de la distancia de la cámara) el gizmo se comía los clics alrededor de la pieza y no
   se podía deseleccionar con un clic en el vacío. Pulsar un eje sin arrastrar cuenta como clic.

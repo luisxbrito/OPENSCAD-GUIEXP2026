@@ -132,7 +132,7 @@ logic errors but not drawing problems; after changes, also open the real program
 - Comments placed between the arguments of a call are lost when the code is regenerated.
 - Only edges of `cube` and straight `cylinder` parts can be rounded, and not inside an
   extrusion, `hull`, `minkowski` or `resize`. Each part has a single radius for all its rounded
-  edges. Where three rounded edges meet, the corner is the intersection of their cylinders
-  rather than a sphere (that construction never fails with CGAL or Manifold).
+  edges. Where three rounded edges meet the corner is a sphere; where only two meet, the two
+  fillets simply cross (no vertex blend), as in most CAD programs without a corner setback.
 - The 2D profile dialog is form based; there is no constraint-driven sketcher.
 - No license has been chosen yet: add a `LICENSE` file before publishing the code.

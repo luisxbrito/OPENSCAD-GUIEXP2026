@@ -6,6 +6,7 @@ Si OpenSCAD no está instalado, las pruebas se omiten. Para usar uno concreto:
 Ejecutar:  python tests/test_openscad.py
 """
 
+import math
 import os
 import shutil
 import subprocess
@@ -16,6 +17,7 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, ROOT)
 
 from scadgui.edges import finish_edges  # noqa: E402
+from scadgui.geometry import load_stl, signed_volume  # noqa: E402
 from scadgui.library import CUBE_EDGE_KEYS  # noqa: E402
 from scadgui.model import Document, generate, make_node  # noqa: E402
 from scadgui.parser import parse  # noqa: E402
@@ -33,8 +35,8 @@ def find_openscad() -> str:
 EXE = find_openscad()
 
 
-def render(code: str) -> str:
-    """Exporta a STL y devuelve la salida de OpenSCAD; falla si hay errores o avisos."""
+def render(code: str):
+    """Exporta a STL y devuelve los triángulos; falla si OpenSCAD da errores o avisos."""
     folder = tempfile.mkdtemp()
     src, out = os.path.join(folder, "m.scad"), os.path.join(folder, "m.stl")
     with open(src, "w", encoding="utf-8") as fh:
@@ -44,7 +46,7 @@ def render(code: str) -> str:
     problems = [line for line in log.splitlines() if "WARNING" in line or "ERROR" in line]
     assert run.returncode == 0 and not problems, log[-1500:]
     assert os.path.getsize(out) > 0, log[-500:]
-    return log
+    return load_stl(out)
 
 
 def _rounded(src: str, edges_of, mode: str, value: float) -> str:
@@ -56,6 +58,16 @@ def _rounded(src: str, edges_of, mode: str, value: float) -> str:
 
 def test_cubo_todas_las_aristas_redondeadas():
     render("$fn = 24;\n" + _rounded("cube([40, 30, 10], center = true);", CUBE_EDGE_KEYS, "round", 3))
+
+
+def test_esquinas_con_tres_aristas_redondeadas_son_esfericas():
+    """Caja 40 x 30 x 10 con todas las aristas redondeadas (r = 3): volumen de la caja interior
+    más caras, cuartos de cilindro y ocho octantes de esfera. Con las esquinas como cruce de
+    cilindros (la versión anterior) salían unos 10 mm³ de más."""
+    tris = render("$fn = 96;\n" + _rounded("cube([40, 30, 10]);", CUBE_EDGE_KEYS, "round", 3))
+    p, q, s, r = 34, 24, 4, 3
+    exact = p * q * s + 2 * (p * q + q * s + p * s) * r + math.pi * (p + q + s) * r * r + 4 / 3 * math.pi * r ** 3
+    assert abs(signed_volume(tris) - exact) < 3, signed_volume(tris)
 
 
 def test_cubo_algunas_aristas_y_chaflan():
