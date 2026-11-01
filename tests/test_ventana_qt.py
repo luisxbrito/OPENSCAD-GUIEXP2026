@@ -1,0 +1,111 @@
+"""Pruebas con el Qt real (PySide6 y pyqtgraph instalados), sin mostrar la ventana.
+
+Mandan eventos de ratón de verdad a la vista 3D, que es lo que las simulaciones de
+tests/simulacion no pueden comprobar. Si falta PySide6 o pyqtgraph, se omiten.
+
+Usa la configuración guardada del programa (solo la lee): si el visor está puesto en
+"imágenes" en Preferencias, estas pruebas no se pueden hacer.
+
+Ejecutar:  python tests/test_ventana_qt.py
+"""
+
+import math
+import os
+import sys
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")  # sin ventana; OpenGL no hace falta para los eventos
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+sys.path.insert(0, ROOT)
+
+try:
+    import numpy as np
+    import pyqtgraph  # noqa: F401
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+except ImportError as exc:
+    print(f"Falta {exc.name}: se omiten estas pruebas")
+    sys.exit(0)
+
+app = QApplication.instance() or QApplication(sys.argv)
+import scadgui.ui.mainwindow as mw  # noqa: E402
+
+LEFT, NONE = Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier
+
+
+def window():
+    w = mw.MainWindow("")
+    w.resize(1400, 900)
+    w.show()
+    app.processEvents()   # el arranque (en blanco) se hace en el primer ciclo de eventos
+    w.open_example(mw.EXAMPLE_PLACA)
+    app.processEvents()
+    assert w.gl, w._gl_error
+    return w
+
+
+def pixel_of(view, p) -> QPoint:
+    """Píxel por el que se ve el punto p (inversa de _GLView.ray)."""
+    cam, _ = view.ray(view.width() / 2, view.height() / 2)
+    c = view.opts["center"]
+    fwd = np.array([c.x(), c.y(), c.z()]) - cam
+    fwd /= np.linalg.norm(fwd)
+    right = np.cross(fwd, [0, 0, 1.0])
+    right /= np.linalg.norm(right)
+    up = np.cross(right, fwd)
+    d = np.asarray(p, float) - cam
+    tx = math.tan(math.radians(view.opts["fov"]) / 2)
+    ty = tx * view.height() / view.width()
+    nx, ny = (d @ right) / (d @ fwd) / tx, (d @ up) / (d @ fwd) / ty
+    return QPoint(round((nx + 1) / 2 * view.width()), round((1 - ny) / 2 * view.height()))
+
+
+def test_clic_en_el_vacio_deselecciona():
+    """Antes, un clic cerca de la pieza seleccionada agarraba el gizmo y no deseleccionaba."""
+    w = window()
+    v, view = w.viewer, w.viewer.view
+    cube = w.doc.children[0].children[0]
+    tried = 0
+    for x in range(10, view.width(), 40):
+        for y in range(10, view.height(), 40):
+            w.select_ids([cube.id])
+            o, d = view.ray(x, y)
+            if v._get_picker().pick(o, d)[0] is not None:
+                continue  # ahí hay una pieza
+            tried += 1
+            QTest.mouseClick(view, LEFT, NONE, QPoint(x, y))
+            assert w.selected_ids() == [], (x, y)
+    assert tried > 50
+
+
+def test_gizmo_arrastrar_mueve_y_clic_no_deja_rastro():
+    w = window()
+    view = w.viewer.view
+    cube = w.doc.children[0].children[0]
+    w.select_ids([cube.id])
+    tip = pixel_of(view, view.gizmo_origin + [0.8 * view.gizmo_len, 0, 0])
+    QTest.mousePress(view, LEFT, NONE, tip)
+    assert view._active_axis == "X"
+    for k in range(1, 6):
+        QTest.mouseMove(view, tip + QPoint(8 * k, 0))
+    QTest.mouseRelease(view, LEFT, NONE, tip + QPoint(40, 0))
+    assert any(n.kind == "translate" and n.children == [cube] for n, _, _ in w.doc.walk())
+    w.undo()
+    w.select_ids([cube.id])
+    steps = len(w.history.undo_stack)
+    tip = pixel_of(view, view.gizmo_origin + [0.8 * view.gizmo_len, 0, 0])
+    QTest.mouseClick(view, LEFT, NONE, tip)   # el extremo del eje queda fuera de la pieza
+    assert len(w.history.undo_stack) == steps and w.selected_ids() == []
+
+
+if __name__ == "__main__":
+    failures = 0
+    for name, fn in sorted(globals().items()):
+        if name.startswith("test_") and callable(fn):
+            try:
+                fn()
+                print("ok  ", name)
+            except Exception as exc:  # noqa: BLE001
+                failures += 1
+                print("FALLA", name, "->", repr(exc)[:300])
+    sys.exit(1 if failures else 0)

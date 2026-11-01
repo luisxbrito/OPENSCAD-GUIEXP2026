@@ -187,7 +187,6 @@ class SignatureHelpPopup(QFrame):
             "  background-color: #FFFFFF; "
             "  border: 1px solid #3B82F6; "
             "  border-radius: 6px; "
-            "  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15); "
             "}"
             "QLabel { color: #1E293B; font-size: 11px; }"
         )

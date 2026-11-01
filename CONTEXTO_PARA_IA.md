@@ -51,6 +51,7 @@ tests/test_core.py         modelo, parser, generador, tornillería, plano técni
 tests/test_geometry.py     geometría, colores, OFF/STL, selección, explosión
 tests/test_i18n.py         cobertura de traducciones
 tests/test_openscad.py     pasa el código generado por el OpenSCAD real (se omite si no está)
+tests/test_ventana_qt.py   eventos de ratón reales en la vista 3D con el Qt real (sin ventana)
 tests/simulacion/          Qt/pyqtgraph simulados + 2 scripts que recorren la ventana
 build_portable.py, OpenSCAD_GUI_Mejorada.spec   ejecutable portable con PyInstaller
 ```
@@ -139,6 +140,9 @@ build_portable.py, OpenSCAD_GUI_Mejorada.spec   ejecutable portable con PyInstal
 - **CGAL:** un `for` dentro de `hull()` hace antes una unión de sus hijos, y uniones de
   sólidos curvos que se tocan tangentes (esferas con cilindros) lanzan "assertion violation".
   Preferir polígonos 2D extruidos e intersecciones.
+- **Gizmo:** la tolerancia para agarrar un eje va en píxeles de pantalla. Con una tolerancia en
+  mm (4 % de la distancia de la cámara) el gizmo se comía los clics alrededor de la pieza y no
+  se podía deseleccionar con un clic en el vacío. Pulsar un eje sin arrastrar cuenta como clic.
 - **Elegir aristas:** se gana la candidata más cercana a la cámara, no la más cercana al ratón
   en ángulo; si no, desde arriba junto a un borde se elegía la arista de abajo.
 

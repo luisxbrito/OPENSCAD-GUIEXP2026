@@ -116,6 +116,7 @@ python tests/test_i18n.py        # every interface text translated, no duplicate
 python tests/simulacion/sim_ventana_visor_opengl.py   # whole window against a stub of Qt
 python tests/simulacion/sim_ventana_visor_imagen.py
 python tests/test_openscad.py    # renders generated code with the real OpenSCAD (skipped if not found)
+python tests/test_ventana_qt.py  # real mouse events on the 3D view with real Qt (skipped without PySide6)
 ```
 
 The two `sim_*` scripts drive the main window with a fake PySide6/pyqtgraph, so they catch

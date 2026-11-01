@@ -75,6 +75,7 @@ MEASURE_COLOR = (0.35, 0.85, 1.0, 1.0)
 EDGE_HOVER_COLOR = (1.0, 0.85, 0.2, 1.0)    # arista bajo el ratón en el modo aristas
 EDGE_PICKED_COLOR = (1.0, 0.45, 0.1, 1.0)   # aristas elegidas
 EDGE_PICK_PIXELS = 8                        # distancia máxima al ratón para elegir una arista
+GIZMO_PICK_PIXELS = 7                       # y para agarrar un eje del gizmo
 
 
 def _mesh_item(color, options, depth=0):
@@ -166,8 +167,6 @@ class _GLView(gl.GLViewWidget):
                 ("Y", np.array([0.0, 1.0, 0.0])),
                 ("Z", np.array([0.0, 0.0, 1.0])),
             ]
-            cam_dist = float(np.linalg.norm(self.gizmo_origin - cam))
-            hit_threshold = max(3.0, cam_dist * 0.04)
 
             best_axis = None
             best_dist = 1e9
@@ -186,6 +185,9 @@ class _GLView(gl.GLViewWidget):
                     pt_ray = cam + t * d
                     pt_seg = self.gizmo_origin + s_clamped * u
                     dist = float(np.linalg.norm(pt_ray - pt_seg))
+                    # Tolerancia de unos píxeles en pantalla (a la distancia de ese punto):
+                    # una tolerancia en mm se comía los clics alrededor de la pieza.
+                    hit_threshold = GIZMO_PICK_PIXELS * self.pixel_angle() * max(t, 1e-6)
                     if dist < hit_threshold and dist < best_dist:
                         best_dist = dist
                         best_axis = name
@@ -230,8 +232,14 @@ class _GLView(gl.GLViewWidget):
         if self._active_axis is not None:
             self._active_axis = None
             self._drag_origin = None
-            self._press = None
+            press, self._press = self._press, None
             self.gizmoFinished.emit()
+            # Pulsar un eje sin arrastrar es un clic normal (seleccionar o, en el vacío, deseleccionar).
+            if press is not None:
+                d = ev.position() - press
+                if abs(d.x()) + abs(d.y()) < 5:
+                    ctrl = bool(ev.modifiers() & Qt.KeyboardModifier.ControlModifier)
+                    self.clicked.emit(ev.position().x(), ev.position().y(), ctrl)
             return
         super().mouseReleaseEvent(ev)
         if self._press is None or ev.button() != Qt.MouseButton.LeftButton:
