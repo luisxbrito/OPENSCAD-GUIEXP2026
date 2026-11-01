@@ -80,6 +80,18 @@ def test_cilindro_con_bordes():
     render(_rounded("cylinder(h = 20, r = 8, center = true);", ["top"], "chamfer", 2))
 
 
+def test_radios_activados_en_el_panel_no_dan_avisos():
+    """Activar d2 en un cylinder con r, o d en una sphere, no debe dejar parámetros que choquen."""
+    doc = Document()
+    cyl = doc.add("cylinder")
+    doc.set_param(cyl.id, "d2", 4)
+    sph = doc.add("sphere")
+    doc.set_param(sph.id, "d", 4)
+    bad = parse("cylinder(h = 10, r = 1, d2 = 4, center = true);")
+    bad.fix_radii(bad.children[0].id)
+    render(generate(doc).text + generate(bad).text)   # render() falla si OpenSCAD da algún aviso
+
+
 def test_matrices():
     doc = Document()
     for kind in ("linear_array", "polar_array", "grid_array"):

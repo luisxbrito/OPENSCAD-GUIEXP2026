@@ -545,6 +545,7 @@ class MainWindow(QMainWindow):
         self.props.openBooleanWizard.connect(self.open_boolean_dialog)
         self.props.setDifferenceBase.connect(self.set_difference_base)
         self.props.openOperationHelper.connect(self.open_operation_helper)
+        self.props.fixRadii.connect(self.fix_radii)
         self.code.lineClicked.connect(self.on_code_line)
         self.code.applyRequested.connect(self.apply_code)
         self.code.editingChanged.connect(self.on_code_editing)
@@ -1168,6 +1169,11 @@ class MainWindow(QMainWindow):
             self.doc.set_param(node_id, key, value)
         self.mutate(change, key=(node_id, key), rebuild_tree=False)
         self._refresh_item(node_id)
+
+    def fix_radii(self, node_id: int) -> None:
+        self.mutate(lambda: self.doc.fix_radii(node_id) or False, rebuild_tree=False)
+        self._refresh_item(node_id)
+        self.on_selection()
 
     def on_renamed(self, node_id: int, name: str) -> None:
         node = self.doc.find(node_id)

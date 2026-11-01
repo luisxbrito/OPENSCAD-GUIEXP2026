@@ -98,6 +98,25 @@ def test_gizmo_arrastrar_mueve_y_clic_no_deja_rastro():
     assert len(w.history.undo_stack) == steps and w.selected_ids() == []
 
 
+
+def test_panel_avisa_y_corrige_radios_que_chocan():
+    from PySide6.QtWidgets import QPushButton
+    from scadgui.i18n import tr
+    from scadgui.parser import parse
+    w = window()
+    w.set_document(parse("cylinder(h = 10, r = 1, d2 = 4, center = true);"))
+    cyl = w.doc.children[0]
+    w.select_ids([cyl.id])
+    app.processEvents()
+    fix = [b for b in w.props.findChildren(QPushButton) if b.text() == tr("Corregir (misma forma)")]
+    assert len(fix) == 1
+    fix[0].click()
+    app.processEvents()
+    assert "cylinder(h = 10, r1 = 1, d2 = 4, center = true);" in w.code.text.toPlainText()
+    w.undo()
+    assert "r = 1, d2 = 4" in w.code.text.toPlainText()
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

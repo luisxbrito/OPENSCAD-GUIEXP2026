@@ -25,6 +25,7 @@ class Param:
     minimum: float = -1e9
     maximum: float = 1e9
     step: float = 1.0
+    initial: bool = False  # opcional, pero la pieza nueva ya lo trae (r: se puede cambiar por d)
 
     @property
     def title(self) -> str:
@@ -67,13 +68,13 @@ _add(Spec("cube", "Cubo", "solid", False, (
     Param("center", "bool", False, label="Centrado"),
 ), positional=("size", "center")))
 _add(Spec("sphere", "Esfera", "solid", False, (
-    Param("r", "num", 10, label="Radio (r)", minimum=0),
+    Param("r", "num", 10, optional=True, initial=True, label="Radio (r)", minimum=0),
     Param("d", "num", 20, optional=True, label="Diámetro (d)", minimum=0),
     FN,
 ), positional=("r",)))
 _add(Spec("cylinder", "Cilindro", "solid", False, (
     Param("h", "num", 10, label="Altura (h)", minimum=0),
-    Param("r", "num", 5, label="Radio (r)", minimum=0),
+    Param("r", "num", 5, optional=True, initial=True, label="Radio (r)", minimum=0),
     Param("r1", "num", 5, optional=True, label="Radio inferior (r1)", minimum=0),
     Param("r2", "num", 2, optional=True, label="Radio superior (r2)", minimum=0),
     Param("d", "num", 10, optional=True, label="Diámetro (d)", minimum=0),
@@ -94,7 +95,7 @@ _add(Spec("square", "Rectángulo", "shape2d", False, (
     Param("center", "bool", False, label="Centrado"),
 ), positional=("size", "center")))
 _add(Spec("circle", "Círculo", "shape2d", False, (
-    Param("r", "num", 5, label="Radio (r)", minimum=0),
+    Param("r", "num", 5, optional=True, initial=True, label="Radio (r)", minimum=0),
     Param("d", "num", 10, optional=True, label="Diámetro (d)", minimum=0),
     FN,
 ), positional=("r",)))

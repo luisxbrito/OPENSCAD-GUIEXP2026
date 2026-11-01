@@ -214,7 +214,7 @@ def array_head(node: "Node") -> str:
 
 def make_node(kind: str, name: str = "") -> Node:
     spec = SPECS[kind]
-    params = {p.name: copy.deepcopy(p.default) for p in spec.params if not p.optional}
+    params = {p.name: copy.deepcopy(p.default) for p in spec.params if not p.optional or p.initial}
     return Node(kind=kind, params=params, name=name)
 
 
@@ -485,11 +485,22 @@ class Document:
         return clone
 
     def set_param(self, node_id: int, key: str, value: Any) -> None:
+        from .radii import initial_value, normalize  # radii importa model
         node = self.find(node_id)
         if value is None:
             node.params.pop(key, None)
-        else:
-            node.params[key] = value
+            return
+        added = key not in node.params
+        if added:  # al activar r, d, r1… se parte del radio que ya tiene la pieza
+            value = initial_value(node, key, value)
+        node.params[key] = value
+        if added:
+            normalize(node, added=key)
+
+    def fix_radii(self, node_id: int) -> bool:
+        """Deja sin choques los radios de una pieza (sin cambiar su forma)."""
+        from .radii import normalize
+        return normalize(self.find(node_id))
 
     def get_variables(self) -> list[dict]:
         """Obtiene la lista de variables globales definidas en el documento."""

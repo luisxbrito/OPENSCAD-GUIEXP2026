@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (QCheckBox, QColorDialog, QComboBox, QDoubleSpinBo
 from ..catalog import Param
 from ..i18n import tr
 from ..model import Document, Expr, Node, RawCode, format_value
+from ..radii import conflicts
 from ..parser import literal
 from .editors import edit_faces, edit_matrix, edit_points
 
@@ -87,6 +88,7 @@ class PropertyPanel(QScrollArea):
     openBooleanWizard = Signal(int)
     setDifferenceBase = Signal(int, int)
     openOperationHelper = Signal(str)
+    fixRadii = Signal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -205,6 +207,12 @@ class PropertyPanel(QScrollArea):
         for key in extras:
             self._extra_row(node, key)
 
+        problems = conflicts(node)
+        if problems:
+            self._hint("\n".join(problems), "warnText")
+            fix = QPushButton(tr("Corregir (misma forma)"))
+            fix.clicked.connect(lambda: self.fixRadii.emit(node.id))
+            self._lay.addWidget(fix)
         if spec and spec.hint:
             self._hint(tr(spec.hint))
         if spec and spec.container and not node.children:

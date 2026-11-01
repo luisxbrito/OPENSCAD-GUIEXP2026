@@ -1036,6 +1036,34 @@ def test_archivos_con_la_version_anterior_de_cube_edges_se_actualizan():
     assert CUBE_EDGES in text and old not in text
 
 
+
+def test_radios_sin_avisos_de_openscad():
+    from scadgui import geometry as g
+    from scadgui.radii import conflicts
+    ctx = {"fn": 32, "fa": 12, "fs": 2}
+    doc = Document()
+    cyl = doc.add("cylinder")                                  # h = 10, r = 5
+    doc.set_param(cyl.id, "d2", 4)                             # activar d2 en el panel (valor por defecto 4)
+    assert cyl.params == {"h": 10, "r1": 5, "d2": 10, "center": False}   # misma forma: no cambia nada
+    assert conflicts(cyl) == []
+    doc.set_param(cyl.id, "d2", 4)                             # ahora sí la tapa
+    doc.set_param(cyl.id, "r", 5)                              # volver a un cilindro recto
+    assert cyl.params == {"h": 10, "r": 5, "center": False}
+    sph = doc.add("sphere")
+    doc.set_param(sph.id, "d", 20)
+    assert sph.params == {"d": 20}
+    # archivo con radios que chocan (como el de la prueba del usuario): se avisa y se corrige
+    bad = parse("cylinder(h = 10, r = 1, d2 = 4, center = true);").children[0]
+    doc2 = Document(children=[bad])
+    before = g.signed_volume(g.solid(bad, ctx)[bad.id])
+    assert len(conflicts(bad)) == 1
+    assert doc2.fix_radii(bad.id)
+    assert bad.call() == "cylinder(h = 10, r1 = 1, d2 = 4, center = true)" and conflicts(bad) == []
+    assert abs(g.signed_volume(g.solid(bad, ctx)[bad.id]) - before) < 1e-9
+    c = parse("circle(r = 3, d = 10);").children[0]
+    assert Document(children=[c]).fix_radii(c.id) and c.params == {"d": 10}
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

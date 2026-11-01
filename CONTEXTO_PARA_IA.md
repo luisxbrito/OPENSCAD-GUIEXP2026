@@ -36,6 +36,7 @@ scadgui/                   lógica SIN Qt (se prueba sin PySide6)
   operations.py            textos y ajustes rápidos de la guía de cada operación
   library.py               módulos propios (cube_edges, cylinder_edges) que se escriben en el .scad
   edges.py                 redondear/achaflanar: cube ↔ cube_edges, cylinder ↔ cylinder_edges
+  radii.py                 r/d/r1/d1/r2/d2 sin choques (las reglas de prioridad de OpenSCAD)
   code_assist.py           plantillas, fragmentos y ayuda de parámetros del editor
   runner.py                QProcess que llama a openscad (única pieza de Qt fuera de ui/)
   i18n.py, locales/*.py    tr() y un diccionario por idioma (español → idioma)
@@ -146,6 +147,11 @@ build_portable.py, OpenSCAD_GUI_Mejorada.spec   ejecutable portable con PyInstal
 - **Variables:** un `Expr` se escribe con `.text`; `str(Expr)` producía `Expr('...')` en el archivo.
 - **CGAL:** ver la regla 14; probar siempre con muchas combinaciones de aristas al azar en
   los dos motores (`--backend=manifold` y el de por defecto), no solo con los casos bonitos.
+- **Radios:** `r` de sphere/circle/cylinder es opcional con `initial=True` (la pieza nueva lo
+  trae, pero se puede cambiar por `d`). Al activar un radio en el panel, `Document.set_param`
+  parte del radio actual y `radii.normalize` quita el que sobra sin cambiar la forma; si el
+  archivo ya trae radios que chocan, el panel avisa y ofrece «Corregir». Antes se podía dejar
+  `r` y `d2` a la vez y OpenSCAD avisaba "Cylinder parameters ambiguous".
 - **Gizmo:** la tolerancia para agarrar un eje va en píxeles de pantalla. Con una tolerancia en
   mm (4 % de la distancia de la cámara) el gizmo se comía los clics alrededor de la pieza y no
   se podía deseleccionar con un clic en el vacío. Pulsar un eje sin arrastrar cuenta como clic.
