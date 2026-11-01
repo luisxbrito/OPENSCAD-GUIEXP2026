@@ -216,6 +216,23 @@ def test_regla_de_los_ejes():
         settings.setValue("ruler", saved)
 
 
+
+def test_boton_ajustar_encuadra():
+    """El botón «Ajustar» encuadra el modelo aunque la cámara esté lejos y descentrada."""
+    import pyqtgraph as pg
+    from scadgui.i18n import tr
+    w = window()
+    v = w.viewer
+    v.view.setCameraPosition(pos=pg.Vector(500, 500, 500), distance=5000)
+    from PySide6.QtWidgets import QPushButton
+    button = next(b for b in v.findChildren(QPushButton) if b.text() == tr("Ajustar"))
+    button.click()
+    app.processEvents()
+    lo, hi = v._scene_box()
+    center = v.view.opts["center"]
+    assert np.allclose([center.x(), center.y(), center.z()], (lo + hi) / 2, atol=1e-3)
+    assert v.view.opts["distance"] < 1000
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

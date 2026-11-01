@@ -126,7 +126,7 @@ class Viewport(QWidget):
             row.addWidget(b)
         fit = QPushButton(tr("Ajustar"))
         fit.setObjectName("viewButton")
-        fit.clicked.connect(self.fit)
+        fit.clicked.connect(lambda: self.fit())   # clicked pasa un bool que fit() tomaría por render
         row.addWidget(fit)
         row.addStretch(1)
         self.auto = QCheckBox(tr("Actualizar sola"))

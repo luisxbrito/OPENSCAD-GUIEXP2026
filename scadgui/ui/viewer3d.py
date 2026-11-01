@@ -390,7 +390,7 @@ class Viewer3D(QWidget):
         fit = QPushButton(tr("Ajustar"))
         fit.setObjectName("viewButton")
         fit.setToolTip(tr("Tecla Inicio: todo · Tecla . (punto): la selección"))
-        fit.clicked.connect(self.fit)
+        fit.clicked.connect(lambda: self.fit())   # clicked pasa un bool que fit() tomaría por la caja
         row.addWidget(fit)
         self.measure_btn = QPushButton(tr("Medir"))
         self.measure_btn.setObjectName("viewButton")
@@ -750,7 +750,7 @@ class Viewer3D(QWidget):
 
     def fit(self, box=None) -> None:
         """Encuadra la caja indicada o, sin ella, todo el modelo."""
-        box = box if box is not None else self._scene_box()
+        box = box if box is not None and not isinstance(box, bool) else self._scene_box()
         if box is None:
             return
         lo, hi = box

@@ -870,7 +870,7 @@ class CodeView(QWidget):
 
         self.edit_btn = QPushButton(tr("Editar"))
         self.edit_btn.setToolTip(tr("Entrar en modo edición manual (o pulsa F2)"))
-        self.edit_btn.clicked.connect(self.start_editing)
+        self.edit_btn.clicked.connect(lambda: self.start_editing())  # clicked pasa un bool
         row.addWidget(self.edit_btn)
 
         self.apply_btn = QPushButton(tr("Aplicar"))
