@@ -178,6 +178,44 @@ def test_atajos_marcan_la_vista_actual():
     v.view_buttons["top"].click()                     # pulsarlo otra vez no lo desmarca
     assert v.view_buttons["top"].isChecked()
 
+
+def test_regla_de_los_ejes():
+    """Botón y tecla R muestran la regla; al alejar la cámara el paso de los números crece."""
+    from PySide6.QtCore import QSettings
+    settings = QSettings("OpenSCAD-GUI-Mejorada", "app")
+    saved = settings.value("ruler")
+    w = window()
+    v = w.viewer
+    v.set_ruler(False)
+    assert not v.ruler_pos[0].visible() and v.axes.visible()
+    v.ruler_btn.click()
+    assert v.ruler_on and v.ruler_pos[0].visible() and v.ruler_neg[2].visible() and not v.axes.visible()
+    v.view.setCameraPosition(distance=100)
+    near = v._ruler_key[0]
+    v.view.setCameraPosition(distance=1000)               # 10 veces más lejos: paso 10 veces mayor
+    assert math.isclose(v._ruler_key[0], near * 10), (near, v._ruler_key)
+    texts = v.ruler_texts()
+    assert not v.ruler_labels or (texts and all(t.lstrip("-").replace(".", "").isdigit() for t in texts))
+    # Un número dentro de la pieza no se ve: se oculta (los textos de pyqtgraph no tienen profundidad).
+    from scadgui.parser import parse
+    w.set_document(parse("cube(120, center = true);"))
+    app.processEvents()
+    v.view.setCameraPosition(distance=300, elevation=30, azimuth=-55)
+    v._hide_covered_labels()
+    shown = {(round(float(p[0])), round(float(p[1])), round(float(p[2]))): item.visible()
+             for item, p in zip(v.ruler_labels, v._label_points)}
+    if shown:
+        inside = [vis for (x, y, z), vis in shown.items() if max(abs(x), abs(y), abs(z)) < 55]
+        assert inside and not any(inside), shown
+        assert any(shown.values())
+    v.key_command("R")                                    # tecla R: la quita
+    assert not v.ruler_on and not v.ruler_btn.isChecked() and not v.ruler_pos[0].visible()
+    if saved is None:
+        settings.remove("ruler")
+    else:
+        settings.setValue("ruler", saved)
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

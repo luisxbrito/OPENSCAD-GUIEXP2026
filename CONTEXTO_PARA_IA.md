@@ -196,6 +196,12 @@ python tests/simulacion/sim_ventana_visor_imagen.py
   todo `QColor("#...")` con `c(...)` e `icon()` traduce solo; el visor 3D es oscuro siempre
   (`VIEWER_STYLES`, `icon(..., fixed=True)`). En oscuro se usa el estilo Fusion con
   `dark_palette()` para los controles que no cubre la hoja de estilos.
+- Regla de los ejes (botón «Regla», tecla R, se guarda en `ruler`): `geometry.ruler(span)` da las
+  marcas para el ancho visible (paso 1-2-5, se rehace al hacer zoom). Los números son GLTextItem,
+  que se pintan encima de todo: `_hide_covered_labels` oculta los que tapa la pieza (rayo desde
+  la cámara), al parar de girar. `_AxisTriad`: indicador de ejes abajo a la izquierda.
+- Para ver el OpenGL real en el contenedor de pruebas: Xvfb + QT_QPA_PLATFORM=xcb (hace falta
+  libxcb-cursor o un sustituto) y `view.grabFramebuffer()`; `window.grab()` no saca los textos 3D.
 - Cinta: `Ribbon.GROUPS` reparte los botones de cada pestaña en grupos con título (marcados con
   `N_()` para que `test_i18n` exija su traducción); un comando nuevo sin grupo va al último.
 - Atajos de vista como Blender (`viewer3d.VIEW_KEYS`), solo en el visor OpenGL: valen con el

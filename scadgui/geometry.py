@@ -1296,3 +1296,44 @@ def apply_offsets(tris: Tris, face_parts: np.ndarray, offsets: dict) -> Tris:
     for pid, off in offsets.items():
         out[face_parts == pid] += off
     return out
+
+
+# --------------------------------------------------------------------------- regla de los ejes
+
+def nice_step(span: float, target: int = 8) -> float:
+    """Paso «redondo» (1, 2 o 5 por una potencia de 10) para unas ``target`` divisiones en ``span``."""
+    raw = max(float(span), 1e-6) / target
+    k = 10 ** math.floor(math.log10(raw))
+    return next(m * k for m in (1, 2, 5, 10) if m * k >= raw * (1 - 1e-9))
+
+
+def ruler(span: float) -> dict:
+    """Regla de los tres ejes, como la de OpenSCAD, para una vista que abarca ``span`` mm.
+
+    Marca corta en cada décima del paso, media en la mitad y larga (con número) en cada paso.
+    Devuelve, por eje (0 X, 1 Y, 2 Z), los segmentos del lado positivo y los del negativo (el eje
+    negativo va punteado) y los números: ``labels`` = [(eje, punto, texto, negativo)].
+    """
+    major = nice_step(span)
+    minor = major / 10
+    n = int(math.ceil(span * 0.75 / major)) * 10           # marcas cortas por lado
+    extent = n * minor
+    tick_dir = (np.array([0.0, -1.0, 0.0]), np.array([-1.0, 0.0, 0.0]), np.array([-1.0, 0.0, 0.0]))
+    pos, neg, labels = [], [], []
+    for axis in range(3):
+        e = np.zeros(3)
+        e[axis] = 1.0
+        t = tick_dir[axis]
+        p_segs = [(np.zeros(3), e * extent)]
+        n_segs = [(-e * (k + 0.6) * minor, -e * k * minor) for k in range(n)]   # trazos del punteado
+        for i in range(-n, n + 1):
+            if i == 0:
+                continue
+            v = i * minor
+            length = major * (0.35 if i % 10 == 0 else 0.22 if i % 5 == 0 else 0.11)
+            (p_segs if i > 0 else n_segs).append((e * v, e * v + t * length))
+            if i % 10 == 0:
+                labels.append((axis, e * v + t * major * 0.7, f"{round(v, 6):g}", i < 0))
+        pos.append(np.array(p_segs, dtype=np.float64))
+        neg.append(np.array(n_segs, dtype=np.float64))
+    return {"major": major, "extent": extent, "pos": pos, "neg": neg, "labels": labels}

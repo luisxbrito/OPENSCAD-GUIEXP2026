@@ -362,6 +362,22 @@ def test_elegir_arista_con_el_raton():
     assert pick(eye, (hidden - eye) / np.linalg.norm(hidden - eye), 0.001) is None
 
 
+
+def test_regla_paso_redondo_y_marcas():
+    from scadgui.geometry import nice_step, ruler
+    assert [nice_step(s) for s in (8, 80, 150, 400, 0.9)] == [1, 10, 20, 50, 0.2]
+    r = ruler(100)                      # paso 20: números cada 20 mm, marcas cortas cada 2 mm
+    assert r["major"] == 20 and r["extent"] == 80
+    texts = {t for axis, _p, t, negative in r["labels"] if axis == 0 and not negative}
+    assert texts == {"20", "40", "60", "80"}
+    x_pos = r["pos"][0]
+    assert len(x_pos) == 1 + 40          # el eje y una marca cada 2 mm hasta 80
+    assert np.allclose(x_pos[0], [[0, 0, 0], [80, 0, 0]])
+    long_ticks = [s for s in x_pos[1:] if np.isclose(np.linalg.norm(s[1] - s[0]), 20 * 0.35)]
+    assert len(long_ticks) == 4 and all(s[1][1] < 0 for s in long_ticks)   # marcas de X hacia -Y
+    assert all(seg[1][0] <= 0 for seg in r["neg"][0])                       # lado negativo
+    assert any(t == "-80" for axis, _p, t, negative in r["labels"] if axis == 2 and negative)
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

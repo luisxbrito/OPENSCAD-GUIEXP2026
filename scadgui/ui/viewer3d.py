@@ -14,7 +14,8 @@ import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 from OpenGL import GL
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import QPointF, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QCheckBox, QDoubleSpinBox, QFrame, QHBoxLayout,
                                QLabel, QLineEdit, QPlainTextEdit, QPushButton, QSlider, QTextEdit, QVBoxLayout,
                                QWidget)
@@ -51,6 +52,7 @@ VIEW_KEYS = {
     "4": ("orbit_left", "orbit_left"),
     "6": ("orbit_right", "orbit_right"),
     ".": ("frame_selected", "frame_selected"),
+    "R": ("ruler", "ruler"),
     "home": ("frame_all", "frame_all"),
 }
 SHORTCUT_OF = {"Isométrica": "0", "Frontal": "1", "Superior": "7", "Derecha": "3"}
@@ -58,6 +60,8 @@ SHORTCUT_OF = {"Isométrica": "0", "Frontal": "1", "Superior": "7", "Derecha": "
 N_ = str  # texto que se traduce después con tr() (lo recoge test_i18n)
 CAMERA_NAMES = {"iso": N_("Isométrica"), "front": N_("Frontal"), "back": N_("Trasera"), "right": N_("Derecha"),
                 "left": N_("Izquierda"), "top": N_("Superior"), "bottom": N_("Inferior")}
+# Colores de los ejes X, Y, Z (regla e indicador de orientación).
+AXIS_COLORS = ("#E5645A", "#6CCB7A", "#5B9BFF")
 ORBIT_STEP = 15.0      # grados por pulsación, como Blender
 TREE_OVERLAY_WIDTH = 330
 ORTHO_FOV = 1.0        # la vista ortográfica se imita con un ángulo de cámara casi nulo
@@ -126,6 +130,47 @@ def _set_lines(item, segments) -> None:
     item.setVisible(True)
 
 
+def _rgba(hex_color: str, alpha: float = 1.0):
+    c = QColor(hex_color)
+    return (c.redF(), c.greenF(), c.blueF(), alpha)
+
+
+class _AxisTriad(QWidget):
+    """Indicador de orientación de los ejes (abajo a la izquierda), como el de OpenSCAD o Blender."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setFixedSize(74, 74)
+        self.elev, self.azim = 30.0, -55.0
+
+    def set_angles(self, elev: float, azim: float) -> None:
+        self.elev, self.azim = elev, azim
+        self.update()
+
+    def paintEvent(self, _ev):
+        e, a = math.radians(self.elev), math.radians(self.azim)
+        right = np.array([-math.sin(a), math.cos(a), 0.0])
+        up = np.array([-math.sin(e) * math.cos(a), -math.sin(e) * math.sin(a), math.cos(e)])
+        toward = np.array([math.cos(e) * math.cos(a), math.cos(e) * math.sin(a), math.sin(e)])
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        center, length = QPointF(37, 37), 24.0
+        font = QFont(p.font())
+        font.setPointSizeF(7.5)
+        font.setBold(True)
+        p.setFont(font)
+        # De atrás hacia delante, para que el eje que apunta a la cámara quede encima.
+        for axis in sorted(range(3), key=lambda i: toward[i]):
+            v = np.eye(3)[axis]
+            tip = center + QPointF(float(right @ v) * length, -float(up @ v) * length)
+            label = center + QPointF(float(right @ v) * (length + 9), -float(up @ v) * (length + 9))
+            p.setPen(QPen(QColor(AXIS_COLORS[axis]), 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            p.drawLine(center, tip)
+            p.drawText(label + QPointF(-3, 4), "XYZ"[axis])
+        p.end()
+
+
 class _GLView(gl.GLViewWidget):
     clicked = Signal(float, float, bool)   # x, y, Ctrl pulsado
     hovered = Signal(float, float)
@@ -152,6 +197,10 @@ class _GLView(gl.GLViewWidget):
 
     def orbit(self, *args, **kwargs):          # lo llama pyqtgraph al girar con el ratón
         super().orbit(*args, **kwargs)
+        self.cameraChanged.emit()
+
+    def wheelEvent(self, ev):                  # zoom: la regla cambia de paso
+        super().wheelEvent(ev)
         self.cameraChanged.emit()
 
     def enterEvent(self, ev):
@@ -360,6 +409,12 @@ class Viewer3D(QWidget):
         self.tree_btn.setToolTip(tr("Muestra el árbol del modelo encima del visor, como en Fusion"))
         self.tree_btn.toggled.connect(self.treeOverlayToggled)
         row.addWidget(self.tree_btn)
+        self.ruler_btn = QPushButton(tr("Regla"))
+        self.ruler_btn.setObjectName("viewButton")
+        self.ruler_btn.setCheckable(True)
+        self.ruler_btn.setToolTip(tr("Regla graduada en los ejes, como la de OpenSCAD (tecla R)"))
+        self.ruler_btn.toggled.connect(self.set_ruler)
+        row.addWidget(self.ruler_btn)
         self.edges_check = QCheckBox(tr("Aristas"))
         self.edges_check.setObjectName("viewCheck")
         self.edges_check.setChecked(True)
@@ -388,6 +443,7 @@ class Viewer3D(QWidget):
         self.view.opts["fov"] = PERSPECTIVE_FOV
         self.view.setCameraPosition(distance=120, elevation=30, azimuth=-55)
         self.view.cameraChanged.connect(self._update_view_name)
+        self.view.cameraChanged.connect(self._update_ruler)
         layout.addWidget(self.view, 1)
 
         self.grid = gl.GLGridItem()
@@ -401,6 +457,22 @@ class Viewer3D(QWidget):
                            dtype=np.float32),
             mode="lines", width=2, antialias=True)
         self.view.addItem(self.axes)
+        # Regla: por eje, el lado positivo (continuo) y el negativo (punteado y más tenue).
+        self.ruler_on = False
+        self._ruler_key = None
+        self.ruler_pos = [_line_item(_rgba(c), 1.5) for c in AXIS_COLORS]
+        self.ruler_neg = [_line_item(_rgba(c, 0.55), 1.0, "translucent") for c in AXIS_COLORS]
+        self.ruler_labels: list = []           # GLTextItem reutilizados (no existen en pyqtgraph antiguo)
+        self._label_points: list = []
+        # Los textos de pyqtgraph se pintan encima de todo: los que quedan detrás de la pieza se
+        # ocultan (como las marcas, que sí respetan la profundidad). Se mira al parar de girar.
+        self._label_timer = QTimer(self)
+        self._label_timer.setSingleShot(True)
+        self._label_timer.setInterval(120)
+        self._label_timer.timeout.connect(self._hide_covered_labels)
+        self.view.cameraChanged.connect(self._label_timer.start)
+        for item in self.ruler_pos + self.ruler_neg:
+            self.view.addItem(item)
 
         self.model = _mesh_item(geo.DEFAULT_COLOR, "opaque", 0)
         self.approx = _mesh_item(geo.DEFAULT_COLOR, "opaque", 0)
@@ -468,8 +540,10 @@ class Viewer3D(QWidget):
         self.hint = QLabel(tr("Arrastrar: girar · Rueda: zoom · Botón central o Ctrl+arrastrar: mover · "
                               "Clic: seleccionar · Ctrl+clic: añadir") + "\n"
                            + tr("1 frontal · 3 derecha · 7 superior (Ctrl: la opuesta) · 0 isométrica · "
-                                "9 dar la vuelta · 2 4 6 8 girar · 5 perspectiva/ortográfica · . encuadrar"),
+                                "9 dar la vuelta · 2 4 6 8 girar · 5 perspectiva/ortográfica · . encuadrar")
+                           + " · " + tr("R regla"),
                            self.view)
+        self.triad = _AxisTriad(self.view)
         self.hint.setObjectName("viewHint")
         self._build_edge_panel()
         self._build_tree_overlay()
@@ -498,6 +572,7 @@ class Viewer3D(QWidget):
         self.message.setGeometry(40, h // 2 - 60, max(100, w - 80), 80)
         self.hint.adjustSize()
         self.hint.move(12, h - self.hint.height() - 10)
+        self.triad.move(6, h - self.hint.height() - 14 - self.triad.height())
         self.view_name.adjustSize()
         self.view_name.move(max(12, w - self.view_name.width() - 14), 12)
         self.measure_label.adjustSize()
@@ -624,6 +699,8 @@ class Viewer3D(QWidget):
         self._display_real = tris if self.real is not None else None
         self._picker = None
         self._occluders = None
+        if hasattr(self, "_label_timer"):
+            self._label_timer.start()
 
     def _move_ghosts(self, offsets: dict) -> dict:
         """Aplica a las mallas aproximadas el mismo desplazamiento que a su pieza (para seleccionar)."""
@@ -710,6 +787,74 @@ class Viewer3D(QWidget):
             self.fit(geo.bbox(self._highlight_tris) if self._highlight_tris is not None else None)
         elif action == "frame_all":
             self.fit()
+        elif action == "ruler":
+            self.ruler_btn.toggle()
+
+    # ------------------------------------------------------------- regla
+    def set_ruler(self, on: bool) -> None:
+        """Muestra la regla graduada de los ejes (sustituye a los ejes cortos del origen)."""
+        self.ruler_on = bool(on)
+        if self.ruler_btn.isChecked() != self.ruler_on:
+            self.ruler_btn.setChecked(self.ruler_on)
+        self.axes.setVisible(not self.ruler_on)
+        self._ruler_key = None
+        self._update_ruler()
+
+    def _update_ruler(self) -> None:
+        """Rehace la regla si el zoom pide otro paso (los números siempre «redondos»)."""
+        if not hasattr(self, "ruler_pos"):
+            return
+        if not self.ruler_on:
+            for item in self.ruler_pos + self.ruler_neg + self.ruler_labels:
+                item.setVisible(False)
+            return
+        o = self.view.opts
+        span = 2 * o["distance"] * math.tan(math.radians(o["fov"]) / 2)   # ancho visible, en mm
+        data = geo.ruler(span)
+        key = (data["major"], data["extent"])
+        if key == self._ruler_key:
+            return
+        self._ruler_key = key
+        for axis in range(3):
+            _set_lines(self.ruler_pos[axis], data["pos"][axis])
+            _set_lines(self.ruler_neg[axis], data["neg"][axis])
+        if not hasattr(gl, "GLTextItem"):
+            return
+        while len(self.ruler_labels) < len(data["labels"]):
+            item = gl.GLTextItem()
+            self.view.addItem(item)
+            self.ruler_labels.append(item)
+        font = QFont("Consolas")
+        font.setStyleHint(QFont.StyleHint.Monospace)
+        font.setPointSizeF(8)
+        for item, (axis, point, text, negative) in zip(self.ruler_labels, data["labels"]):
+            color = QColor(AXIS_COLORS[axis])
+            color.setAlphaF(0.6 if negative else 0.95)
+            item.setData(pos=np.asarray(point, dtype=np.float32), text=text, color=color, font=font)
+            item.setVisible(True)
+        for item in self.ruler_labels[len(data["labels"]):]:
+            item.setVisible(False)
+        self._label_points = [np.asarray(point, dtype=np.float64) for _a, point, _t, _n in data["labels"]]
+        self._hide_covered_labels()
+
+    def _hide_covered_labels(self) -> None:
+        """Oculta los números de la regla que la pieza tapa desde la cámara actual."""
+        if not self.ruler_on or not self._label_points:
+            return
+        picker = self._get_picker()
+        tris = picker.real if picker.real is not None else picker.ghost_tris
+        cam = self.view.cameraPosition()
+        origin = np.array([cam.x(), cam.y(), cam.z()], dtype=np.float64)
+        for item, point in zip(self.ruler_labels, self._label_points):
+            covered = False
+            if len(tris):
+                t = geo.ray_hits(origin, point - origin, tris)    # t < 1: algo antes del número
+                covered = bool(len(t)) and bool(np.any((t > 1e-6) & (t < 0.999)))
+            item.setVisible(not covered)
+
+    def ruler_texts(self) -> list:
+        """Números visibles de la regla (para las pruebas)."""
+        return [item.text for item in self.ruler_labels if item.visible()]
 
     def current_camera(self) -> str:
         """Cámara de CAMERAS en la que está la vista, o "" si se ha girado a mano."""
@@ -721,9 +866,10 @@ class Viewer3D(QWidget):
 
     def _update_view_name(self) -> None:
         """Marca el botón de la vista actual y escribe su nombre en el visor."""
-        if not hasattr(self, "view_name"):        # aún construyendo el visor
+        if not hasattr(self, "tree_overlay"):     # aún construyendo el visor
             return
         key = self.current_camera()
+        self.triad.set_angles(self.view.opts["elevation"], self.view.opts["azimuth"])
         for cam, b in self.view_buttons.items():
             b.setChecked(cam == key)
         name = tr(CAMERA_NAMES[key]) if key else tr("Libre")

@@ -497,6 +497,7 @@ class MainWindow(QMainWindow):
         self.view_menu.addAction(self.a_tree_overlay)
         if self.gl:
             self.viewer.treeOverlayToggled.connect(self.a_tree_overlay.setChecked)
+            self.viewer.ruler_btn.toggled.connect(lambda on: self.settings.setValue("ruler", on))
         self.view_menu.addSeparator()
 
     def _build_docks(self) -> None:
@@ -660,6 +661,8 @@ class MainWindow(QMainWindow):
     def _startup(self, path: str) -> None:
         if self.settings.value("tree_overlay", False, bool):
             self.set_tree_overlay(True)
+        if self.gl:
+            self.viewer.set_ruler(self.settings.value("ruler", True, bool))
         version = self.runner.version()
         if self.runner.exe:
             self.runner.check_backend_support(version)
