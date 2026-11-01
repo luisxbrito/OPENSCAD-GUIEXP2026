@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QButtonGroup, QComboBox, QComp
 from ..i18n import tr
 from ..model import Document, RawCode
 from .icons import icon
+from .style import c, themed
 
 
 class BooleanDialog(QDialog):
@@ -116,7 +117,7 @@ class BooleanDialog(QDialog):
         self.base_group = QGroupBox(tr("Sólido Base (al que se le resta)"))
         base_lay = QVBoxLayout(self.base_group)
         base_hint = QLabel(tr("Escribe o autocompleta el nombre del sólido principal (+):"))
-        base_hint.setStyleSheet("color: #64748B; font-size: 11px;")
+        base_hint.setStyleSheet(themed("color: #64748B; font-size: 11px;"))
         base_lay.addWidget(base_hint)
 
         self.combo_base = QComboBox()
@@ -140,7 +141,7 @@ class BooleanDialog(QDialog):
         self.target_group = QGroupBox(tr("Sólidos que se restan (cortes / huecos)"))
         target_lay = QVBoxLayout(self.target_group)
         self.target_hint = QLabel(tr("Busca por nombre con autocompletado o márcalos en el árbol:"))
-        self.target_hint.setStyleSheet("color: #64748B; font-size: 11px;")
+        self.target_hint.setStyleSheet(themed("color: #64748B; font-size: 11px;"))
         target_lay.addWidget(self.target_hint)
 
         add_row = QHBoxLayout()
@@ -155,7 +156,7 @@ class BooleanDialog(QDialog):
         target_lay.addLayout(add_row)
 
         self.lbl_selected_targets = QLabel(tr("Piezas marcadas: ninguna"))
-        self.lbl_selected_targets.setStyleSheet("font-weight: bold; color: #1E293B; margin-top: 4px;")
+        self.lbl_selected_targets.setStyleSheet(themed("font-weight: bold; color: #1E293B; margin-top: 4px;"))
         target_lay.addWidget(self.lbl_selected_targets)
         target_lay.addStretch(1)
         left_lay.addWidget(self.target_group, 1)
@@ -169,7 +170,7 @@ class BooleanDialog(QDialog):
         right_lay.setSpacing(6)
 
         tree_title = QLabel(tr("Árbol del Modelo (selecciona o marca con casillas):"))
-        tree_title.setStyleSheet("font-weight: 600; color: #1E293B;")
+        tree_title.setStyleSheet(themed("font-weight: 600; color: #1E293B;"))
         right_lay.addWidget(tree_title)
 
         self.tree = QTreeWidget()
@@ -191,19 +192,19 @@ class BooleanDialog(QDialog):
         self.summary_box = QFrame()
         self.summary_box.setFrameShape(QFrame.Shape.StyledPanel)
         self.summary_box.setStyleSheet(
-            "QFrame { background-color: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 6px; padding: 8px; }"
+            themed("QFrame { background-color: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 6px; padding: 8px; }")
         )
         sum_lay = QVBoxLayout(self.summary_box)
         sum_lay.setContentsMargins(10, 8, 10, 8)
         sum_lay.setSpacing(4)
 
         self.sum_title = QLabel()
-        self.sum_title.setStyleSheet("font-weight: bold; font-size: 13px;")
+        self.sum_title.setStyleSheet(themed("font-weight: bold; font-size: 13px;"))
         self.sum_desc = QLabel()
         self.sum_desc.setWordWrap(True)
-        self.sum_desc.setStyleSheet("color: #334155; font-size: 12px;")
+        self.sum_desc.setStyleSheet(themed("color: #334155; font-size: 12px;"))
         self.sum_code = QLabel()
-        self.sum_code.setStyleSheet("font-family: monospace; font-size: 11px; color: #0F172A; background: #E2E8F0; padding: 4px 6px; border-radius: 4px;")
+        self.sum_code.setStyleSheet(themed("font-family: monospace; font-size: 11px; color: #0F172A; background: #E2E8F0; padding: 4px 6px; border-radius: 4px;"))
 
         sum_lay.addWidget(self.sum_title)
         sum_lay.addWidget(self.sum_desc)
@@ -356,22 +357,22 @@ class BooleanDialog(QDialog):
             if self.current_kind == "difference" and nid == self.base_id:
                 item.setText(1, tr("Base (+) [Minuendo]"))
                 item.setCheckState(0, Qt.CheckState.Unchecked)
-                item.setForeground(1, QColor("#166534"))
+                item.setForeground(1, QColor(c("#166534", True)))
             elif nid in self.target_ids:
                 if self.current_kind == "difference":
                     item.setText(1, tr("Se resta (-) [Sustraendo]"))
-                    item.setForeground(1, QColor("#991B1B"))
+                    item.setForeground(1, QColor(c("#991B1B", True)))
                 elif self.current_kind == "union":
                     item.setText(1, tr("Se une (∪)"))
-                    item.setForeground(1, QColor("#15803D"))
+                    item.setForeground(1, QColor(c("#15803D", True)))
                 else:
                     item.setText(1, tr("Intersección (∩)"))
-                    item.setForeground(1, QColor("#6B21A8"))
+                    item.setForeground(1, QColor(c("#6B21A8", True)))
                 item.setCheckState(0, Qt.CheckState.Checked)
             else:
                 item.setText(1, "")
                 item.setCheckState(0, Qt.CheckState.Unchecked)
-                item.setForeground(1, QColor("#64748B"))
+                item.setForeground(1, QColor(c("#64748B", True)))
 
         # Seleccionar base en combo
         if self.base_id is not None:
@@ -394,7 +395,7 @@ class BooleanDialog(QDialog):
 
         if self.current_kind == "difference":
             self.sum_title.setText(f"{tr('Restar')}: {base_name} − {', '.join(target_names) if target_names else tr('(sin cortes)')}")
-            self.sum_title.setStyleSheet("font-weight: bold; font-size: 13px; color: #991B1B;")
+            self.sum_title.setStyleSheet(themed("font-weight: bold; font-size: 13px; color: #991B1B;"))
             if target_names:
                 self.sum_desc.setText(
                     f"{tr('El sólido base')} <b>{base_name}</b> {tr('permanecerá y se le sustraerán los volúmenes de')} "
@@ -412,7 +413,7 @@ class BooleanDialog(QDialog):
             all_names.extend(target_names)
             names_str = " ∪ ".join(all_names) if all_names else tr("(ninguno)")
             self.sum_title.setText(f"{tr('Unir')}: {names_str}")
-            self.sum_title.setStyleSheet("font-weight: bold; font-size: 13px; color: #15803D;")
+            self.sum_title.setStyleSheet(themed("font-weight: bold; font-size: 13px; color: #15803D;"))
             self.sum_desc.setText(
                 f"{tr('Todos los sólidos seleccionados')} (<b>{', '.join(all_names)}</b>) "
                 f"{tr('se fusionarán en un único cuerpo sólido sin huecos interiores.')}"
@@ -427,7 +428,7 @@ class BooleanDialog(QDialog):
             all_names.extend(target_names)
             names_str = " ∩ ".join(all_names) if all_names else tr("(ninguno)")
             self.sum_title.setText(f"{tr('Intersecar')}: {names_str}")
-            self.sum_title.setStyleSheet("font-weight: bold; font-size: 13px; color: #6B21A8;")
+            self.sum_title.setStyleSheet(themed("font-weight: bold; font-size: 13px; color: #6B21A8;"))
             self.sum_desc.setText(
                 f"{tr('Se conservará exclusivamente el material donde coincidan simultáneamente')} "
                 f"<b>{', '.join(all_names)}</b>."

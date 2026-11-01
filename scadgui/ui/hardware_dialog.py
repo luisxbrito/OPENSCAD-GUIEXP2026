@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QFormLayout, QGrou
 
 from ..hardware import BEARINGS_ISO, STANDARD_LENGTHS, available_sizes, describe
 from ..i18n import tr
+from .style import themed
 
 CATEGORIES = [
     ("screw_allen", "Tornillo Allen cilíndrico (ISO 4762 / DIN 912)", "screw", "iso4762"),
@@ -103,7 +104,7 @@ class HardwareDialog(QDialog):
         info_group = QGroupBox(tr("Ficha técnica y cotas normalizadas"))
         info_lay = QVBoxLayout(info_group)
         self.lbl_info = QLabel()
-        self.lbl_info.setStyleSheet("color: #3D4756; font-size: 11px;")
+        self.lbl_info.setStyleSheet(themed("color: #3D4756; font-size: 11px;"))
         self.lbl_info.setWordWrap(True)
         info_lay.addWidget(self.lbl_info)
         layout.addWidget(info_group)
@@ -189,7 +190,7 @@ class HardwareDialog(QDialog):
             txt += "<br><span style='color: #B42318;'>{}</span>".format(html.escape(
                 tr("Modo taladro: se crea la forma que hay que restar (paso y cajeado), no la pieza.")))
 
-        self.lbl_info.setText(txt)
+        self.lbl_info.setText(themed(txt))
 
     def get_result(self) -> dict:
         cat, std = self.combo_type.currentData() or ("screw", "iso4762")

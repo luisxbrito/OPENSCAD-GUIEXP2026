@@ -16,6 +16,7 @@ from ..i18n import tr
 from ..operations import OPERATION_HELPERS
 from ..model import Document
 from .icons import icon
+from .style import themed
 
 
 class OperationHelperWidget(QFrame):
@@ -29,8 +30,8 @@ class OperationHelperWidget(QFrame):
         self.params = current_params
         self.setObjectName("operationHelperBox")
         self.setStyleSheet(
-            "QFrame#operationHelperBox { background-color: #F8FAFC; border: 1px solid #CBD5E1; "
-            "border-radius: 8px; padding: 10px; margin-top: 6px; }"
+            themed("QFrame#operationHelperBox { background-color: #F8FAFC; border: 1px solid #CBD5E1; "
+            "border-radius: 8px; padding: 10px; margin-top: 6px; }")
         )
         self._build_ui()
 
@@ -56,7 +57,7 @@ class OperationHelperWidget(QFrame):
         if callable(getattr(ico, "pixmap", None)):
             icon_w.setPixmap(ico.pixmap(18, 18))
         title = QLabel(f"<b>{tr(info['title'])}</b>")
-        title.setStyleSheet("color: #0F172A; font-size: 12px;")
+        title.setStyleSheet(themed("color: #0F172A; font-size: 12px;"))
         head.addWidget(icon_w)
         head.addWidget(title)
         head.addStretch(1)
@@ -65,7 +66,7 @@ class OperationHelperWidget(QFrame):
         # Resumen conciso
         summary = QLabel(tr(info["summary"]))
         summary.setWordWrap(True)
-        summary.setStyleSheet("color: #475569; font-size: 11px;")
+        summary.setStyleSheet(themed("color: #475569; font-size: 11px;"))
         lay.addWidget(summary)
 
         # Pro-tip si existe
@@ -73,8 +74,8 @@ class OperationHelperWidget(QFrame):
             tip = QLabel(tr(info["pro_tip"]))
             tip.setWordWrap(True)
             tip.setStyleSheet(
-                "background-color: #EFF6FF; border-left: 3px solid #3B82F6; color: #1E40AF; "
-                "padding: 5px 8px; font-size: 10px; border-radius: 3px;"
+                themed("background-color: #EFF6FF; border-left: 3px solid #3B82F6; color: #1E40AF; "
+                "padding: 5px 8px; font-size: 10px; border-radius: 3px;")
             )
             lay.addWidget(tip)
 
@@ -82,7 +83,7 @@ class OperationHelperWidget(QFrame):
         presets = info.get("presets", [])
         if presets:
             lbl_actions = QLabel(f"<b>{tr('Acciones rápidas (1 clic)')}:</b>")
-            lbl_actions.setStyleSheet("color: #334155; font-size: 11px; margin-top: 4px;")
+            lbl_actions.setStyleSheet(themed("color: #334155; font-size: 11px; margin-top: 4px;"))
             lay.addWidget(lbl_actions)
 
             grid = QGridLayout()
@@ -90,9 +91,9 @@ class OperationHelperWidget(QFrame):
             for idx, (btn_text, fn, param_key) in enumerate(presets):
                 b = QPushButton(tr(btn_text))
                 b.setStyleSheet(
-                    "QPushButton { background: #FFFFFF; border: 1px solid #CBD5E1; "
+                    themed("QPushButton { background: #FFFFFF; border: 1px solid #CBD5E1; "
                     "border-radius: 4px; padding: 4px 6px; font-size: 10px; color: #1E293B; } "
-                    "QPushButton:hover { background: #F1F5F9; border-color: #94A3B8; }"
+                    "QPushButton:hover { background: #F1F5F9; border-color: #94A3B8; }")
                 )
                 b.clicked.connect(lambda _=False, f=fn, k=param_key: self._on_preset_clicked(f, k))
                 grid.addWidget(b, idx // 2, idx % 2)
@@ -101,9 +102,9 @@ class OperationHelperWidget(QFrame):
         # Botón para abrir la guía completa
         btn_guide = QPushButton(f"{tr('Ver guía completa y ejemplos…')}")
         btn_guide.setStyleSheet(
-            "QPushButton { background: transparent; border: none; color: #2563EB; "
+            themed("QPushButton { background: transparent; border: none; color: #2563EB; "
             "font-size: 11px; text-decoration: underline; text-align: left; padding: 2px 0px; margin-top: 4px; } "
-            "QPushButton:hover { color: #1D4ED8; }"
+            "QPushButton:hover { color: #1D4ED8; }")
         )
         btn_guide.clicked.connect(lambda: self.openFullGuideRequested.emit(self.kind))
         lay.addWidget(btn_guide)
@@ -134,7 +135,7 @@ class OperationHelperDialog(QDialog):
         top_bar = QHBoxLayout()
         top_bar.setSpacing(8)
         lbl_search = QLabel(f"{tr('Buscar operación')}:")
-        lbl_search.setStyleSheet("font-weight: 500;")
+        lbl_search.setStyleSheet(themed("font-weight: 500;"))
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText(tr("Ej: translate, rotate, difference, extrude..."))
         self.search_box.textChanged.connect(self._filter_list)
@@ -233,20 +234,20 @@ class OperationHelperDialog(QDialog):
         self.detail_lay.addLayout(head)
 
         cat_badge = QLabel(f"<b>{tr('Categoría')}:</b> {tr(info.get('category', 'General'))}")
-        cat_badge.setStyleSheet("color: #64748B; font-size: 11px;")
+        cat_badge.setStyleSheet(themed("color: #64748B; font-size: 11px;"))
         self.detail_lay.addWidget(cat_badge)
 
         # Resumen
         sum_box = QLabel(tr(info.get("summary", "")))
         sum_box.setWordWrap(True)
-        sum_box.setStyleSheet("font-size: 13px; font-weight: 500; color: #1E293B;")
+        sum_box.setStyleSheet(themed("font-size: 13px; font-weight: 500; color: #1E293B;"))
         self.detail_lay.addWidget(sum_box)
 
         # ¿Cómo funciona?
         self.detail_lay.addWidget(QLabel(f"<h3>{tr('¿Cómo funciona?')}</h3>"))
         how = QLabel(tr(info.get("how_it_works", "")))
         how.setWordWrap(True)
-        how.setStyleSheet("line-height: 1.4; color: #334155;")
+        how.setStyleSheet(themed("line-height: 1.4; color: #334155;"))
         self.detail_lay.addWidget(how)
 
         # Pro-tip
@@ -254,8 +255,8 @@ class OperationHelperDialog(QDialog):
             tip = QLabel(tr(info["pro_tip"]))
             tip.setWordWrap(True)
             tip.setStyleSheet(
-                "background-color: #FEF3C7; border-left: 4px solid #F59E0B; "
-                "color: #92400E; padding: 8px 12px; font-size: 11px; border-radius: 4px;"
+                themed("background-color: #FEF3C7; border-left: 4px solid #F59E0B; "
+                "color: #92400E; padding: 8px 12px; font-size: 11px; border-radius: 4px;")
             )
             self.detail_lay.addWidget(tip)
 
@@ -264,7 +265,7 @@ class OperationHelperDialog(QDialog):
             self.detail_lay.addWidget(QLabel(f"<h3>{tr('Ejemplo en OpenSCAD:')}</h3>"))
             code_view = QPlainTextEdit(info["example_code"])
             code_view.setReadOnly(True)
-            code_view.setStyleSheet("font-family: monospace; font-size: 11px; background: #F1F5F9; border: 1px solid #CBD5E1; border-radius: 4px;")
+            code_view.setStyleSheet(themed("font-family: monospace; font-size: 11px; background: #F1F5F9; border: 1px solid #CBD5E1; border-radius: 4px;"))
             code_view.setMaximumHeight(100)
             self.detail_lay.addWidget(code_view)
 

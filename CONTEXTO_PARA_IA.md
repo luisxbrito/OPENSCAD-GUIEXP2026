@@ -189,6 +189,15 @@ python tests/simulacion/sim_ventana_visor_imagen.py
   propiedades se quedan en el panel Modelo. Se recuerda en la configuración (`tree_overlay`).
   Ahí el fondo es transparente: iconos y textos pasan a colores claros (`TREE_COLORS[True]`,
   `tree_on_viewer`) porque el fondo del visor es oscuro; al cambiar se reconstruye el árbol.
+- Tema claro / oscuro (`ui/style.py`, Ver › Tema oscuro, se guarda en `theme`, por defecto
+  oscuro; se aplica al reiniciar). Los colores se escriben SOLO una vez, los del tema claro:
+  `themed(css)` y `c(color, text=...)` los traducen al oscuro (tabla `DARK` y, si no está,
+  inversión del brillo conservando el tono). Todo `setStyleSheet(...)` va con `themed(...)`,
+  todo `QColor("#...")` con `c(...)` e `icon()` traduce solo; el visor 3D es oscuro siempre
+  (`VIEWER_STYLES`, `icon(..., fixed=True)`). En oscuro se usa el estilo Fusion con
+  `dark_palette()` para los controles que no cubre la hoja de estilos.
+- Cinta: `Ribbon.GROUPS` reparte los botones de cada pestaña en grupos con título (marcados con
+  `N_()` para que `test_i18n` exija su traducción); un comando nuevo sin grupo va al último.
 - Atajos de vista como Blender (`viewer3d.VIEW_KEYS`), solo en el visor OpenGL: valen con el
   ratón encima salvo si el foco está en un campo de texto. La ortográfica se imita con fov 1°.
 - Visor OpenGL: selección con clic, resaltado, medición, gizmo de traslación, colores de

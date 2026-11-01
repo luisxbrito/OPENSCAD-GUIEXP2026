@@ -35,6 +35,7 @@ from ..code_assist import (BOOLEAN_TEMPLATES, OPENSCAD_BUILTINS, SNIPPETS_CATALO
                            format_signature_html, get_signature_info)
 from ..i18n import tr
 from .icons import icon
+from .style import c, themed
 
 
 def mono_font(size: int = 10) -> QFont:
@@ -51,7 +52,7 @@ class ScadHighlighter(QSyntaxHighlighter):
 
         def fmt(color, bold=False, italic=False):
             f = QTextCharFormat()
-            f.setForeground(QColor(color))
+            f.setForeground(QColor(c(color, True)))
             if bold:
                 f.setFontWeight(QFont.Weight.DemiBold)
             f.setFontItalic(italic)
@@ -114,28 +115,28 @@ class FindBar(QFrame):
         super().__init__(parent)
         self.setObjectName("findBar")
         self.setStyleSheet(
-            "QFrame#findBar { background-color: #F8FAFC; border-bottom: 1px solid #CBD5E1; "
-            "padding: 4px 8px; }"
+            themed("QFrame#findBar { background-color: #F8FAFC; border-bottom: 1px solid #CBD5E1; "
+            "padding: 4px 8px; }")
         )
         lay = QHBoxLayout(self)
         lay.setContentsMargins(6, 4, 6, 4)
         lay.setSpacing(6)
 
         self.lbl = QLabel(f"{tr('Buscar')}:")
-        self.lbl.setStyleSheet("font-size: 11px; font-weight: 500; color: #475569;")
+        self.lbl.setStyleSheet(themed("font-size: 11px; font-weight: 500; color: #475569;"))
         lay.addWidget(self.lbl)
 
         self.input = QLineEdit()
         self.input.setPlaceholderText(tr("Texto a buscar… (Enter para siguiente)"))
         self.input.setStyleSheet(
-            "QLineEdit { background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 4px; "
-            "padding: 3px 6px; font-size: 11px; } QLineEdit:focus { border-color: #3B82F6; }"
+            themed("QLineEdit { background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 4px; "
+            "padding: 3px 6px; font-size: 11px; } QLineEdit:focus { border-color: #3B82F6; }")
         )
         self.input.returnPressed.connect(lambda: self.findNext.emit(self.input.text()))
         lay.addWidget(self.input, 1)
 
         self.lbl_count = QLabel("")
-        self.lbl_count.setStyleSheet("font-size: 10px; color: #64748B; min-width: 65px;")
+        self.lbl_count.setStyleSheet(themed("font-size: 10px; color: #64748B; min-width: 65px;"))
         lay.addWidget(self.lbl_count)
 
         self.btn_prev = QToolButton()
@@ -159,10 +160,10 @@ class FindBar(QFrame):
     def set_count(self, current: int, total: int) -> None:
         if total == 0:
             self.lbl_count.setText(tr("Sin resultados"))
-            self.lbl_count.setStyleSheet("font-size: 10px; color: #DC2626; min-width: 65px;")
+            self.lbl_count.setStyleSheet(themed("font-size: 10px; color: #DC2626; min-width: 65px;"))
         else:
             self.lbl_count.setText(f"{current} {tr('de')} {total}")
-            self.lbl_count.setStyleSheet("font-size: 10px; color: #166534; min-width: 65px;")
+            self.lbl_count.setStyleSheet(themed("font-size: 10px; color: #166534; min-width: 65px;"))
 
     def retranslate_ui(self) -> None:
         self.lbl.setText(f"{tr('Buscar')}:")
@@ -183,12 +184,12 @@ class SignatureHelpPopup(QFrame):
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
         self.setStyleSheet(
-            "QFrame#signatureHelpPopup { "
+            themed("QFrame#signatureHelpPopup { "
             "  background-color: #FFFFFF; "
             "  border: 1px solid #3B82F6; "
             "  border-radius: 6px; "
             "}"
-            "QLabel { color: #1E293B; font-size: 11px; }"
+            "QLabel { color: #1E293B; font-size: 11px; }")
         )
 
         lay = QVBoxLayout(self)
@@ -196,7 +197,7 @@ class SignatureHelpPopup(QFrame):
         lay.setSpacing(4)
 
         self.lbl_category = QLabel()
-        self.lbl_category.setStyleSheet("color: #64748B; font-size: 10px; font-weight: bold;")
+        self.lbl_category.setStyleSheet(themed("color: #64748B; font-size: 10px; font-weight: bold;"))
         lay.addWidget(self.lbl_category)
 
         self.lbl_sig = QLabel()
@@ -204,18 +205,18 @@ class SignatureHelpPopup(QFrame):
         lay.addWidget(self.lbl_sig)
 
         self.lbl_detail = QLabel()
-        self.lbl_detail.setStyleSheet("color: #0F172A; font-size: 11px;")
+        self.lbl_detail.setStyleSheet(themed("color: #0F172A; font-size: 11px;"))
         lay.addWidget(self.lbl_detail)
 
         self.lbl_tip = QLabel(tr("Ctrl+Shift+Espacio: alternar · Esc: cerrar"))
-        self.lbl_tip.setStyleSheet("color: #94A3B8; font-size: 9px; font-style: italic;")
+        self.lbl_tip.setStyleSheet(themed("color: #94A3B8; font-size: 9px; font-style: italic;"))
         lay.addWidget(self.lbl_tip)
 
     def show_signature(self, sig_info: dict) -> None:
         sig_html, detail_html = format_signature_html(sig_info)
         self.lbl_category.setText(sig_info["category"])
-        self.lbl_sig.setText(sig_html)
-        self.lbl_detail.setText(detail_html)
+        self.lbl_sig.setText(themed(sig_html))
+        self.lbl_detail.setText(themed(detail_html))
         self.adjustSize()
 
 
@@ -370,8 +371,8 @@ class ScadEditor(QPlainTextEdit):
 
     def line_number_area_paint_event(self, event) -> None:
         painter = QPainter(self.line_number_area)
-        painter.fillRect(event.rect(), QColor("#F8FAFC"))
-        painter.setPen(QColor("#CBD5E1"))
+        painter.fillRect(event.rect(), QColor(c("#F8FAFC")))
+        painter.setPen(QColor(c("#CBD5E1", True)))
         w = self.line_number_area.width()
         painter.drawLine(w - 1, event.rect().top(), w - 1, event.rect().bottom())
 
@@ -386,12 +387,12 @@ class ScadEditor(QPlainTextEdit):
             if block.isVisible() and bottom >= event.rect().top():
                 number = str(block_number + 1)
                 if block_number == current_line:
-                    painter.setPen(QColor("#1E40AF"))
+                    painter.setPen(QColor(c("#1E40AF", True)))
                     f = painter.font()
                     f.setBold(True)
                     painter.setFont(f)
                 else:
-                    painter.setPen(QColor("#94A3B8"))
+                    painter.setPen(QColor(c("#94A3B8", True)))
                     f = painter.font()
                     f.setBold(False)
                     painter.setFont(f)
@@ -425,7 +426,7 @@ class ScadEditor(QPlainTextEdit):
         if not self.isReadOnly() or not self._span_selections:
             line_sel = QTextEdit.ExtraSelection()
             line_fmt = QTextCharFormat()
-            line_fmt.setBackground(QColor("#F8FAFC") if self.isReadOnly() else QColor("#F1F5F9"))
+            line_fmt.setBackground(QColor(c("#F8FAFC")) if self.isReadOnly() else QColor(c("#F1F5F9")))
             line_fmt.setProperty(QTextFormat.Property.FullWidthSelection, True)
             line_sel.format = line_fmt
             line_sel.cursor = self.textCursor()
@@ -484,7 +485,7 @@ class ScadEditor(QPlainTextEdit):
 
         if match_pos != -1:
             fmt = QTextCharFormat()
-            fmt.setBackground(QColor("#BAE6FD"))  # Celeste suave indicador
+            fmt.setBackground(QColor(c("#BAE6FD")))  # Celeste suave indicador
             fmt.setFontWeight(QFont.Weight.Bold)
 
             for p in (check_pos, match_pos):
@@ -848,8 +849,8 @@ class CodeView(QWidget):
         self.btn_snippets.setText(tr("+ Insertar bloque"))
         self.btn_snippets.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.btn_snippets.setStyleSheet(
-            "QToolButton { background: #F1F5F9; border: 1px solid #CBD5E1; border-radius: 4px; "
-            "padding: 3px 8px; font-size: 11px; } QToolButton:hover { background: #E2E8F0; }"
+            themed("QToolButton { background: #F1F5F9; border: 1px solid #CBD5E1; border-radius: 4px; "
+            "padding: 3px 8px; font-size: 11px; } QToolButton:hover { background: #E2E8F0; }")
         )
         self._build_snippets_menu()
         row.addWidget(self.btn_snippets)
@@ -908,8 +909,8 @@ class CodeView(QWidget):
         # Barra de aviso de llaves desbalanceadas
         self.balance_bar = QLabel()
         self.balance_bar.setStyleSheet(
-            "background-color: #FEF3C7; border-top: 1px solid #F59E0B; color: #92400E; "
-            "padding: 4px 8px; font-size: 11px; font-weight: 500;"
+            themed("background-color: #FEF3C7; border-top: 1px solid #F59E0B; color: #92400E; "
+            "padding: 4px 8px; font-size: 11px; font-weight: 500;")
         )
         self.balance_bar.setVisible(False)
         layout.addWidget(self.balance_bar)
@@ -919,8 +920,8 @@ class CodeView(QWidget):
         self.bool_hint_bar.setObjectName("boolHintBar")
         self.bool_hint_bar.setWordWrap(True)
         self.bool_hint_bar.setStyleSheet(
-            "QLabel#boolHintBar { background-color: #EFF6FF; border-top: 1px solid #BFDBFE; "
-            "color: #1E40AF; padding: 5px 10px; font-size: 11px; font-weight: 500; }"
+            themed("QLabel#boolHintBar { background-color: #EFF6FF; border-top: 1px solid #BFDBFE; "
+            "color: #1E40AF; padding: 5px 10px; font-size: 11px; font-weight: 500; }")
         )
         self.bool_hint_bar.setVisible(False)
         layout.addWidget(self.bool_hint_bar)
@@ -930,8 +931,8 @@ class CodeView(QWidget):
         self.sig_hint_bar.setObjectName("sigHintBar")
         self.sig_hint_bar.setWordWrap(True)
         self.sig_hint_bar.setStyleSheet(
-            "QLabel#sigHintBar { background-color: #F0F9FF; border-top: 1px solid #BAE6FD; "
-            "color: #0369A1; padding: 4px 10px; font-size: 11px; font-weight: 500; }"
+            themed("QLabel#sigHintBar { background-color: #F0F9FF; border-top: 1px solid #BAE6FD; "
+            "color: #0369A1; padding: 4px 10px; font-size: 11px; font-weight: 500; }")
         )
         self.sig_hint_bar.setVisible(False)
         layout.addWidget(self.sig_hint_bar)
@@ -1077,10 +1078,10 @@ class CodeView(QWidget):
         # Resaltar todas las ocurrencias
         selections = []
         fmt_all = QTextCharFormat()
-        fmt_all.setBackground(QColor("#FEF08A"))  # Amarillo suave
+        fmt_all.setBackground(QColor(c("#FEF08A")))  # Amarillo suave
 
         fmt_current = QTextCharFormat()
-        fmt_current.setBackground(QColor("#FDE047"))  # Amarillo intenso
+        fmt_current.setBackground(QColor(c("#FDE047")))  # Amarillo intenso
         fmt_current.setFontWeight(QFont.Weight.Bold)
 
         for i, idx in enumerate(indices):
@@ -1186,7 +1187,7 @@ class CodeView(QWidget):
                     break
                 sel = QTextEdit.ExtraSelection()
                 fmt = QTextCharFormat()
-                fmt.setBackground(QColor("#E3ECFA"))
+                fmt.setBackground(QColor(c("#E3ECFA")))
                 fmt.setProperty(QTextFormat.Property.FullWidthSelection, True)
                 sel.format = fmt
                 sel.cursor = QTextCursor(block)
@@ -1242,8 +1243,8 @@ class CodeView(QWidget):
                 tr("difference(): El 1er sólido es la BASE (+); todos los siguientes se le RESTAN (-) como cortes o huecos.")
             )
             self.bool_hint_bar.setStyleSheet(
-                "QLabel#boolHintBar { background-color: #FEF2F2; border-top: 1px solid #FECACA; "
-                "color: #991B1B; padding: 5px 10px; font-size: 11px; font-weight: 500; }"
+                themed("QLabel#boolHintBar { background-color: #FEF2F2; border-top: 1px solid #FECACA; "
+                "color: #991B1B; padding: 5px 10px; font-size: 11px; font-weight: 500; }")
             )
             self.bool_hint_bar.setVisible(True)
         elif detected == "union":
@@ -1251,8 +1252,8 @@ class CodeView(QWidget):
                 tr("union(): Todos los sólidos hijos se unen y fusionan (∪) en un único cuerpo continuo.")
             )
             self.bool_hint_bar.setStyleSheet(
-                "QLabel#boolHintBar { background-color: #F0FDF4; border-top: 1px solid #BBF7D0; "
-                "color: #166534; padding: 5px 10px; font-size: 11px; font-weight: 500; }"
+                themed("QLabel#boolHintBar { background-color: #F0FDF4; border-top: 1px solid #BBF7D0; "
+                "color: #166534; padding: 5px 10px; font-size: 11px; font-weight: 500; }")
             )
             self.bool_hint_bar.setVisible(True)
         elif detected == "intersection":
@@ -1260,8 +1261,8 @@ class CodeView(QWidget):
                 tr("intersection(): Conserva exclusivamente el volumen común donde coinciden todos los sólidos (∩).")
             )
             self.bool_hint_bar.setStyleSheet(
-                "QLabel#boolHintBar { background-color: #FAF5FF; border-top: 1px solid #E9D5FF; "
-                "color: #6B21A8; padding: 5px 10px; font-size: 11px; font-weight: 500; }"
+                themed("QLabel#boolHintBar { background-color: #FAF5FF; border-top: 1px solid #E9D5FF; "
+                "color: #6B21A8; padding: 5px 10px; font-size: 11px; font-weight: 500; }")
             )
             self.bool_hint_bar.setVisible(True)
         else:

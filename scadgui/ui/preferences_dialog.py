@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDoubleSpinBox,
 
 from ..i18n import LANGUAGES, get_language, set_language, tr
 from ..runner import find_openscad
+from .style import themed
 
 
 COLOR_SCHEMES = [
@@ -65,7 +66,7 @@ class PreferencesDialog(QDialog):
         lay_exe.addLayout(row_exe)
 
         self.lbl_exe_status = QLabel()
-        self.lbl_exe_status.setStyleSheet("color: #5A6474; font-size: 11px;")
+        self.lbl_exe_status.setStyleSheet(themed("color: #5A6474; font-size: 11px;"))
         lay_exe.addWidget(self.lbl_exe_status)
         lay_engine.addWidget(self.grp_exe)
 
@@ -351,13 +352,13 @@ class PreferencesDialog(QDialog):
         raw_path = self.edit_exe.text().strip()
         if not raw_path:
             self.lbl_exe_status.setText(tr("Estado: ruta vacía"))
-            self.lbl_exe_status.setStyleSheet("color: #8A5A00; font-size: 11px;")
+            self.lbl_exe_status.setStyleSheet(themed("color: #8A5A00; font-size: 11px;"))
             return
 
         exe = find_openscad(raw_path)
         if not os.path.exists(exe):
             self.lbl_exe_status.setText(f"{tr('Estado')}: {tr('no se encontró')} '{exe}'")
-            self.lbl_exe_status.setStyleSheet("color: #B42318; font-size: 11px;")
+            self.lbl_exe_status.setStyleSheet(themed("color: #B42318; font-size: 11px;"))
             return
 
         # Intentar ejecutar con --version
@@ -367,10 +368,10 @@ class PreferencesDialog(QDialog):
             ver = (res.stdout or res.stderr or "").strip()
             self._detected_version = ver
             self.lbl_exe_status.setText(f"{tr('Correcto')}: {ver}")
-            self.lbl_exe_status.setStyleSheet("color: #174A96; font-size: 11px;")
+            self.lbl_exe_status.setStyleSheet(themed("color: #174A96; font-size: 11px;"))
         except Exception as exc:  # noqa: BLE001
             self.lbl_exe_status.setText(f"{tr('Error al ejecutar')}: {exc}")
-            self.lbl_exe_status.setStyleSheet("color: #B42318; font-size: 11px;")
+            self.lbl_exe_status.setStyleSheet(themed("color: #B42318; font-size: 11px;"))
 
     def _on_save(self) -> None:
         # Guardar en QSettings

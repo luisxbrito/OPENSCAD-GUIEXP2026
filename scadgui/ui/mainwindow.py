@@ -12,7 +12,8 @@ from typing import Optional
 import numpy as np
 from PySide6.QtCore import QItemSelectionModel, QSettings, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence
-from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QDockWidget, QFileDialog, QHBoxLayout,
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QDockWidget, QFileDialog, QFrame,
+                               QHBoxLayout,
                                QHeaderView, QLabel, QMainWindow, QMenu, QMessageBox, QPlainTextEdit,
                                QSizePolicy, QSplitter, QTabWidget, QToolBar, QToolButton, QTreeWidget,
                                QTreeWidgetItem, QVBoxLayout, QWidget)
@@ -28,7 +29,7 @@ from ..runner import OpenScadRunner, find_openscad
 from .codeview import CodeView, mono_font
 from .icons import icon
 from .properties import PropertyPanel, choose_import_file
-from .style import STYLESHEET
+from .style import ACCENT, c, dark_palette, set_theme, stylesheet
 
 def _resolve_example_path(filename: str) -> str:
     """Resuelve la ruta a un archivo de ejemplo tanto en modo desarrollo como congelado (PyInstaller)."""
@@ -106,6 +107,9 @@ class History:
 
 # --------------------------------------------------------------------------- cinta
 
+N_ = str  # marca un texto que se traduce más tarde con tr() (lo recoge test_i18n)
+
+
 class Ribbon(QTabWidget):
     commandTriggered = Signal(str)
 
@@ -121,26 +125,52 @@ class Ribbon(QTabWidget):
          "Configura qué sólido es la base y cuáles se restan, unen o intersectan."),
     )
 
+    # Grupos de cada pestaña, con su título debajo (como en Fusion). Un comando de la pestaña que
+    # no esté en ningún grupo va al último, para que nunca se quede sin botón.
+    GROUPS = {
+        "solid": ((N_("Primitivas"), ("cube", "sphere", "cylinder", "polyhedron")), (N_("Asistentes"), ("hardware",))),
+        "shape2d": ((N_("Primitivas 2D"), ("square", "circle", "polygon", "text")), (N_("Modificar"), ("offset",)),
+                    (N_("Asistentes"), ("sketch2d", "drawing2d"))),
+        "transform": ((N_("Posición"), ("translate", "rotate", "mirror")), (N_("Tamaño"), ("scale", "resize", "multmatrix")),
+                      (N_("Apariencia"), ("color",))),
+        "bool": ((N_("Combinar"), ("union", "difference", "intersection")), (N_("Organizar"), ("group",)),
+                 (N_("Asistentes"), ("bool_wizard",))),
+        "extrude": ((N_("Extruir"), ("linear_extrude", "rotate_extrude")), (N_("3D → 2D"), ("projection",))),
+        "array": ((N_("Matrices"), ("linear_array", "polar_array", "grid_array")),),
+        "adv": ((N_("Envolventes"), ("hull", "minkowski")), (N_("Otros"), ("fill", "render", "roof"))),
+        "imp": ((N_("Archivos"), ("import", "surface")),),
+    }
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("ribbon")
         self.setDocumentMode(True)
         self.buttons: dict[str, QToolButton] = {}
         self._hints: list[QLabel] = []
+        self._group_titles: list[tuple[QLabel, str]] = []
+        wizards = {command: icon_name for tab, command, icon_name, _t, _tip in self.EXTRA_BUTTONS}
         for key, _title, _hint in CATEGORIES:
             page = QWidget()
             page.setObjectName("ribbonPage")
             row = QHBoxLayout(page)
-            row.setContentsMargins(10, 6, 10, 6)
-            row.setSpacing(6)
-            for spec in specs_in(key):
-                b = self._button(spec.name, spec.name)
-                if spec.level == "experimental":
-                    b.setProperty("experimental", True)
-                row.addWidget(b)
-            for tab, command, icon_name, _text, _tip in self.EXTRA_BUTTONS:
-                if tab == key:
-                    row.addWidget(self._button(command, icon_name))
+            row.setContentsMargins(8, 6, 10, 4)
+            row.setSpacing(0)
+            commands = [s.name for s in specs_in(key)] + [cmd for tab, cmd, *_ in self.EXTRA_BUTTONS if tab == key]
+            groups = [(title, [cmd for cmd in cmds if cmd in commands]) for title, cmds in self.GROUPS.get(key, ())]
+            grouped = {cmd for _t, cmds in groups for cmd in cmds}
+            rest = [cmd for cmd in commands if cmd not in grouped]
+            if rest:
+                if groups:
+                    groups[-1][1].extend(rest)
+                else:
+                    groups = [("", rest)]
+            for i, (title, cmds) in enumerate(g for g in groups if g[1]):
+                if i:
+                    sep = QFrame()
+                    sep.setObjectName("ribbonSep")
+                    sep.setFixedWidth(1)
+                    row.addWidget(sep)
+                row.addWidget(self._group(title, cmds, wizards))
             row.addStretch(1)
             tip = QLabel()
             tip.setWordWrap(True)
@@ -151,13 +181,38 @@ class Ribbon(QTabWidget):
             self.addTab(page, "")
         self.retranslate_ui()
 
-    def _button(self, command: str, icon_name: str) -> QToolButton:
+    def _group(self, title: str, commands, wizards: dict) -> QWidget:
+        box = QWidget()
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(6, 0, 6, 0)
+        lay.setSpacing(2)
+        buttons = QHBoxLayout()
+        buttons.setSpacing(2)
+        for cmd in commands:
+            if cmd in wizards:          # asistente: texto traducido e icono del color de acento
+                b = self._button(cmd, wizards[cmd], ACCENT)
+            else:                       # comando de OpenSCAD: su nombre, en letra de código
+                b = self._button(cmd, cmd)
+                b.setProperty("command", True)
+                if SPECS[cmd].level == "experimental":
+                    b.setProperty("experimental", True)
+            buttons.addWidget(b)
+        lay.addLayout(buttons, 1)
+        label = QLabel()
+        label.setObjectName("ribbonGroupTitle")
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(label)
+        self._group_titles.append((label, title))
+        return box
+
+    def _button(self, command: str, icon_name: str, color: str = "#1B2230") -> QToolButton:
         b = QToolButton()
         b.setObjectName("ribbonButton")
         b.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
-        b.setIcon(icon(icon_name, "#1B2230"))
+        b.setIcon(icon(icon_name, color))
         b.setIconSize(QSize(26, 26))
-        b.setMinimumWidth(86)
+        b.setMinimumWidth(76)
+        b.setFixedHeight(66)            # misma altura con una o dos líneas: los rótulos de grupo alineados
         b.clicked.connect(lambda _=False, c=command: self.commandTriggered.emit(c))
         self.buttons[command] = b
         return b
@@ -166,6 +221,8 @@ class Ribbon(QTabWidget):
         for idx, (_key, title, hint) in enumerate(CATEGORIES):
             self.setTabText(idx, tr(title))
             self._hints[idx].setText(tr(hint))
+        for label, title in self._group_titles:
+            label.setText(tr(title).upper() if title else "")
         for name, spec in SPECS.items():
             if name not in self.buttons:  # cube_edges y cylinder_edges no tienen botón
                 continue
@@ -201,6 +258,13 @@ TREE_COLORS = {
     False: {"icon": "#3D4756", "raw": "#8A5A00", "muted": "#5A6474", "disabled": "#9AA3AF"},
     True: {"icon": "#DDE3EA", "raw": "#F2C46B", "muted": "#AEB7C3", "disabled": "#7D8794"},
 }
+
+
+def tree_colors(on_viewer: bool) -> dict:
+    """Colores del árbol: sobre el visor, los claros tal cual; en el panel, los del tema."""
+    if on_viewer:
+        return TREE_COLORS[True]
+    return {k: c(v, text=k != "icon") for k, v in TREE_COLORS[False].items()}
 
 
 class ModelTree(QTreeWidget):
@@ -247,6 +311,12 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.settings = QSettings("OpenSCAD-GUI-Mejorada", "app")
         set_language(str(self.settings.value("language", "es", str) or "es"))
+        self.theme = str(self.settings.value("theme", "dark", str) or "dark")
+        set_theme(self.theme)
+        app = QApplication.instance()
+        if self.theme == "dark" and app is not None:
+            app.setStyle("Fusion")          # el estilo nativo de Windows no sigue la paleta oscura
+            app.setPalette(dark_palette())
         self.doc = Document()
         self.path = ""
         self.modified = False
@@ -264,7 +334,7 @@ class MainWindow(QMainWindow):
         self.runner.exe = find_openscad(self.settings.value("openscad_path", "", str))
         self.runner.backend = self.settings.value("backend", "", str)
 
-        self.setStyleSheet(STYLESHEET)
+        self.setStyleSheet(stylesheet())
         self.setWindowIcon(icon("cube", "#2563EB"))
         self.resize(1440, 900)
         self._action_defs: list[tuple[QAction, str, Optional[str]]] = []
@@ -415,6 +485,11 @@ class MainWindow(QMainWindow):
         self.a_gl.setChecked(self.settings.value("viewer", "gl", str) != "image")
         self.a_gl.toggled.connect(self._toggle_gl)
         self.view_menu.addAction(self.a_gl)
+        self.a_dark = QAction(tr("Tema oscuro (requiere reiniciar)"), self)
+        self.a_dark.setCheckable(True)
+        self.a_dark.setChecked(self.theme == "dark")
+        self.a_dark.toggled.connect(self._toggle_theme)
+        self.view_menu.addAction(self.a_dark)
         self.a_tree_overlay = QAction(tr("Árbol sobre el visor 3D"), self)
         self.a_tree_overlay.setCheckable(True)
         self.a_tree_overlay.setEnabled(self.gl)
@@ -469,7 +544,7 @@ class MainWindow(QMainWindow):
                                 ("duplicate", tr("Duplicar (Ctrl+D)"), self.duplicate),
                                 ("delete", tr("Eliminar (Supr)"), self.delete_selected)):
             b = QToolButton()
-            b.setIcon(icon(name, TREE_COLORS[False]["icon"]))
+            b.setIcon(icon(name, tree_colors(False)["icon"], fixed=True))
             b.setProperty("icon_name", name)
             b.setIconSize(QSize(16, 16))
             b.setToolTip(tip)
@@ -669,11 +744,11 @@ class MainWindow(QMainWindow):
         self.on_selection()
 
     def _fill_item(self, item: QTreeWidgetItem, node, parent_node=None, child_index: int = 0) -> None:
-        colors = TREE_COLORS[self.tree_on_viewer]
+        colors = tree_colors(self.tree_on_viewer)
         item.setData(0, Qt.ItemDataRole.UserRole, node.id)
         item.setText(0, node.label)
         if isinstance(node, RawCode):
-            item.setIcon(0, icon("comment" if node.is_comment else "lock", colors["raw"]))
+            item.setIcon(0, icon("comment" if node.is_comment else "lock", colors["raw"], fixed=True))
             item.setText(1, tr("comentario") if node.is_comment else tr("código"))
             item.setToolTip(0, node.text)
             f = item.font(0)
@@ -681,7 +756,7 @@ class MainWindow(QMainWindow):
             item.setFont(0, f)
             item.setForeground(0, QColor(colors["muted"]))
         else:
-            item.setIcon(0, icon(node.kind, colors["icon"]))
+            item.setIcon(0, icon(node.kind, colors["icon"], fixed=True))
             cmd_text = f"{node.modifier}{node.kind}"
             extra_tip = ""
 
@@ -1527,7 +1602,7 @@ class MainWindow(QMainWindow):
             self.tree_box = None
         self.tree_on_viewer = on
         for b in self.tree_tools:
-            b.setIcon(icon(b.property("icon_name"), TREE_COLORS[on]["icon"]))
+            b.setIcon(icon(b.property("icon_name"), tree_colors(on)["icon"], fixed=True))
         self.rebuild_tree(self.selected_ids())
         self.a_tree_overlay.blockSignals(True)
         self.a_tree_overlay.setChecked(on)
@@ -1537,6 +1612,10 @@ class MainWindow(QMainWindow):
     def _toggle_gl(self, on: bool) -> None:
         self.settings.setValue("viewer", "gl" if on else "image")
         QMessageBox.information(self, tr("Visor 3D"), tr("El cambio de visor se aplica al reiniciar la aplicación."))
+
+    def _toggle_theme(self, dark: bool) -> None:
+        self.settings.setValue("theme", "dark" if dark else "light")
+        QMessageBox.information(self, tr("Tema"), tr("El cambio de tema se aplica al reiniciar la aplicación."))
 
     def on_image(self, path: str, seconds: float) -> None:
         self.viewer.set_image(path)

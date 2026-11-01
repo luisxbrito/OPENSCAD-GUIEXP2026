@@ -9,10 +9,13 @@ from PySide6.QtGui import QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 
 from ..catalog import ICONS
+from .style import c
 
 
 @lru_cache(maxsize=256)
-def icon(name: str, color: str = "#1B2230", size: int = 48, width: float = 1.6) -> QIcon:
+def icon(name: str, color: str = "#1B2230", size: int = 48, width: float = 1.6, fixed: bool = False) -> QIcon:
+    """Icono del catálogo. El color se adapta al tema salvo con ``fixed`` (fondos que ya son oscuros)."""
+    color = color if fixed else c(color, text=True)  # trazos finos: como letra, con brillo mínimo
     path = ICONS.get(name, ICONS["raw"])
     svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
            f'stroke="{color}" stroke-width="{width}" stroke-linecap="round" stroke-linejoin="round">'

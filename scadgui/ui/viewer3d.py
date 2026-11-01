@@ -54,6 +54,10 @@ VIEW_KEYS = {
     "home": ("frame_all", "frame_all"),
 }
 SHORTCUT_OF = {"Isométrica": "0", "Frontal": "1", "Superior": "7", "Derecha": "3"}
+# Nombre de cada cámara en la etiqueta del visor; si la cámara no está en ninguna, "Libre".
+N_ = str  # texto que se traduce después con tr() (lo recoge test_i18n)
+CAMERA_NAMES = {"iso": N_("Isométrica"), "front": N_("Frontal"), "back": N_("Trasera"), "right": N_("Derecha"),
+                "left": N_("Izquierda"), "top": N_("Superior"), "bottom": N_("Inferior")}
 ORBIT_STEP = 15.0      # grados por pulsación, como Blender
 TREE_OVERLAY_WIDTH = 330
 ORTHO_FOV = 1.0        # la vista ortográfica se imita con un ángulo de cámara casi nulo
@@ -129,6 +133,7 @@ class _GLView(gl.GLViewWidget):
     gizmoStarted = Signal()
     gizmoMoved = Signal(float, float, float)  # dx, dy, dz totales acumulados desde el inicio del clic
     gizmoFinished = Signal()
+    cameraChanged = Signal()               # giro de la cámara (teclas, botones o ratón)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -140,6 +145,14 @@ class _GLView(gl.GLViewWidget):
         self._drag_origin: Optional[np.ndarray] = None
         self.setMouseTracking(True)  # para resaltar la arista bajo el ratón sin pulsar
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
+    def setCameraPosition(self, *args, **kwargs):
+        super().setCameraPosition(*args, **kwargs)
+        self.cameraChanged.emit()
+
+    def orbit(self, *args, **kwargs):          # lo llama pyqtgraph al girar con el ratón
+        super().orbit(*args, **kwargs)
+        self.cameraChanged.emit()
 
     def enterEvent(self, ev):
         """Como en Blender, las teclas de vista valen con el ratón encima, salvo si se está
@@ -316,9 +329,12 @@ class Viewer3D(QWidget):
         title = QLabel(tr("Vista 3D"))
         title.setObjectName("viewTitle")
         row.addWidget(title)
+        self.view_buttons: dict[str, QPushButton] = {}
         for name in VIEWS:
             b = QPushButton(tr(name))
             b.setObjectName("viewButton")
+            b.setCheckable(True)             # marcado: la vista en la que está la cámara
+            self.view_buttons[VIEWS[name]] = b
             b.setToolTip(tr("Tecla {key} (teclado numérico o fila de números)").format(key=SHORTCUT_OF[name]))
             b.clicked.connect(lambda _=False, n=name: self.set_view(n))
             row.addWidget(b)
@@ -371,6 +387,7 @@ class Viewer3D(QWidget):
         self.view.setBackgroundColor(pg.mkColor("#262B33"))
         self.view.opts["fov"] = PERSPECTIVE_FOV
         self.view.setCameraPosition(distance=120, elevation=30, azimuth=-55)
+        self.view.cameraChanged.connect(self._update_view_name)
         layout.addWidget(self.view, 1)
 
         self.grid = gl.GLGridItem()
@@ -436,6 +453,8 @@ class Viewer3D(QWidget):
         self.message.setObjectName("viewMessage")
         self.message.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.message.setWordWrap(True)
+        self.view_name = QLabel("", self.view)   # como en Blender: «Frontal · Ortográfica»
+        self.view_name.setObjectName("viewName")
         self.selection = QLabel("", self.view)
         self.selection.setObjectName("selectionBadge")
         self.selection.move(12, 12)
@@ -463,6 +482,7 @@ class Viewer3D(QWidget):
         self.view.gizmoStarted.connect(self.gizmoStarted)
         self.view.gizmoMoved.connect(self.gizmoMoved)
         self.view.gizmoFinished.connect(self.gizmoFinished)
+        self._update_view_name()
         self._render_timer = QTimer(self)
         self._render_timer.setSingleShot(True)
         self._render_timer.setInterval(450)
@@ -478,8 +498,10 @@ class Viewer3D(QWidget):
         self.message.setGeometry(40, h // 2 - 60, max(100, w - 80), 80)
         self.hint.adjustSize()
         self.hint.move(12, h - self.hint.height() - 10)
+        self.view_name.adjustSize()
+        self.view_name.move(max(12, w - self.view_name.width() - 14), 12)
         self.measure_label.adjustSize()
-        self.measure_label.move(max(12, w - self.measure_label.width() - 12), 12)
+        self.measure_label.move(max(12, w - self.measure_label.width() - 12), 18 + self.view_name.height())
         self.setup.adjustSize()
         self.setup.move((w - self.setup.width()) // 2, h // 2 + 30)
         self.edge_panel.adjustSize()
@@ -689,6 +711,25 @@ class Viewer3D(QWidget):
         elif action == "frame_all":
             self.fit()
 
+    def current_camera(self) -> str:
+        """Cámara de CAMERAS en la que está la vista, o "" si se ha girado a mano."""
+        elev, azim = self.view.opts["elevation"], self.view.opts["azimuth"]
+        for key, (e, a) in CAMERAS.items():
+            if abs(elev - e) < 0.5 and abs((azim - a + 180.0) % 360.0 - 180.0) < 0.5:
+                return key
+        return ""
+
+    def _update_view_name(self) -> None:
+        """Marca el botón de la vista actual y escribe su nombre en el visor."""
+        if not hasattr(self, "view_name"):        # aún construyendo el visor
+            return
+        key = self.current_camera()
+        for cam, b in self.view_buttons.items():
+            b.setChecked(cam == key)
+        name = tr(CAMERA_NAMES[key]) if key else tr("Libre")
+        self.view_name.setText(f"{name} · {tr('Ortográfica') if self.orthographic else tr('Perspectiva')}")
+        self._place_overlays()
+
     def set_orthographic(self, on: bool) -> None:
         """Proyección ortográfica imitada: ángulo de cámara casi nulo y la cámara más lejos, de modo
         que el modelo se ve del mismo tamaño. La selección con clic sigue funcionando igual."""
@@ -700,6 +741,7 @@ class Viewer3D(QWidget):
         self.view.setCameraPosition(distance=self.view.opts["distance"] * scale)
         self.orthographic = on
         self.status.setText(tr("Ortográfica") if on else tr("Perspectiva"))
+        self._update_view_name()
 
     def _resize_grid(self) -> None:
         box = self._scene_box()

@@ -53,7 +53,7 @@ def interface_strings() -> set:
             if not isinstance(node, ast.Call):
                 continue
             name = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
-            if name == "tr":
+            if name in ("tr", "N_"):
                 out.update(_string_args(node, [0], ()))
             elif name == "_act":  # MainWindow._act(texto, función, atajo, icono, ayuda)
                 out.update(_string_args(node, [0, 4], ("tip",)))

@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (QCheckBox, QDialog, QDialogButtonBox, QFormLayout
 
 from ..i18n import tr
 from ..model import format_value
+from .style import themed
 
 
 class ModuleDialog(QDialog):
@@ -38,7 +39,7 @@ class ModuleDialog(QDialog):
                "Las piezas seleccionadas se reemplazarán en el modelo por la llamada a este módulo.")
         )
         hint.setWordWrap(True)
-        hint.setStyleSheet("color: #5A6474; font-size: 11px;")
+        hint.setStyleSheet(themed("color: #5A6474; font-size: 11px;"))
         layout.addWidget(hint)
 
         # 3. Tabla de parámetros candidatos

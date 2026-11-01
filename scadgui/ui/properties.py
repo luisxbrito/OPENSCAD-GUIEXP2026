@@ -18,6 +18,7 @@ from ..model import Document, Expr, Node, RawCode, format_value
 from ..radii import conflicts
 from ..parser import literal
 from .editors import edit_faces, edit_matrix, edit_points
+from .style import themed
 
 COLOR_NAMES = ["SteelBlue", "Gold", "Tomato", "SeaGreen", "SlateGray", "Orange", "Crimson",
                "RoyalBlue", "Purple", "Black", "White", "Silver", "Brown", "Pink", "Teal"]
@@ -239,8 +240,8 @@ class PropertyPanel(QScrollArea):
         box = QFrame()
         box.setObjectName("booleanPanelBox")
         box.setStyleSheet(
-            "QFrame#booleanPanelBox { background-color: #F8FAFC; border: 1px solid #CBD5E1; "
-            "border-radius: 6px; padding: 10px; margin-top: 8px; }"
+            themed("QFrame#booleanPanelBox { background-color: #F8FAFC; border: 1px solid #CBD5E1; "
+            "border-radius: 6px; padding: 10px; margin-top: 8px; }")
         )
         lay = QVBoxLayout(box)
         lay.setContentsMargins(8, 8, 8, 8)
@@ -248,12 +249,12 @@ class PropertyPanel(QScrollArea):
 
         if node.kind == "difference":
             title = QLabel(f"<b>{tr('Operación Restar (difference)')}</b>")
-            title.setStyleSheet("color: #991B1B; font-size: 13px;")
+            title.setStyleSheet(themed("color: #991B1B; font-size: 13px;"))
             lay.addWidget(title)
 
             desc = QLabel(tr("El primer sólido es la Base (+); los siguientes se le restan (-) como cortes o huecos."))
             desc.setWordWrap(True)
-            desc.setStyleSheet("color: #475569; font-size: 11px;")
+            desc.setStyleSheet(themed("color: #475569; font-size: 11px;"))
             lay.addWidget(desc)
 
             if node.children:
@@ -261,7 +262,7 @@ class PropertyPanel(QScrollArea):
                 base_child = node.children[0]
                 base_row = QHBoxLayout()
                 base_lbl = QLabel(f"<b>{tr('Base (+)')}:</b> {base_child.label}")
-                base_lbl.setStyleSheet("color: #166534; font-size: 12px;")
+                base_lbl.setStyleSheet(themed("color: #166534; font-size: 12px;"))
                 base_row.addWidget(base_lbl, 1)
                 btn_view_base = QPushButton(tr("Ver"))
                 btn_view_base.setMaximumWidth(50)
@@ -273,13 +274,13 @@ class PropertyPanel(QScrollArea):
                 restas = node.children[1:]
                 if restas:
                     lbl_restas = QLabel(f"<b>{tr('Sólidos que se restan (-)')}:</b>")
-                    lbl_restas.setStyleSheet("color: #991B1B; font-size: 12px; margin-top: 4px;")
+                    lbl_restas.setStyleSheet(themed("color: #991B1B; font-size: 12px; margin-top: 4px;"))
                     lay.addWidget(lbl_restas)
 
                     for r in restas:
                         r_row = QHBoxLayout()
                         r_lbl = QLabel(f"  • {r.label}")
-                        r_lbl.setStyleSheet("color: #334155; font-size: 11px;")
+                        r_lbl.setStyleSheet(themed("color: #334155; font-size: 11px;"))
                         r_row.addWidget(r_lbl, 1)
 
                         btn_make_base = QPushButton(tr("Hacer Base"))
@@ -300,18 +301,18 @@ class PropertyPanel(QScrollArea):
 
         elif node.kind == "union":
             title = QLabel(f"<b>{tr('Operación Unir (union)')}</b>")
-            title.setStyleSheet("color: #15803D; font-size: 13px;")
+            title.setStyleSheet(themed("color: #15803D; font-size: 13px;"))
             lay.addWidget(title)
 
             desc = QLabel(tr("Fusiona todos los sólidos hijos en un único cuerpo sólido continuo."))
             desc.setWordWrap(True)
-            desc.setStyleSheet("color: #475569; font-size: 11px;")
+            desc.setStyleSheet(themed("color: #475569; font-size: 11px;"))
             lay.addWidget(desc)
 
             for c in node.children:
                 row = QHBoxLayout()
                 lbl = QLabel(f"  • {c.label}")
-                lbl.setStyleSheet("color: #334155; font-size: 11px;")
+                lbl.setStyleSheet(themed("color: #334155; font-size: 11px;"))
                 row.addWidget(lbl, 1)
                 btn = QPushButton(tr("Ver"))
                 btn.setMaximumWidth(50)
@@ -321,18 +322,18 @@ class PropertyPanel(QScrollArea):
 
         else:  # intersection
             title = QLabel(f"<b>{tr('Operación Intersecar (intersection)')}</b>")
-            title.setStyleSheet("color: #6B21A8; font-size: 13px;")
+            title.setStyleSheet(themed("color: #6B21A8; font-size: 13px;"))
             lay.addWidget(title)
 
             desc = QLabel(tr("Conserva exclusivamente el volumen común compartido por todos los sólidos hijos."))
             desc.setWordWrap(True)
-            desc.setStyleSheet("color: #475569; font-size: 11px;")
+            desc.setStyleSheet(themed("color: #475569; font-size: 11px;"))
             lay.addWidget(desc)
 
             for c in node.children:
                 row = QHBoxLayout()
                 lbl = QLabel(f"  • {c.label}")
-                lbl.setStyleSheet("color: #334155; font-size: 11px;")
+                lbl.setStyleSheet(themed("color: #334155; font-size: 11px;"))
                 row.addWidget(lbl, 1)
                 btn = QPushButton(tr("Ver"))
                 btn.setMaximumWidth(50)
@@ -341,7 +342,7 @@ class PropertyPanel(QScrollArea):
                 lay.addLayout(row)
 
         btn_wizard = QPushButton(f"{tr('Abrir Asistente Booleano...')}")
-        btn_wizard.setStyleSheet("margin-top: 6px; font-weight: 500;")
+        btn_wizard.setStyleSheet(themed("margin-top: 6px; font-weight: 500;"))
         btn_wizard.clicked.connect(lambda: self.openBooleanWizard.emit(node.id))
         lay.addWidget(btn_wizard)
 
@@ -514,8 +515,8 @@ class PropertyPanel(QScrollArea):
 
         def paint(text):
             c = QColor(text)
-            swatch.setStyleSheet(f"background:{c.name() if c.isValid() else '#ffffff'};"
-                                 "border:1px solid #CBD1DA;border-radius:6px")
+            swatch.setStyleSheet(themed(f"background:{c.name() if c.isValid() else '#ffffff'};"
+                                 "border:1px solid #CBD1DA;border-radius:6px"))
 
         def pick():
             c = QColorDialog.getColor(QColor(combo.currentText()), self, tr("Color"))

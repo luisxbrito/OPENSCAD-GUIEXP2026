@@ -124,6 +124,7 @@ def test_arbol_sobre_el_visor():
     settings = QSettings("OpenSCAD-GUI-Mejorada", "app")
     saved = settings.value("tree_overlay")            # la prueba no debe cambiar la configuración
     w = window()
+    w.set_tree_overlay(False)                       # sin depender de cómo quedó la configuración
     view = w.viewer.view
     cube = w.doc.children[0].children[0]
     w.viewer.tree_btn.click()                       # botón «Árbol» de la barra del visor
@@ -151,6 +152,31 @@ def test_arbol_sobre_el_visor():
     else:
         settings.setValue("tree_overlay", saved)
 
+
+
+def test_atajos_marcan_la_vista_actual():
+    """Al cambiar de vista con el teclado se marca su botón y su nombre aparece en el visor."""
+    from scadgui.i18n import tr
+    w = window()
+    v = w.viewer
+    v.key_command("1")                                # frontal
+    assert v.view_buttons["front"].isChecked()
+    assert not any(b.isChecked() for k, b in v.view_buttons.items() if k != "front")
+    assert v.view_name.text().startswith(tr("Frontal")) and v.view_name.isVisible()
+    v.key_command("7", True)                          # Ctrl+7: inferior (sin botón)
+    assert not any(b.isChecked() for b in v.view_buttons.values())
+    assert v.view_name.text().startswith(tr("Inferior"))
+    v.key_command("0")
+    v.key_command("4")                                # girar a mano: vista libre
+    assert not any(b.isChecked() for b in v.view_buttons.values())
+    assert v.view_name.text().startswith(tr("Libre"))
+    v.key_command("5")                                # perspectiva -> ortográfica
+    assert v.view_name.text().endswith(tr("Ortográfica"))
+    v.key_command("5")
+    v.view_buttons["top"].click()                     # botón de la barra: también queda marcado
+    assert v.view_buttons["top"].isChecked() and v.view_name.text().startswith(tr("Superior"))
+    v.view_buttons["top"].click()                     # pulsarlo otra vez no lo desmarca
+    assert v.view_buttons["top"].isChecked()
 
 if __name__ == "__main__":
     failures = 0
