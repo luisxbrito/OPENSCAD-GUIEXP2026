@@ -85,6 +85,27 @@ assert set(w.selected_ids()) == {cube.id, cyl.id}
 v._on_click(5, 5, False)   # al vacío
 assert w.selected_ids() == []
 
+# atajos de vista como en Blender
+from scadgui.ui import viewer3d as v3d
+o = v.view.opts
+v.key_command("1"); assert (o["elevation"], o["azimuth"]) == (0.0, -90.0)          # frontal
+v.key_command("1", True); assert (o["elevation"], o["azimuth"]) == (0.0, 90.0)     # Ctrl: trasera
+v.key_command("3", True); assert o["azimuth"] == 180.0                             # izquierda
+v.key_command("7"); assert o["elevation"] == 90.0
+v.key_command("9"); assert o["elevation"] == -90.0 and o["azimuth"] == 90.0        # inferior
+v.key_command("0"); v.key_command("6"); assert o["azimuth"] == (-55.0 + 15) % 360
+v.key_command("8"); assert o["elevation"] == 45.0
+dist = o["distance"]
+v.key_command("5"); assert v.orthographic and o["fov"] == v3d.ORTHO_FOV and o["distance"] > 40 * dist
+v.key_command("5"); assert not v.orthographic and o["fov"] == v3d.PERSPECTIVE_FOV and abs(o["distance"] - dist) < 1e-6
+w.select_ids([cyl.id])
+v.key_command(".")   # encuadra solo el cilindro seleccionado
+lo, hi = geo.bbox(w.ghosts[cyl.id])
+assert np.allclose([o["center"].x(), o["center"].y(), o["center"].z()], (lo + hi) / 2)
+v.key_command("home")
+w.select_ids([])
+v.set_view("Superior")   # las pruebas de medir siguen desde arriba
+
 # medir
 v.measure_btn.setChecked(True); v.set_measuring(True)
 v._on_click(400, 300, False)

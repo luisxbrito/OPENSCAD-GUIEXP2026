@@ -15,18 +15,48 @@ import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 from OpenGL import GL
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtWidgets import (QCheckBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel, QPushButton, QSlider,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QCheckBox, QDoubleSpinBox, QFrame, QHBoxLayout,
+                               QLabel, QLineEdit, QPlainTextEdit, QPushButton, QSlider, QTextEdit, QVBoxLayout,
+                               QWidget)
 
 from .. import geometry as geo
 from ..i18n import tr
 
-VIEWS = {  # elevación, azimut
-    "Isométrica": (30.0, -55.0),
-    "Frontal": (0.0, -90.0),
-    "Superior": (90.0, -90.0),
-    "Derecha": (0.0, 0.0),
+CAMERAS = {  # elevación, azimut (la cámara mira hacia el centro desde esa dirección)
+    "iso": (30.0, -55.0),
+    "front": (0.0, -90.0),   # desde -Y, como la vista frontal de Blender
+    "back": (0.0, 90.0),
+    "right": (0.0, 0.0),
+    "left": (0.0, 180.0),
+    "top": (90.0, -90.0),
+    "bottom": (-90.0, -90.0),
 }
+VIEWS = {  # botones de la barra → cámara
+    "Isométrica": "iso",
+    "Frontal": "front",
+    "Superior": "top",
+    "Derecha": "right",
+}
+# Teclas como en Blender (teclado numérico o fila de números, con la vista 3D activa):
+# tecla → (acción, acción con Ctrl)
+VIEW_KEYS = {
+    "1": ("front", "back"),
+    "3": ("right", "left"),
+    "7": ("top", "bottom"),
+    "0": ("iso", "iso"),
+    "9": ("opposite", "opposite"),
+    "5": ("projection", "projection"),
+    "8": ("orbit_up", "orbit_up"),
+    "2": ("orbit_down", "orbit_down"),
+    "4": ("orbit_left", "orbit_left"),
+    "6": ("orbit_right", "orbit_right"),
+    ".": ("frame_selected", "frame_selected"),
+    "home": ("frame_all", "frame_all"),
+}
+SHORTCUT_OF = {"Isométrica": "0", "Frontal": "1", "Superior": "7", "Derecha": "3"}
+ORBIT_STEP = 15.0      # grados por pulsación, como Blender
+ORTHO_FOV = 1.0        # la vista ortográfica se imita con un ángulo de cámara casi nulo
+PERSPECTIVE_FOV = 45.0
 
 # Dibujar encima de la pieza (como el modificador # de OpenSCAD)
 SEE_THROUGH = {
@@ -93,6 +123,7 @@ def _set_lines(item, segments) -> None:
 class _GLView(gl.GLViewWidget):
     clicked = Signal(float, float, bool)   # x, y, Ctrl pulsado
     hovered = Signal(float, float)
+    viewKey = Signal(str, bool)            # tecla de VIEW_KEYS, Ctrl pulsado
     gizmoStarted = Signal()
     gizmoMoved = Signal(float, float, float)  # dx, dy, dz totales acumulados desde el inicio del clic
     gizmoFinished = Signal()
@@ -106,6 +137,24 @@ class _GLView(gl.GLViewWidget):
         self._drag_start_s: float = 0.0
         self._drag_origin: Optional[np.ndarray] = None
         self.setMouseTracking(True)  # para resaltar la arista bajo el ratón sin pulsar
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
+    def enterEvent(self, ev):
+        """Como en Blender, las teclas de vista valen con el ratón encima, salvo si se está
+        escribiendo en el código o en un campo (no se les quita el foco)."""
+        focused = QApplication.focusWidget()
+        if not isinstance(focused, (QPlainTextEdit, QTextEdit, QLineEdit, QAbstractSpinBox)):
+            self.setFocus()
+        super().enterEvent(ev)
+
+    def keyPressEvent(self, ev):
+        key = ev.key()
+        name = "home" if key == Qt.Key.Key_Home else (chr(key) if 0x20 <= key < 0x7F else "")
+        if name in VIEW_KEYS:
+            self.viewKey.emit(name, bool(ev.modifiers() & Qt.KeyboardModifier.ControlModifier))
+            ev.accept()
+            return
+        super().keyPressEvent(ev)
 
     def mousePressEvent(self, ev):
         self._press = ev.position()
@@ -260,10 +309,12 @@ class Viewer3D(QWidget):
         for name in VIEWS:
             b = QPushButton(tr(name))
             b.setObjectName("viewButton")
+            b.setToolTip(tr("Tecla {key} (teclado numérico o fila de números)").format(key=SHORTCUT_OF[name]))
             b.clicked.connect(lambda _=False, n=name: self.set_view(n))
             row.addWidget(b)
         fit = QPushButton(tr("Ajustar"))
         fit.setObjectName("viewButton")
+        fit.setToolTip(tr("Tecla Inicio: todo · Tecla . (punto): la selección"))
         fit.clicked.connect(self.fit)
         row.addWidget(fit)
         self.measure_btn = QPushButton(tr("Medir"))
@@ -302,7 +353,7 @@ class Viewer3D(QWidget):
 
         self.view = _GLView()
         self.view.setBackgroundColor(pg.mkColor("#262B33"))
-        self.view.opts["fov"] = 45
+        self.view.opts["fov"] = PERSPECTIVE_FOV
         self.view.setCameraPosition(distance=120, elevation=30, azimuth=-55)
         layout.addWidget(self.view, 1)
 
@@ -380,12 +431,18 @@ class Viewer3D(QWidget):
         self.setup.setObjectName("primary")
         self.setup.hide()
         self.hint = QLabel(tr("Arrastrar: girar · Rueda: zoom · Botón central o Ctrl+arrastrar: mover · "
-                              "Clic: seleccionar · Ctrl+clic: añadir"), self.view)
+                              "Clic: seleccionar · Ctrl+clic: añadir") + "\n"
+                           + tr("1 frontal · 3 derecha · 7 superior (Ctrl: la opuesta) · 0 isométrica · "
+                                "9 dar la vuelta · 2 4 6 8 girar · 5 perspectiva/ortográfica · . encuadrar"),
+                           self.view)
         self.hint.setObjectName("viewHint")
         self._build_edge_panel()
 
         self.view.clicked.connect(self._on_click)
         self.view.hovered.connect(self._on_hover)
+        self.view.viewKey.connect(self.key_command)
+        self.orthographic = False
+        self._highlight_tris = None
         self.view.gizmoStarted.connect(self.gizmoStarted)
         self.view.gizmoMoved.connect(self.gizmoMoved)
         self.view.gizmoFinished.connect(self.gizmoFinished)
@@ -527,6 +584,7 @@ class Viewer3D(QWidget):
                 for k, t in self.ghosts.items()}
 
     def set_highlight(self, tris: Optional[np.ndarray]) -> None:
+        self._highlight_tris = tris if tris is not None and len(tris) else None
         _set_mesh(self.highlight, tris)
         _set_lines(self.highlight_edges, geo.feature_edges(tris) if tris is not None and len(tris) else None)
 
@@ -566,8 +624,9 @@ class Viewer3D(QWidget):
             return geo.bbox(np.concatenate(list(self.ghosts.values())))
         return None
 
-    def fit(self) -> None:
-        box = self._scene_box()
+    def fit(self, box=None) -> None:
+        """Encuadra la caja indicada o, sin ella, todo el modelo."""
+        box = box if box is not None else self._scene_box()
         if box is None:
             return
         lo, hi = box
@@ -577,9 +636,45 @@ class Viewer3D(QWidget):
         self.view.setCameraPosition(pos=pg.Vector(*center), distance=dist)
 
     def set_view(self, name: str) -> None:
-        elev, azim = VIEWS[name]
+        """Vista de un botón de la barra (por su texto en español)."""
+        self.set_camera(VIEWS[name])
+
+    def set_camera(self, key: str) -> None:
+        elev, azim = CAMERAS[key]
         self.view.setCameraPosition(elevation=elev, azimuth=azim)
         self.fit()
+
+    def key_command(self, key: str, ctrl: bool = False) -> None:
+        """Atajos de vista al estilo de Blender (ver VIEW_KEYS)."""
+        action = VIEW_KEYS[key][1 if ctrl else 0]
+        o = self.view.opts
+        if action in CAMERAS:
+            self.set_camera(action)
+        elif action == "opposite":  # la misma dirección, desde el otro lado
+            self.view.setCameraPosition(elevation=-o["elevation"], azimuth=(o["azimuth"] + 180.0) % 360.0)
+        elif action.startswith("orbit_"):
+            d_elev = {"orbit_up": ORBIT_STEP, "orbit_down": -ORBIT_STEP}.get(action, 0.0)
+            d_azim = {"orbit_left": -ORBIT_STEP, "orbit_right": ORBIT_STEP}.get(action, 0.0)
+            self.view.setCameraPosition(elevation=max(-90.0, min(90.0, o["elevation"] + d_elev)),
+                                        azimuth=(o["azimuth"] + d_azim) % 360.0)
+        elif action == "projection":
+            self.set_orthographic(not self.orthographic)
+        elif action == "frame_selected":
+            self.fit(geo.bbox(self._highlight_tris) if self._highlight_tris is not None else None)
+        elif action == "frame_all":
+            self.fit()
+
+    def set_orthographic(self, on: bool) -> None:
+        """Proyección ortográfica imitada: ángulo de cámara casi nulo y la cámara más lejos, de modo
+        que el modelo se ve del mismo tamaño. La selección con clic sigue funcionando igual."""
+        if on == self.orthographic:
+            return
+        old, new = (PERSPECTIVE_FOV, ORTHO_FOV) if on else (ORTHO_FOV, PERSPECTIVE_FOV)
+        scale = math.tan(math.radians(old) / 2) / math.tan(math.radians(new) / 2)
+        self.view.opts["fov"] = new
+        self.view.setCameraPosition(distance=self.view.opts["distance"] * scale)
+        self.orthographic = on
+        self.status.setText(tr("Ortográfica") if on else tr("Perspectiva"))
 
     def _resize_grid(self) -> None:
         box = self._scene_box()

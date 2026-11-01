@@ -28,6 +28,9 @@ Italian and Portuguese (*Edit › Preferences*).
   select it (clicking the wall of a hole selects the cylinder that was subtracted). Also:
   a translation gizmo, a measuring tool, colours from `color()`, and an exploded view that
   separates the parts of an assembly while keeping their holes.
+  View shortcuts work as in Blender, on the numeric keypad or the number row, with the mouse
+  over the 3D view: 1 front, 3 right, 7 top (Ctrl+key: the opposite view), 0 isometric,
+  9 flip, 2/4/6/8 orbit 15°, 5 perspective/orthographic, `.` frame selection, Home frame all.
 - **Boolean helper.** Shows which solid is the base of a `difference` and which ones are
   subtracted, and lets you change the base.
 - **Standard parts.** ISO 4762, DIN 933, DIN 7991 and ISO 7380 screws, DIN 934/985 nuts,

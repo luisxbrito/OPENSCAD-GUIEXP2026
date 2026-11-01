@@ -168,6 +168,8 @@ python tests/simulacion/sim_ventana_visor_imagen.py
   achaflanadas eligiéndolas en el visor (`cube_edges`, `cylinder_edges`); árbol con multiselección, modificadores `# % ! *`,
   arrastrar y soltar, envolver, sacar, duplicar; propiedades generadas desde el catálogo.
 - Código sincronizado con edición manual, ayuda de parámetros, autocompletado, búsqueda.
+- Atajos de vista como Blender (`viewer3d.VIEW_KEYS`), solo en el visor OpenGL: valen con el
+  ratón encima salvo si el foco está en un campo de texto. La ortográfica se imita con fov 1°.
 - Visor OpenGL: selección con clic, resaltado, medición, gizmo de traslación, colores de
   `color()`, vista explosionada por piezas del montaje (sobre la malla real, conserva los
   huecos), vista aproximada sin OpenSCAD. Visor de imágenes de respaldo.
