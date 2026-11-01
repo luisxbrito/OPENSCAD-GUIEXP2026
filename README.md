@@ -28,6 +28,8 @@ Italian and Portuguese (*Edit › Preferences*).
   select it (clicking the wall of a hole selects the cylinder that was subtracted). Also:
   a translation gizmo, a measuring tool, colours from `color()`, and an exploded view that
   separates the parts of an assembly while keeping their holes.
+  The model tree can float over the 3D view (button *Tree* or *View › Tree over the 3D view*),
+  like the browser in Fusion, so the view can use the whole window width.
   View shortcuts work as in Blender, on the numeric keypad or the number row, with the mouse
   over the 3D view: 1 front, 3 right, 7 top (Ctrl+key: the opposite view), 0 isometric,
   9 flip, 2/4/6/8 orbit 15°, 5 perspective/orthographic, `.` frame selection, Home frame all.

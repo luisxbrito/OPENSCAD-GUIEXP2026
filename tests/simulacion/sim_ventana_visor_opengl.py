@@ -106,6 +106,10 @@ v.key_command("home")
 w.select_ids([])
 v.set_view("Superior")   # las pruebas de medir siguen desde arriba
 
+# árbol sobre el visor y de vuelta (con Qt real lo prueba tests/test_ventana_qt.py)
+w.set_tree_overlay(True); assert w.tree_box is not None
+w.set_tree_overlay(True); w.set_tree_overlay(False); assert w.tree_box is None
+
 # medir
 v.measure_btn.setChecked(True); v.set_measuring(True)
 v._on_click(400, 300, False)

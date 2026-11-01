@@ -408,6 +408,13 @@ class MainWindow(QMainWindow):
         self.a_gl.setChecked(self.settings.value("viewer", "gl", str) != "image")
         self.a_gl.toggled.connect(self._toggle_gl)
         self.view_menu.addAction(self.a_gl)
+        self.a_tree_overlay = QAction(tr("Árbol sobre el visor 3D"), self)
+        self.a_tree_overlay.setCheckable(True)
+        self.a_tree_overlay.setEnabled(self.gl)
+        self.a_tree_overlay.toggled.connect(self.set_tree_overlay)
+        self.view_menu.addAction(self.a_tree_overlay)
+        if self.gl:
+            self.viewer.treeOverlayToggled.connect(self.a_tree_overlay.setChecked)
         self.view_menu.addSeparator()
 
     def _build_docks(self) -> None:
@@ -442,6 +449,7 @@ class MainWindow(QMainWindow):
 
         tools = QWidget()
         tools.setObjectName("treeTools")
+        self.tree_tools_box = tools
         trow = QHBoxLayout(tools)
         trow.setContentsMargins(8, 0, 8, 6)
         trow.setSpacing(3)
@@ -484,6 +492,9 @@ class MainWindow(QMainWindow):
         split = QSplitter(Qt.Orientation.Vertical)
         split.addWidget(self.tree)
         split.addWidget(self.props)
+        self.model_split = split
+        self.model_layout = lay
+        self.tree_box = None  # contenedor del árbol cuando está sobre el visor
         split.setStretchFactor(0, 2)
         split.setStretchFactor(1, 3)
         lay.addWidget(split, 1)
@@ -563,6 +574,8 @@ class MainWindow(QMainWindow):
             self.viewer.measured.connect(lambda text: self.log(text, "echo"))
 
     def _startup(self, path: str) -> None:
+        if self.settings.value("tree_overlay", False, bool):
+            self.set_tree_overlay(True)
         version = self.runner.version()
         if self.runner.exe:
             self.runner.check_backend_support(version)
@@ -1476,6 +1489,36 @@ class MainWindow(QMainWindow):
         item = self._item_for(target)
         if item is not None:
             self.tree.scrollToItem(item)
+
+    def set_tree_overlay(self, on: bool) -> None:
+        """Mueve el árbol (con su barra de herramientas) encima del visor 3D, o lo devuelve al panel.
+
+        Las propiedades y los modificadores # % ! * se quedan en el panel Modelo.
+        """
+        on = bool(on) and self.gl
+        if on == (self.tree_box is not None):
+            return
+        if on:
+            box = QWidget()
+            box_lay = QVBoxLayout(box)
+            box_lay.setContentsMargins(0, 0, 0, 0)
+            box_lay.setSpacing(0)
+            box_lay.addWidget(self.tree_tools_box)
+            box_lay.addWidget(self.tree, 1)
+            self.tree_box = box
+            self.viewer.show_tree_overlay(box)
+        else:
+            self.model_layout.insertWidget(1, self.tree_tools_box)
+            self.model_split.insertWidget(0, self.tree)
+            self.tree_tools_box.show()
+            self.tree.show()
+            self.viewer.show_tree_overlay(None)
+            self.tree_box.deleteLater()
+            self.tree_box = None
+        self.a_tree_overlay.blockSignals(True)
+        self.a_tree_overlay.setChecked(on)
+        self.a_tree_overlay.blockSignals(False)
+        self.settings.setValue("tree_overlay", on)
 
     def _toggle_gl(self, on: bool) -> None:
         self.settings.setValue("viewer", "gl" if on else "image")

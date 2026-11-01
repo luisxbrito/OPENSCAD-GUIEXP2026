@@ -55,6 +55,7 @@ VIEW_KEYS = {
 }
 SHORTCUT_OF = {"Isométrica": "0", "Frontal": "1", "Superior": "7", "Derecha": "3"}
 ORBIT_STEP = 15.0      # grados por pulsación, como Blender
+TREE_OVERLAY_WIDTH = 330
 ORTHO_FOV = 1.0        # la vista ortográfica se imita con un ángulo de cámara casi nulo
 PERSPECTIVE_FOV = 45.0
 
@@ -286,6 +287,7 @@ class Viewer3D(QWidget):
     gizmoMoved = Signal(float, float, float)
     gizmoFinished = Signal()
     edgeFinish = Signal(str, float, list)  # "round" | "chamfer" | "none", valor, [(id, clave)]
+    treeOverlayToggled = Signal(bool)      # el usuario pide (o quita) el árbol sobre el visor
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -336,6 +338,12 @@ class Viewer3D(QWidget):
         self.edge_btn.setToolTip(tr("Elige aristas de cube y cylinder para redondearlas o achaflanarlas"))
         self.edge_btn.toggled.connect(self.set_edge_mode)
         row.addWidget(self.edge_btn)
+        self.tree_btn = QPushButton(tr("Árbol"))
+        self.tree_btn.setObjectName("viewButton")
+        self.tree_btn.setCheckable(True)
+        self.tree_btn.setToolTip(tr("Muestra el árbol del modelo encima del visor, como en Fusion"))
+        self.tree_btn.toggled.connect(self.treeOverlayToggled)
+        row.addWidget(self.tree_btn)
         self.edges_check = QCheckBox(tr("Aristas"))
         self.edges_check.setObjectName("viewCheck")
         self.edges_check.setChecked(True)
@@ -445,6 +453,7 @@ class Viewer3D(QWidget):
                            self.view)
         self.hint.setObjectName("viewHint")
         self._build_edge_panel()
+        self._build_tree_overlay()
 
         self.view.clicked.connect(self._on_click)
         self.view.hovered.connect(self._on_hover)
@@ -476,6 +485,14 @@ class Viewer3D(QWidget):
         self.edge_panel.adjustSize()
         self.edge_panel.move(max(12, w - self.edge_panel.width() - 12),
                              max(12, h - self.edge_panel.height() - 12))
+        # Árbol flotante arriba a la izquierda; la etiqueta de la selección pasa a su derecha.
+        if self.tree_overlay.isVisible():
+            collapsed = not self.tree_overlay_body.isVisible()
+            height = self.tree_overlay_head.sizeHint().height() + 8 if collapsed else max(160, int(h * 0.62))
+            self.tree_overlay.setGeometry(12, 12, TREE_OVERLAY_WIDTH, min(height, max(60, h - 24)))
+            self.selection.move(12 + TREE_OVERLAY_WIDTH + 10, 12)
+        else:
+            self.selection.move(12, 12)
 
     # ------------------------------------------------------------- API usada por la ventana
     def request_render(self, now: bool = False) -> None:
@@ -715,6 +732,62 @@ class Viewer3D(QWidget):
                 self._add_measure_point(hit)
             return
         self.picked.emit(-1 if nid is None else nid, ctrl)
+
+    # ------------------------------------------------------------- árbol sobre el visor
+    def _build_tree_overlay(self) -> None:
+        panel = QFrame(self.view)
+        panel.setObjectName("treeOverlay")
+        lay = QVBoxLayout(panel)
+        lay.setContentsMargins(6, 4, 6, 6)
+        lay.setSpacing(2)
+        head = QWidget()
+        row = QHBoxLayout(head)
+        row.setContentsMargins(4, 0, 0, 0)
+        title = QLabel(tr("MODELO"))
+        title.setObjectName("sectionTitle")
+        row.addWidget(title)
+        row.addStretch(1)
+        self.tree_overlay_fold = QPushButton("▾")
+        self.tree_overlay_fold.setObjectName("overlayButton")
+        self.tree_overlay_fold.setToolTip(tr("Plegar / desplegar"))
+        self.tree_overlay_fold.clicked.connect(self._fold_tree_overlay)
+        row.addWidget(self.tree_overlay_fold)
+        close = QPushButton("×")
+        close.setObjectName("overlayButton")
+        close.setToolTip(tr("Devolver el árbol al panel Modelo"))
+        close.clicked.connect(lambda: self.tree_btn.setChecked(False))
+        row.addWidget(close)
+        lay.addWidget(head)
+        body = QWidget()
+        self.tree_overlay_layout = QVBoxLayout(body)
+        self.tree_overlay_layout.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(body, 1)
+        panel.hide()
+        self.tree_overlay = panel
+        self.tree_overlay_head = head
+        self.tree_overlay_body = body
+
+    def show_tree_overlay(self, content: Optional[QWidget]) -> None:
+        """Pone ``content`` (el árbol de la ventana) en el panel flotante; con None lo esconde.
+
+        El widget no se copia: la ventana lo cambia de sitio, así que selección, arrastrar y
+        soltar y el menú contextual siguen siendo los mismos.
+        """
+        if content is not None:
+            self.tree_overlay_layout.addWidget(content)
+            self.tree_overlay_body.setVisible(True)
+            self.tree_overlay_fold.setText("▾")
+        self.tree_overlay.setVisible(content is not None)
+        self.tree_btn.blockSignals(True)
+        self.tree_btn.setChecked(content is not None)
+        self.tree_btn.blockSignals(False)
+        self._place_overlays()
+
+    def _fold_tree_overlay(self) -> None:
+        unfold = not self.tree_overlay_body.isVisible()
+        self.tree_overlay_body.setVisible(unfold)
+        self.tree_overlay_fold.setText("▾" if unfold else "▸")
+        self._place_overlays()
 
     # ------------------------------------------------------------- aristas
     def _build_edge_panel(self) -> None:

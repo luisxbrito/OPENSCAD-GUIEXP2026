@@ -117,6 +117,41 @@ def test_panel_avisa_y_corrige_radios_que_chocan():
     assert "r = 1, d2 = 4" in w.code.text.toPlainText()
 
 
+
+def test_arbol_sobre_el_visor():
+    """El mismo árbol pasa al visor y vuelve: la selección y los clics siguen funcionando."""
+    from PySide6.QtCore import QSettings
+    settings = QSettings("OpenSCAD-GUI-Mejorada", "app")
+    saved = settings.value("tree_overlay")            # la prueba no debe cambiar la configuración
+    w = window()
+    view = w.viewer.view
+    cube = w.doc.children[0].children[0]
+    w.viewer.tree_btn.click()                       # botón «Árbol» de la barra del visor
+    app.processEvents()
+    assert w.a_tree_overlay.isChecked() and w.viewer.tree_overlay.isVisible()
+    parent, chain = w.tree.parentWidget(), []
+    while parent is not None:
+        chain.append(parent)
+        parent = parent.parentWidget()
+    assert view in chain                             # el árbol está dentro del visor
+    item = w._item_for(cube.id)
+    rect = w.tree.visualItemRect(item)
+    QTest.mouseClick(w.tree.viewport(), LEFT, NONE, rect.center())
+    assert w.selected_ids() == [cube.id]
+    assert w.viewer.selection.x() > w.viewer.tree_overlay.width()   # la etiqueta no queda debajo
+    w.viewer.tree_overlay_fold.click()               # plegar: solo la cabecera
+    app.processEvents()
+    assert not w.viewer.tree_overlay_body.isVisible() and w.viewer.tree_overlay.height() < 60
+    w.a_tree_overlay.setChecked(False)               # menú Ver: vuelve al panel Modelo
+    app.processEvents()
+    assert w.tree.parentWidget() is w.model_split and not w.viewer.tree_overlay.isVisible()
+    assert not w.viewer.tree_btn.isChecked()
+    if saved is None:
+        settings.remove("tree_overlay")
+    else:
+        settings.setValue("tree_overlay", saved)
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):
