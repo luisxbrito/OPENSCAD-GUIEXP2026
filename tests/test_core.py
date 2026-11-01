@@ -1071,6 +1071,25 @@ def test_radios_sin_avisos_de_openscad():
     assert Document(children=[c]).fix_radii(c.id) and c.params == {"d": 10}
 
 
+
+def test_cabecera_en_el_idioma_de_la_interfaz():
+    """La línea "// Generado con…" sigue el idioma de la interfaz y se reconoce en cualquiera al abrir."""
+    from scadgui.i18n import get_language, set_language
+    from scadgui.model import header_line
+    before = get_language()
+    try:
+        set_language("es")
+        assert generate(parse("cube(5);")).text.startswith("// Generado con OpenSCAD GUI Mejorada\n")
+        set_language("en")
+        text = generate(parse("cube(5);")).text
+        assert text.startswith("// Generated with OpenSCAD GUI Mejorada\n"), text
+        for lang in ("es", "fr", "de"):   # un archivo guardado en otro idioma no acumula cabeceras
+            doc = parse(header_line(lang) + "\ncube(5);\n")
+            assert not any(isinstance(n, RawCode) for n in doc.children), doc.children
+            assert generate(doc).text.count("OpenSCAD GUI Mejorada") == 1
+    finally:
+        set_language(before)
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

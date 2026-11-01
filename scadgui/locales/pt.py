@@ -388,6 +388,7 @@ STRINGS: dict[str, str] = {
     'Genera un bucle for con dos índices: i recorre las columnas y j las filas. Cada copia se desplaza i veces la separación entre columnas más j veces la separación entre filas, así que también sirve para rejillas inclinadas.': 'Gera um laço for com dois índices: i percorre as colunas e j as linhas. Cada cópia se desloca i vezes o espaçamento entre colunas mais j vezes o espaçamento entre linhas, então também serve para grades inclinadas.',
     'Genera un bucle for: la copia número i gira i veces el ángulo entre copias. El giro es alrededor del origen, así que la pieza original debe estar separada del eje (por ejemplo, con un translate dentro de la matriz).': 'Gera um laço for: a cópia número i gira i vezes o ângulo entre cópias. O giro é em torno da origem, então a peça original deve estar afastada do eixo (por exemplo, com um translate dentro da matriz).',
     'Genera un bucle for: la copia número i se desplaza i veces el vector de separación. La primera copia (i = 0) queda donde está la pieza original.': 'Gera um laço for: a cópia número i se desloca i vezes o vetor de espaçamento. A primeira cópia (i = 0) fica onde está a peça original.',
+    'Generado con {app}': 'Gerado com {app}',
     'Generador de perfiles 2D paramétricos para extrusión': 'Perfis 2D paramétricos para extrusão',
     'Generar plano técnico 2D': 'Gerar desenho técnico 2D',
     'Generar plano técnico 2D…': 'Gerar desenho técnico 2D…',

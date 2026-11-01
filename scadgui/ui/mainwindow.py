@@ -1793,6 +1793,8 @@ class MainWindow(QMainWindow):
         self.dock_model.setWindowTitle(tr("Modelo"))
         self.dock_code.setWindowTitle(tr("Código"))
         self.code.retranslate_ui()
+        if not self.code.editing:     # la cabecera del código ("// Generado con…") va en el idioma nuevo
+            self.refresh_code()
 
         self.dock_console.setWindowTitle(tr("Consola"))
         self.dock_vars.setWindowTitle(tr("Variables"))

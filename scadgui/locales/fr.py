@@ -388,6 +388,7 @@ STRINGS: dict[str, str] = {
     'Genera un bucle for con dos índices: i recorre las columnas y j las filas. Cada copia se desplaza i veces la separación entre columnas más j veces la separación entre filas, así que también sirve para rejillas inclinadas.': 'Écrit une boucle for à deux indices : i parcourt les colonnes et j les lignes. Chaque copie se déplace de i fois l’écart entre colonnes plus j fois l’écart entre lignes ; cela fonctionne donc aussi pour des grilles inclinées.',
     'Genera un bucle for: la copia número i gira i veces el ángulo entre copias. El giro es alrededor del origen, así que la pieza original debe estar separada del eje (por ejemplo, con un translate dentro de la matriz).': 'Écrit une boucle for : la copie numéro i tourne de i fois l’angle entre copies. La rotation se fait autour de l’origine, la pièce d’origine doit donc être écartée de l’axe (par exemple avec un translate dans la répétition).',
     'Genera un bucle for: la copia número i se desplaza i veces el vector de separación. La primera copia (i = 0) queda donde está la pieza original.': 'Écrit une boucle for : la copie numéro i se déplace de i fois le vecteur d’écart. La première copie (i = 0) reste à la place de la pièce d’origine.',
+    'Generado con {app}': 'Généré avec {app}',
     'Generador de perfiles 2D paramétricos para extrusión': 'Profils 2D paramétriques pour extrusion',
     'Generar plano técnico 2D': 'Générer plan technique 2D',
     'Generar plano técnico 2D…': 'Générer plan technique 2D…',

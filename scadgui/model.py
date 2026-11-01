@@ -20,9 +20,22 @@ from dataclasses import dataclass, field
 from typing import Any, Iterator, Optional
 
 from .catalog import SPECS, Spec
+from .i18n import LANGUAGES, tr
 from .library import needed_definitions
 
-HEADER = "// Generado con OpenSCAD GUI Mejorada"
+APP_NAME = "OpenSCAD GUI Mejorada"
+
+
+def header_line(lang: Optional[str] = None) -> str:
+    """Primera línea del código generado, en el idioma de la interfaz (o en ``lang``)."""
+    return "// " + tr("Generado con {app}", lang).format(app=APP_NAME)
+
+
+def is_header(text: str) -> bool:
+    """Si ``text`` es nuestra cabecera en cualquiera de los idiomas (se quita al abrir el archivo)."""
+    return text.strip() in {header_line(lang) for lang in LANGUAGES}
+
+
 MODIFIERS = ("#", "%", "!", "*")
 
 _VAR_RE = re.compile(r"^\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(.+?)\s*;\s*(?://\s*(.*))?$")
@@ -733,7 +746,7 @@ def generate(doc: Document, highlight=(), header: bool = True, library: bool = T
     highlight = set(highlight)
 
     if header:
-        out.append(HEADER)
+        out.append(header_line())
     if doc.fn:
         out.append(f"$fn = {int(doc.fn)};")
     if out:
