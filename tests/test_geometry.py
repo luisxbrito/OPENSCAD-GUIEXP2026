@@ -419,6 +419,59 @@ def test_caras_sin_color_siguen_al_esquema():
     finally:
         geo.set_default_color(before)
 
+
+def _inside(points, poly) -> np.ndarray:
+    """Qué puntos caen dentro del polígono (regla par-impar)."""
+    x, y = points[:, 0][:, None], points[:, 1][:, None]
+    x1, y1 = poly[:, 0][None, :], poly[:, 1][None, :]
+    x2, y2 = np.roll(poly[:, 0], -1)[None, :], np.roll(poly[:, 1], -1)[None, :]
+    cross = ((y1 > y) != (y2 > y)) & (x < (x2 - x1) * (y - y1) / np.where(y2 == y1, 1e-12, y2 - y1) + x1)
+    return cross.sum(axis=1) % 2 == 1
+
+
+def test_engranaje_diametros_y_simetria():
+    from scadgui import gears
+    d = gears.dims(2, 20)
+    assert (d["pitch_d"], d["tip_d"], d["root_d"]) == (40, 44, 35.0)
+    assert [gears.min_teeth(a) for a in (14.5, 20, 25)] == [32, 18, 12]      # Machinery's Handbook
+    poly = gears.polygon(2, 20)
+    r = np.linalg.norm(poly, axis=1)
+    assert np.isclose(r.max(), 22) and np.isclose(r.min(), 17.5)
+    mirrored = poly * [1, -1]                                                   # diente centrado en +X
+    assert all(np.min(np.linalg.norm(poly - q, axis=1)) < 1e-9 for q in mirrored)
+    assert gears.center_distance(2, 20, 30) == 50
+
+
+def test_pareja_de_engranajes_no_se_solapa_al_girar():
+    """Dos engranajes a m·(z1+z2)/2, girando juntos un paso de diente: ningún vértice de uno entra
+    en el otro (con 0.1 mm de holgura). Con pocos dientes (socavado) sí interfieren."""
+    from scadgui import gears
+
+    def interferes(m, z1, z2, backlash):
+        a = gears.center_distance(m, z1, z2)
+        p1, p2 = gears.polygon(m, z1, 20, backlash), gears.polygon(m, z2, 20, backlash)
+        for k in range(25):
+            t = math.radians(k / 24 * 360 / z1)
+            u = math.radians(gears.mesh_rotation(z2)) - t * z1 / z2
+            r1 = np.array([[math.cos(t), -math.sin(t)], [math.sin(t), math.cos(t)]])
+            r2 = np.array([[math.cos(u), -math.sin(u)], [math.sin(u), math.cos(u)]])
+            a1, a2 = p1 @ r1.T, p2 @ r2.T + [a, 0]
+            if _inside(a2, a1).any() or _inside(a1, a2).any():
+                return True
+        return False
+    for m, z1, z2 in ((2, 20, 20), (1, 18, 31), (1.5, 19, 40), (3, 24, 25)):
+        assert not interferes(m, z1, z2, 0.1), (m, z1, z2)
+    assert interferes(2, 8, 30, 0.0)                         # 8 dientes: socavado, interfiere
+
+
+def test_engranaje_en_la_vista_aproximada():
+    from scadgui.parser import parse
+    from scadgui import geometry as geo
+    doc = parse("spur_gear(mod = 2, teeth = 20, thickness = 6, center = true);")
+    tris = next(iter(geo.build_ghosts(doc).values()))
+    assert np.isclose(tris[..., 2].min(), -3) and np.isclose(tris[..., 2].max(), 3)
+    assert geo.signed_volume(tris) > 0
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

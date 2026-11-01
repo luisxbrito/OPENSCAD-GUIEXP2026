@@ -32,7 +32,7 @@ def roundtrip(text):
 
 
 def test_catalogo_completo():
-    assert len(SPECS) == 35  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas
+    assert len(SPECS) == 36  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + engranaje
     for key, _, _ in CATEGORIES:
         assert specs_in(key), key
     for name in SPECS:
@@ -1107,6 +1107,32 @@ def test_cabecera_del_archivo_no_cambia_con_el_idioma():
         assert parse("cube(5);").header_lang is None
     finally:
         set_language(before)
+
+
+def test_engranaje_y_su_pareja():
+    """«Añadir engranaje que engrane»: misma pieza, otros dientes, a m·(z1+z2)/2 y en fase."""
+    doc = Document()
+    g = doc.add("spur_gear")
+    doc.set_param(g.id, "mod", 2)
+    doc.set_param(g.id, "bore", 6)
+    new = doc.add_meshing_gear(g.id, 31)
+    shift = doc.children[1]
+    assert shift.kind == "translate" and shift.params["v"] == [51, 0, 0]
+    assert shift.children[0].kind == "rotate" or shift.children[0] is new        # 31 dientes: impar, sin giro
+    assert new.params["teeth"] == 31 and new.params["mod"] == 2 and new.params["bore"] == 6
+    new2 = doc.add_meshing_gear(g.id, 20)                                         # par: girado 9°
+    assert doc.children[1].children[0].params["a"] == [0, 0, 9]
+    text = generate(doc).text
+    assert text.count("module spur_gear(") == 1                                   # la definición, una vez
+    again = parse(text)
+    assert generate(again).text == text                                           # ida y vuelta
+    assert [n.kind for n in again.children] == ["spur_gear", "translate", "translate"]
+    try:
+        doc.add_meshing_gear(doc.children[1].id)
+        raise AssertionError("debería rechazar algo que no es un engranaje")
+    except ValueError:
+        pass
+    assert new2.params["teeth"] == 20
 
 if __name__ == "__main__":
     failures = 0

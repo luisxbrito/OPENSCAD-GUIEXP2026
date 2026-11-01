@@ -107,6 +107,22 @@ def test_aristas_dentro_de_un_modulo_de_usuario():
     render(generate(doc).text)
 
 
+
+def test_engranajes():
+    """La pareja de engranajes (con agujero) se calcula sin avisos y con el volumen esperado."""
+    from scadgui import gears
+    doc = Document()
+    g = doc.add("spur_gear")
+    for key, value in (("mod", 2), ("teeth", 20), ("thickness", 6), ("bore", 8)):
+        doc.set_param(g.id, key, value)
+    doc.add_meshing_gear(g.id, 31)
+    tris = render("$fn = 48;\n" + generate(doc).text)
+    def area(p):
+        return 0.5 * abs(sum(p[i - 1][0] * p[i][1] - p[i][0] * p[i - 1][1] for i in range(len(p))))
+    hole = 48 * 0.5 * 16 * math.sin(2 * math.pi / 48)
+    expected = sum((area(gears.polygon(2, z, 20, 0.1)) - hole) * 6 for z in (20, 31))
+    assert abs(signed_volume(tris) - expected) < 1, (signed_volume(tris), expected)
+
 if __name__ == "__main__":
     if not EXE:
         print("OpenSCAD no encontrado: se omiten estas pruebas (define OPENSCAD para indicar dónde está)")

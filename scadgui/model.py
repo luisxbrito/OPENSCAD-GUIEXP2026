@@ -49,7 +49,7 @@ _VAR_RE = re.compile(r"^\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(.+?)\s*;\s*(?://\s*
 # Módulos cuyo primer argumento se escribe sin nombre, como es costumbre en OpenSCAD:
 # cube([10, 10, 10]), translate([0, 0, 5]), color("red")...
 FIRST_UNNAMED = {"cube", "square", "translate", "rotate", "scale", "mirror", "resize",
-                 "multmatrix", "color", "text", "import", "surface", "cube_edges"}
+                 "multmatrix", "color", "text", "import", "surface", "cube_edges", "spur_gear"}
 
 _ids = itertools.count(1)
 
@@ -300,6 +300,30 @@ class Document:
         raise AssertionError
 
     # ----- operaciones (las usan los botones)
+    def add_meshing_gear(self, gear_id: int, teeth: Optional[int] = None) -> Node:
+        """Añade, justo después del engranaje, otro del mismo módulo que engrana con él: a la
+        distancia entre centros m·(z1 + z2)/2 en +X y girado para que un hueco quede frente al
+        diente del primero. Devuelve el engranaje nuevo."""
+        from . import gears
+        gear = self.find(gear_id)
+        if not isinstance(gear, Node) or gear.kind != "spur_gear":
+            raise ValueError(tr("Selecciona un engranaje (spur_gear)."))
+        mod, z1 = gear.params.get("mod", 1), gear.params.get("teeth", 20)
+        if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (mod, z1)):
+            raise ValueError(tr("El módulo y los dientes deben ser números para calcular la pareja."))
+        z2 = int(teeth or z1)
+        new = Node(kind="spur_gear", params=copy.deepcopy(gear.params), name=self.unique_name("spur_gear"))
+        new.params["teeth"] = z2
+        inner: Node = new
+        rot = gears.mesh_rotation(z2)
+        if rot:
+            inner = Node(kind="rotate", params={"a": [0, 0, round(rot, 6)]}, children=[new])
+        shift = Node(kind="translate", params={"v": [round(gears.center_distance(mod, int(z1), z2), 6), 0, 0]},
+                     children=[inner])
+        siblings, _parent = self.parent_list(gear_id)
+        siblings.insert(siblings.index(gear) + 1, shift)
+        return new
+
     def add(self, kind: str, target_id: Optional[int] = None) -> Node:
         """Crea una pieza. Si el destino es un contenedor, la mete dentro; si no, va al final."""
         node = make_node(kind, self.unique_name(kind))

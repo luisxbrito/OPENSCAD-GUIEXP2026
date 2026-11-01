@@ -235,6 +235,21 @@ _add(Spec("cylinder_edges", "Cilindro con bordes", "edges", False, (
 ), keyword="module", positional=("h", "r", "center", "edges", "rounding", "chamfer"),
     hint="Cilindro con el borde superior (top) y/o inferior (bottom) redondeado o achaflanado."))
 
+# --- Piezas mecánicas -------------------------------------------------------
+_add(Spec("spur_gear", "Engranaje recto", "solid", False, (
+    Param("mod", "num", 1, label="Módulo (m)", minimum=0.05, step=0.25),
+    Param("teeth", "int", 20, label="Dientes (z)", minimum=3, maximum=400),
+    Param("thickness", "num", 5, label="Grueso", minimum=0.01),
+    Param("pressure_angle", "num", 20, label="Ángulo de presión (°)", minimum=10, maximum=35, step=0.5),
+    # Holgura entre los dos engranajes (se reparte entre ambos). Viene puesta: sin ella, impresos
+    # en 3D suelen quedar agarrotados.
+    Param("backlash", "num", 0.1, label="Holgura (mm)", minimum=0, step=0.05),
+    Param("bore", "num", 5, optional=True, label="Agujero (Ø)", minimum=0),
+    Param("center", "bool", False, label="Centrado"),
+    FN,
+), keyword="module", hint="Engranaje recto de evolvente. Ø primitivo = m·z; dos engranajes del mismo "
+   "módulo engranan con sus centros a m·(z1 + z2)/2."))
+
 # --- Importar ---------------------------------------------------------------
 _add(Spec("import", "Importar", "imp", False, (
     Param("file", "file", "", label="Archivo"),
@@ -313,6 +328,7 @@ ICONS = {
     "roof": "M3 18L12 6l9 12z M12 6v12",
     "import": "M12 3v12 M8 11l4 4 4-4 M4 17v3h16v-3",
     "surface": "M3 18l4-6 4 3 4-7 6 10z",
+    "spur_gear": "M19.42 10.37 L21.92 10.71 L21.92 13.29 L19.42 13.63 L18.96 15.05 L20.78 16.78 L19.26 18.87 L17.05 17.68 L15.84 18.56 L16.29 21.03 L13.84 21.83 L12.74 19.56 L11.26 19.56 L10.16 21.83 L7.71 21.03 L8.16 18.56 L6.95 17.68 L4.74 18.87 L3.22 16.78 L5.04 15.05 L4.58 13.63 L2.08 13.29 L2.08 10.71 L4.58 10.37 L5.04 8.95 L3.22 7.22 L4.74 5.13 L6.95 6.32 L8.16 5.44 L7.71 2.97 L10.16 2.17 L11.26 4.44 L12.74 4.44 L13.84 2.17 L16.29 2.97 L15.84 5.44 L17.05 6.32 L19.26 5.13 L20.78 7.22 L18.96 8.95z M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z",
     "cube_edges": "M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5 M12 12v9 M12 12L4 7.5 M17 4.2a4 4 0 0 1 3 3.3",
     "cylinder_edges": "M5 8c0-1.7 3.1-3 7-3s7 1.3 7 3v10c0 1.7-3.1 3-7 3s-7-1.3-7-3z M5 8c0 1.7 3.1 3 7 3s7-1.3 7-3",
     "linear_array": "M2 9h5v6H2z M9.5 9h5v6h-5z M17 9h5v6h-5z M4 5h16 M17 2.5L20 5l-3 2.5",

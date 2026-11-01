@@ -17,6 +17,11 @@ Italian and Portuguese (*Edit › Preferences*).
   `cube` or the top/bottom rim of a `cylinder` and round or chamfer them. The part becomes
   `cube_edges(...)` or `cylinder_edges(...)`; the definition of those two modules is written
   at the end of the file, so it opens in plain OpenSCAD without any library.
+- **Spur gears.** *3D Solids › Mechanical › spur_gear* makes an involute spur gear from its
+  module and number of teeth (pressure angle, backlash, bore). The panel shows the pitch, outside
+  and root diameters, warns about undercut teeth, and *Add a meshing gear* places the mating gear
+  at m·(z1 + z2)/2, already rotated so the teeth fit. Like the edge modules, `spur_gear` is
+  written at the end of the file.
 - **Arrays.** Linear, polar and grid arrays of the selected parts. Each one is written as a
   plain `for` loop, for example `for (i = [0 : 3]) translate(i * [20, 0, 0]) { ... }`, and is
   recognised again when the file is reopened. Other `for` loops are kept as code.
@@ -96,7 +101,8 @@ scadgui/
   sketches.py            2D profile builders
   drawing.py             technical drawing sheet generator
   operations.py          help texts and quick presets for each operation
-  library.py, edges.py   cube_edges / cylinder_edges modules and the edge rounding logic
+  library.py, edges.py   cube_edges / cylinder_edges / spur_gear modules and the edge rounding logic
+  gears.py               involute gear maths (same formulas as the spur_gear module)
   code_assist.py         code templates and parameter hints for the editor
   i18n.py, locales/      translations (one file per language)
   ui/                    PySide6 windows and dialogs

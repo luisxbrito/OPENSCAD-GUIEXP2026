@@ -597,6 +597,31 @@ def _edge_value(p) -> tuple[Optional[float], bool]:
     return (ch, True) if ch > 0 else (ro, False)
 
 
+def prism(poly: np.ndarray, h: float, z0: float = 0.0) -> Tris:
+    """Polígono simple extruido a la altura h (caras hacia fuera)."""
+    if _area(poly) < 0:
+        poly = poly[::-1]
+    lo = np.column_stack([poly, np.full(len(poly), z0)])
+    hi = np.column_stack([poly, np.full(len(poly), z0 + h)])
+    parts = [_quads(lo, hi)]
+    tri = triangulate(poly)
+    if tri:
+        idx = np.array(tri)
+        parts += [lo[idx][:, ::-1], hi[idx]]
+    return np.concatenate(parts)
+
+
+def spur_gear(p) -> Optional[Tris]:
+    """Engranaje recto (vista aproximada: sin el agujero, que lo hace OpenSCAD)."""
+    from . import gears
+    mod, z = _num(p.get("mod", 1)), _num(p.get("teeth", 20))
+    t, pa = _num(p.get("thickness", 5)), _num(p.get("pressure_angle", 20))
+    if None in (mod, z, t, pa) or mod <= 0 or t <= 0:
+        return None
+    poly = gears.polygon(mod, int(z), pa, _num(p.get("backlash", 0), 0.0) or 0.0)
+    return prism(poly, t, -t / 2 if p.get("center") is True else 0.0)
+
+
 def cube_edges(p, ctx) -> Optional[Tris]:
     """Malla de cube_edges: la caja cortada por planos.
 
@@ -978,6 +1003,8 @@ def solid(node, ctx) -> dict:
         mesh = polyhedron(p)
     elif k == "cube_edges":
         mesh = cube_edges(p, ctx)
+    elif k == "spur_gear":
+        mesh = spur_gear(p)
     elif k == "cylinder_edges":
         mesh = cylinder_edges(p, ctx)
     elif k in ("square", "circle", "polygon"):

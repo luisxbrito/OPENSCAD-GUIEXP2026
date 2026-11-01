@@ -30,7 +30,7 @@ SAME_AS_SPANISH = {
            "Código ASCII / Unicode", "Mapas de altura (*.png *.dat);;Todos (*)", "Módulo", "Módulo OpenSCAD",
            "Número de lados:", "Polígono", "Polígono regular", "Rápido (300 ms)", "Sólidos 3D",
            "Tipo de componente normalizado", "Tipo de perfil 2D", "código", "de",
-           "Círculo 1", "Círculo 2", "Hexágono", "Polígono de {n} lados", "Ortográfica"},
+           "Círculo 1", "Círculo 2", "Hexágono", "Polígono de {n} lados", "Ortográfica", "Módulo (m)"},
 }
 
 

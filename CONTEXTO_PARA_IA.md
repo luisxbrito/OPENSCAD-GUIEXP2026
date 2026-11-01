@@ -231,6 +231,12 @@ python tests/simulacion/sim_ventana_visor_imagen.py
   lo aplica al visor OpenGL (fondo, color de piezas sin color(), rejilla y textos oscuros si el fondo
   es claro: `VIEWER_ON_LIGHT_STYLES`) y al de imágenes (`--colorscheme`). Los colores de las
   piezas (muestra del panel) NO pasan por `themed()`.
+- Engranaje recto (`spur_gear`, Sólidos 3D › Mecánica): módulo propio en library.py (como
+  cube_edges) y las MISMAS fórmulas en `scadgui/gears.py` (perfil de evolvente, diámetros, mínimo
+  de dientes 2/sin²α, distancia m·(z1+z2)/2, giro de fase `mesh_rotation`). Si se cambia una, cambiar
+  la otra: `test_openscad.test_engranajes` compara el volumen de OpenSCAD con el de Python.
+  `Document.add_meshing_gear` crea la pareja (translate + rotate) tras el engranaje. Holgura por
+  defecto 0.1 mm (impresión 3D). Fuentes: Machinery's Handbook 27 («Gears and Gearing»), Casillas.
 - Contraste del tema oscuro: `tests/test_tema.py` mide letra/fondo en cada regla. Un color que en
   claro es letra (DARK lo aclara) y alguna regla usa de fondo va en `DARK_BACKGROUND`.
 - Cinta: `Ribbon.GROUPS` reparte los botones de cada pestaña en grupos con título (marcados con

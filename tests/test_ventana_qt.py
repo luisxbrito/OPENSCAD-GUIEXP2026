@@ -473,6 +473,33 @@ def test_reiniciar_vuelve_a_abrir_el_mismo_archivo():
     assert quits and calls[0][0] == sys.executable
     assert calls[0][1][-1].endswith("rueda_con_eje_giratorio.scad"), calls
 
+
+def test_engranaje_desde_la_cinta_y_pareja_desde_el_panel():
+    """Botón spur_gear de la cinta → engranaje; el panel muestra sus diámetros y crea la pareja."""
+    from PySide6.QtWidgets import QLabel, QPushButton
+    from scadgui.i18n import tr
+    from scadgui.model import Document
+    w = window()
+    w.set_document(Document())
+    w.ribbon.buttons["spur_gear"].click()
+    app.processEvents()
+    gear = w.doc.children[0]
+    assert gear.kind == "spur_gear" and w.selected_ids() == [gear.id]
+    texts = [l.text() for l in w.props.findChildren(QLabel)]
+    assert any(t.startswith("Ø primitivo 20 mm") for t in texts), texts         # m = 1, z = 20
+    add = next(b for b in w.props.findChildren(QPushButton) if b.text() == tr("Añadir engranaje que engrane"))
+    add.click()
+    app.processEvents()
+    assert [n.kind for n in w.doc.children] == ["spur_gear", "translate"]
+    new = w.doc.find(w.selected_ids()[0])
+    assert new.kind == "spur_gear" and w.doc.children[1].params["v"] == [20, 0, 0]
+    assert "module spur_gear(" in w.code.text.toPlainText()
+    w.runner.exe = w.runner.exe or "openscad-que-no-existe"     # con OpenSCAD (aunque falle)…
+    w.render_view(False)
+    app.processEvents()
+    assert not w.viewer.message.text().startswith("Crea una pieza")  # …no queda el aviso de «vacío»
+    w.runner.cancel_preview()
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

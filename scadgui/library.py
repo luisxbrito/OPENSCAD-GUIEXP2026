@@ -100,7 +100,36 @@ CYLINDER_EDGES = '''module cylinder_edges(h = 10, r = 5, center = false, edges =
   }
 }'''
 
-LIBRARY = {"cube_edges": CUBE_EDGES, "cylinder_edges": CYLINDER_EDGES}
+SPUR_GEAR = '''module spur_gear(mod = 1, teeth = 20, thickness = 5, pressure_angle = 20, backlash = 0, bore = 0, center = false) {
+  // Engranaje recto de evolvente por módulo (lo escribe OpenSCAD GUI Mejorada).
+  // Diámetro primitivo = mod * teeth; exterior = mod * (teeth + 2); dos engranajes del mismo
+  // módulo engranan con sus centros a mod * (z1 + z2) / 2. backlash: holgura en mm entre los dos.
+  z = max(3, round(teeth));
+  r = mod * z / 2;                      // radio primitivo
+  rb = r * cos(pressure_angle);         // radio de base (de él sale la evolvente)
+  ra = r + mod;                         // radio exterior
+  rf = max(r - 1.25 * mod, mod * 0.1);  // radio de raíz
+  r0 = max(rb, rf);
+  function inv(a) = tan(a) - a * PI / 180;   // involuta, en radianes, de un ángulo en grados
+  // Medio grueso del diente, en grados, a la distancia R del centro.
+  function half(R) = max(0, ((PI * mod / 2 - backlash / 2) / (2 * r) + inv(pressure_angle)
+                             - inv(acos(min(1, rb / R)))) * 180 / PI);
+  n = 8;
+  flank = [for (k = [0 : n]) r0 + (ra - r0) * k / n];
+  root = rf < r0 - 1e-6;
+  pts = [for (i = [0 : z - 1]) let(c = i * 360 / z) each concat(
+           root ? [[rf * cos(c - half(r0)), rf * sin(c - half(r0))]] : [],
+           [for (R = flank) [R * cos(c - half(R)), R * sin(c - half(R))]],
+           [for (k = [n : -1 : 0]) let(R = flank[k]) [R * cos(c + half(R)), R * sin(c + half(R))]],
+           root ? [[rf * cos(c + half(r0)), rf * sin(c + half(r0))]] : [],
+           [[rf * cos(c + 180 / z), rf * sin(c + 180 / z)]])];
+  translate([0, 0, center ? -thickness / 2 : 0]) difference() {
+    linear_extrude(thickness) polygon(pts);
+    if (bore > 0) translate([0, 0, -1]) cylinder(h = thickness + 2, d = bore);
+  }
+}'''
+
+LIBRARY = {"cube_edges": CUBE_EDGES, "cylinder_edges": CYLINDER_EDGES, "spur_gear": SPUR_GEAR}
 
 # Versiones anteriores que ya pueden estar en archivos guardados. Al abrir el archivo se
 # reconocen como nuestras y se sustituyen por la versión actual (no se conservan como código

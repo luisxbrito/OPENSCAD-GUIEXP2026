@@ -131,7 +131,8 @@ class Ribbon(QTabWidget):
     # Grupos de cada pestaña, con su título debajo (como en Fusion). Un comando de la pestaña que
     # no esté en ningún grupo va al último, para que nunca se quede sin botón.
     GROUPS = {
-        "solid": ((N_("Primitivas"), ("cube", "sphere", "cylinder", "polyhedron")), (N_("Asistentes"), ("hardware",))),
+        "solid": ((N_("Primitivas"), ("cube", "sphere", "cylinder", "polyhedron")), (N_("Mecánica"), ("spur_gear",)),
+                  (N_("Asistentes"), ("hardware",))),
         "shape2d": ((N_("Primitivas 2D"), ("square", "circle", "polygon", "text")), (N_("Modificar"), ("offset",)),
                     (N_("Asistentes"), ("sketch2d", "drawing2d"))),
         "transform": ((N_("Posición"), ("translate", "rotate", "mirror")), (N_("Tamaño"), ("scale", "resize", "multmatrix")),
@@ -595,6 +596,7 @@ class MainWindow(QMainWindow):
         self.model_layout = lay
         self.tree_box = None  # contenedor del árbol cuando está sobre el visor
         self.tree_on_viewer = False  # colores claros: el árbol está sobre el fondo oscuro del visor
+        self._empty_message = False  # el visor muestra «Crea una pieza…» (documento vacío)
         self._docks_hidden_by_tree: list = []  # paneles que se ocultaron por no haber selección
         split.setStretchFactor(0, 2)
         split.setStretchFactor(1, 3)
@@ -686,6 +688,7 @@ class MainWindow(QMainWindow):
         self.props.setDifferenceBase.connect(self.set_difference_base)
         self.props.openOperationHelper.connect(self.open_operation_helper)
         self.props.fixRadii.connect(self.fix_radii)
+        self.props.addMeshingGear.connect(self.add_meshing_gear)
         self.code.lineClicked.connect(self.on_code_line)
         self.code.applyRequested.connect(self.apply_code)
         self.code.editingChanged.connect(self.on_code_editing)
@@ -1394,6 +1397,16 @@ class MainWindow(QMainWindow):
         self.mutate(change, key=(node_id, key), rebuild_tree=False)
         self._refresh_item(node_id)
 
+    def add_meshing_gear(self, node_id: int, teeth: int = 0) -> None:
+        """Panel del engranaje › «Añadir engranaje que engrane»: crea la pareja ya colocada."""
+        created = {}
+
+        def change():
+            created["n"] = self.doc.add_meshing_gear(node_id, teeth or None)
+        self.mutate(change)
+        if created.get("n") is not None:
+            self.select_ids([created["n"].id])
+
     def fix_radii(self, node_id: int) -> None:
         self.mutate(lambda: self.doc.fix_radii(node_id) or False, rebuild_tree=False)
         self._refresh_item(node_id)
@@ -1632,7 +1645,7 @@ class MainWindow(QMainWindow):
             self._render_mesh()
             return
         if not any(True for _ in self.doc.walk()):
-            self.viewer.clear(tr("Crea una pieza con los botones de arriba para verla aquí."))
+            self._show_empty_message()
             self.viewer.status.setText("")
             return
         if not self.runner.exe:
@@ -1646,10 +1659,14 @@ class MainWindow(QMainWindow):
         base = os.path.dirname(self.path) if self.path else ""
         self.runner.render_image(code, base, self.viewer.render_size(), self.viewer.camera, full_render=full)
 
+    def _show_empty_message(self) -> None:
+        self.viewer.clear(tr("Crea una pieza con los botones de arriba para verla aquí."))
+        self._empty_message = True
+
     def _retranslate_view_message(self) -> None:
         """Vuelve a escribir en el idioma nuevo el aviso del visor (sin volver a renderizar)."""
         if not any(True for _ in self.doc.walk()):
-            self.viewer.clear(tr("Crea una pieza con los botones de arriba para verla aquí."))
+            self._show_empty_message()
         elif not self.runner.exe:
             if self.gl:
                 self.viewer.show_message(tr("Vista aproximada (sin operaciones booleanas).\n"
@@ -1661,7 +1678,7 @@ class MainWindow(QMainWindow):
         """Visor OpenGL: pide a OpenSCAD la malla final del modelo."""
         if not any(True for _ in self.doc.walk()):
             self.runner.cancel_preview()
-            self.viewer.clear(tr("Crea una pieza con los botones de arriba para verla aquí."))
+            self._show_empty_message()
             self.viewer.status.setText("")
             return
         if not self.runner.exe:
@@ -1671,6 +1688,9 @@ class MainWindow(QMainWindow):
             self.viewer.show_setup_button(True)
             return
         self.viewer.show_setup_button(False)
+        if self._empty_message:                   # ya hay piezas: el aviso del documento vacío sobra
+            self.viewer.show_message("")
+            self._empty_message = False
         code = generate(self.doc, header=False).text
         self.runner.extra_args = self._openscad_args()
         base = os.path.dirname(self.path) if self.path else ""

@@ -90,6 +90,7 @@ class PropertyPanel(QScrollArea):
     setDifferenceBase = Signal(int, int)
     openOperationHelper = Signal(str)
     fixRadii = Signal(int)
+    addMeshingGear = Signal(int, int)       # engranaje, dientes de la pareja
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -214,6 +215,8 @@ class PropertyPanel(QScrollArea):
             fix = QPushButton(tr("Corregir (misma forma)"))
             fix.clicked.connect(lambda: self.fixRadii.emit(node.id))
             self._lay.addWidget(fix)
+        if node.kind == "spur_gear":
+            self._gear_info(node)
         if spec and spec.hint:
             self._hint(tr(spec.hint))
         if spec and spec.container and not node.children:
@@ -225,6 +228,36 @@ class PropertyPanel(QScrollArea):
         if node.kind in ("difference", "union", "intersection"):
             self._boolean_form(node)
         self._operation_helper_form(node)
+
+    def _gear_info(self, node: Node) -> None:
+        """Diámetros calculados, avisos de diseño y el botón para añadir la pareja."""
+        from .. import gears
+        p = node.params
+        values = [p.get(k, d) for k, d in (("mod", 1), ("teeth", 20), ("pressure_angle", 20))]
+        if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in values):
+            return                                   # con expresiones no se puede calcular aquí
+        mod, z, pa = values
+        num = lambda k: p.get(k) if isinstance(p.get(k), (int, float)) and not isinstance(p.get(k), bool) else 0
+        d = gears.dims(mod, z, pa)
+        self._hint(tr("Ø primitivo {d:g} mm · Ø exterior {da:g} mm · Ø raíz {df:g} mm · paso {p:.3f} mm").format(
+            d=round(d["pitch_d"], 3), da=round(d["tip_d"], 3), df=round(d["root_d"], 3), p=d["circular_pitch"]))
+        for text, values in gears.warnings(mod, z, pa, num("backlash"), num("bore")):
+            self._hint(tr(text).format(**values), "warnText")
+        row = QWidget()
+        lay = QHBoxLayout(row)
+        lay.setContentsMargins(0, 0, 0, 0)
+        teeth = QSpinBox()
+        teeth.setRange(3, 400)
+        teeth.setValue(int(z))
+        teeth.setToolTip(tr("Dientes del engranaje nuevo"))
+        add = QPushButton(tr("Añadir engranaje que engrane"))
+        add.setToolTip(tr("Crea otro engranaje del mismo módulo, ya colocado a m·(z1 + z2)/2 y girado "
+                          "para que los dientes encajen."))
+        add.clicked.connect(lambda: self.addMeshingGear.emit(node.id, teeth.value()))
+        lay.addWidget(add, 1)
+        lay.addWidget(QLabel(tr("dientes:")))
+        lay.addWidget(teeth)
+        self._lay.addWidget(row)
 
     def _operation_helper_form(self, node: Node) -> None:
         """Añade el widget helper interactivo si la operación tiene guía o presets disponibles."""
