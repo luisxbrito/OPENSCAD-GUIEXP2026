@@ -494,8 +494,9 @@ class Document:
         if added:  # al activar r, d, r1… se parte del radio que ya tiene la pieza
             value = initial_value(node, key, value)
         node.params[key] = value
-        if added:
-            normalize(node, added=key)
+        # Tras cualquier cambio de un radio desde el panel no quedan radios que choquen (aunque
+        # el archivo ya los trajera): se quita el que sobra sin cambiar la forma.
+        normalize(node, added=key if added else "", edited=key)
 
     def fix_radii(self, node_id: int) -> bool:
         """Deja sin choques los radios de una pieza (sin cambiar su forma)."""

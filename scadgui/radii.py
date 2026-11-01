@@ -68,12 +68,13 @@ def conflicts(node: Node) -> list[str]:
     return out
 
 
-def normalize(node: Node, added: str = "") -> bool:
+def normalize(node: Node, added: str = "", edited: str = "") -> bool:
     """Quita los parámetros que sobran conservando la forma. Devuelve si cambió algo.
 
     ``added`` es el parámetro que se acaba de activar en el panel: si es el radio general (r o
     d) de un cilindro, se entiende que se quiere un cilindro recto y se quitan los de base y
     tapa; si es uno de base o tapa, el radio general se reparte en el lado que falte.
+    ``edited`` es el que se acaba de cambiar: entre r y d (o r1 y d1…) se conserva ese.
     """
     if not isinstance(node, Node) or node.kind not in KINDS:
         return False
@@ -81,7 +82,8 @@ def normalize(node: Node, added: str = "") -> bool:
     before = dict(p)
     for side in ("", "1", "2") if node.kind == "cylinder" else ("",):
         if "r" + side in p and "d" + side in p:
-            keep = added if added in ("r" + side, "d" + side) else "d" + side  # como OpenSCAD: manda d
+            chosen = added or edited
+            keep = chosen if chosen in ("r" + side, "d" + side) else "d" + side  # como OpenSCAD: manda d
             p.pop("r" + side if keep.startswith("d") else "d" + side)
     if node.kind == "cylinder" and ("r" in p or "d" in p) and any(k in p for k in ("r1", "r2", "d1", "d2")):
         if _ROLE.get(added, ("x",))[0] == "":

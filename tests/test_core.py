@@ -1060,6 +1060,13 @@ def test_radios_sin_avisos_de_openscad():
     assert doc2.fix_radii(bad.id)
     assert bad.call() == "cylinder(h = 10, r1 = 1, d2 = 4, center = true)" and conflicts(bad) == []
     assert abs(g.signed_volume(g.solid(bad, ctx)[bad.id]) - before) < 1e-9
+    # editar un radio de una pieza que ya traía el choque también lo corrige
+    cone = parse("cylinder(h = 5, r = 1, d2 = 6, center = true);").children[0]
+    Document(children=[cone]).set_param(cone.id, "d2", 5)
+    assert cone.call() == "cylinder(h = 5, r1 = 1, d2 = 5, center = true)"
+    both = parse("sphere(r = 3, d = 10);").children[0]
+    Document(children=[both]).set_param(both.id, "r", 4)     # se edita r: se queda r
+    assert both.params == {"r": 4}
     c = parse("circle(r = 3, d = 10);").children[0]
     assert Document(children=[c]).fix_radii(c.id) and c.params == {"d": 10}
 
