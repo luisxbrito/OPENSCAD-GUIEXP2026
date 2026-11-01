@@ -49,6 +49,21 @@ def render(code: str):
     return load_stl(out)
 
 
+def volume_of(code: str) -> float:
+    """Volumen del modelo. Si OpenSCAD no deja nada (una intersección vacía), 0."""
+    folder = tempfile.mkdtemp()
+    src, out = os.path.join(folder, "m.scad"), os.path.join(folder, "m.stl")
+    with open(src, "w", encoding="utf-8") as fh:
+        fh.write(code)
+    run = subprocess.run([EXE, "-o", out, src], capture_output=True, text=True, timeout=600)
+    log = run.stdout + run.stderr
+    problems = [line for line in log.splitlines() if "WARNING" in line or "ERROR" in line]
+    assert not problems, log[-1500:]
+    if not os.path.isfile(out) or os.path.getsize(out) == 0:
+        return 0.0
+    return abs(signed_volume(load_stl(out)))
+
+
 def _rounded(src: str, edges_of, mode: str, value: float) -> str:
     doc = parse(src)
     node = doc.children[0]
@@ -122,6 +137,44 @@ def test_engranajes():
     hole = 48 * 0.5 * 16 * math.sin(2 * math.pi / 48)
     expected = sum((area(gears.polygon(2, z, 20, 0.1)) - hole) * 6 for z in (20, 31))
     assert abs(signed_volume(tris) - expected) < 1, (signed_volume(tris), expected)
+
+def test_helicoidal_como_en_la_vista_aproximada():
+    """El helicoidal de OpenSCAD tiene el mismo volumen que la malla de la vista aproximada (las
+    dos parten el retorcido en las mismas rebanadas), y la pareja de mano contraria no se toca."""
+    from scadgui import geometry, gears
+    doc = Document()
+    g = doc.add("helical_gear")
+    for key, value in (("mod", 1), ("teeth", 20), ("thickness", 10), ("helix_angle", 20)):
+        doc.set_param(g.id, key, value)
+    code = generate(doc).text
+    mine = abs(signed_volume(geometry.helical_gear(g.params)))
+    assert abs(volume_of(code) - mine) < 1, (volume_of(code), mine)
+    # Las dos ruedas de la pareja, una a derechas y otra a izquierdas: ni se tocan…
+    doc.add_meshing_gear(g.id, 40)
+    pair = generate(doc).text
+    body = pair.split("module ", 1)
+    assert volume_of("intersection() {\n" + body[0] + "}\nmodule " + body[1]) == 0
+    # …y juntas pesan lo que las dos por separado (o sea que no se solapan ni les falta nada)
+    both = mine + abs(signed_volume(geometry.helical_gear(
+        dict(g.params, teeth=40, left_hand=True))))
+    assert abs(volume_of(pair) - both) < 2, (volume_of(pair), both)
+    assert gears.helical_center_distance(1, 20, 40, 20) > 0
+
+
+def test_cremallera_y_su_engranaje():
+    """La cremallera sale con el volumen calculado y el engranaje que se le pone encima no la toca."""
+    from scadgui import geometry
+    doc = Document()
+    r = doc.add("rack")
+    for key, value in (("mod", 2), ("teeth", 8), ("thickness", 5), ("base", 4)):
+        doc.set_param(r.id, key, value)
+    mine = abs(signed_volume(geometry.rack(r.params)))
+    assert abs(volume_of(generate(doc).text) - mine) < 1
+    doc.add_meshing_gear(r.id, 25)
+    pair = generate(doc).text
+    body = pair.split("module ", 1)
+    assert volume_of("intersection() {\n" + body[0] + "}\nmodule " + body[1]) == 0
+
 
 if __name__ == "__main__":
     if not EXE:

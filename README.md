@@ -17,11 +17,25 @@ Italian and Portuguese (*Edit › Preferences*).
   `cube` or the top/bottom rim of a `cylinder` and round or chamfer them. The part becomes
   `cube_edges(...)` or `cylinder_edges(...)`; the definition of those two modules is written
   at the end of the file, so it opens in plain OpenSCAD without any library.
-- **Spur gears.** *3D Solids › Mechanical › spur_gear* makes an involute spur gear from its
-  module and number of teeth (pressure angle, backlash, bore). The panel shows the pitch, outside
-  and root diameters, warns about undercut teeth, and *Add a meshing gear* places the mating gear
-  at m·(z1 + z2)/2, already rotated so the teeth fit. Like the edge modules, `spur_gear` is
-  written at the end of the file.
+- **Gears and racks.** *3D Solids › Mechanical* has three involute parts, all by module:
+  `spur_gear`, `helical_gear` and `rack`. The panel works out their measurements, warns about
+  design problems, and a button places the part that meshes with the selected one, already in
+  position and in phase.
+  - **Spur gear** (module, teeth, pressure angle, backlash, bore): the panel shows the pitch,
+    outside and root diameters, and warns about undercut teeth. The mating gear goes at
+    m·(z1 + z2)/2.
+  - **Helical gear** (plus helix angle and hand): the module and pressure angle given are the
+    *normal* ones, so the pitch Ø is m·z/cos ψ. The panel also shows the transverse module and
+    pressure angle, the lead of the helix, the twist over the face width and the axial overlap —
+    it warns when that overlap drops below 1, because then the tooth does not wrap a whole pitch
+    and the gear runs like a spur one. The mating gear is made with the **opposite hand** (two
+    gears of the same hand do not mesh) and placed at m·(z1 + z2)/(2·cos ψ).
+  - **Rack** (module, teeth, thickness, base, pressure angle, backlash): the basic tooth form of
+    the module system, with straight flanks. Its pitch line sits at y = 0 and the teeth point
+    towards +Y, so the gear put on it has its centre one pitch radius above.
+
+  Like the edge modules, the three are written at the end of the file, so the `.scad` opens in
+  plain OpenSCAD without any library.
 - **Arrays.** Linear, polar and grid arrays of the selected parts. Each one is written as a
   plain `for` loop, for example `for (i = [0 : 3]) translate(i * [20, 0, 0]) { ... }`, and is
   recognised again when the file is reopened. Other `for` loops are kept as code.
@@ -101,8 +115,9 @@ scadgui/
   sketches.py            2D profile builders
   drawing.py             technical drawing sheet generator
   operations.py          help texts and quick presets for each operation
-  library.py, edges.py   cube_edges / cylinder_edges / spur_gear modules and the edge rounding logic
-  gears.py               involute gear maths (same formulas as the spur_gear module)
+  library.py, edges.py   cube_edges / cylinder_edges / spur_gear / helical_gear / rack modules
+                         and the edge rounding logic
+  gears.py               involute gear and rack maths (same formulas as those modules)
   code_assist.py         code templates and parameter hints for the editor
   i18n.py, locales/      translations (one file per language)
   ui/                    PySide6 windows and dialogs

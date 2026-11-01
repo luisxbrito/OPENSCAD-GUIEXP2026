@@ -231,12 +231,30 @@ python tests/simulacion/sim_ventana_visor_imagen.py
   lo aplica al visor OpenGL (fondo, color de piezas sin color(), rejilla y textos oscuros si el fondo
   es claro: `VIEWER_ON_LIGHT_STYLES`) y al de imágenes (`--colorscheme`). Los colores de las
   piezas (muestra del panel) NO pasan por `themed()`.
-- Engranaje recto (`spur_gear`, Sólidos 3D › Mecánica): módulo propio en library.py (como
-  cube_edges) y las MISMAS fórmulas en `scadgui/gears.py` (perfil de evolvente, diámetros, mínimo
-  de dientes 2/sin²α, distancia m·(z1+z2)/2, giro de fase `mesh_rotation`). Si se cambia una, cambiar
-  la otra: `test_openscad.test_engranajes` compara el volumen de OpenSCAD con el de Python.
-  `Document.add_meshing_gear` crea la pareja (translate + rotate) tras el engranaje. Holgura por
-  defecto 0.1 mm (impresión 3D). Fuentes: Machinery's Handbook 27 («Gears and Gearing»), Casillas.
+- Dentados (Sólidos 3D › Mecánica): `spur_gear`, `helical_gear` y `rack`. Cada uno es un módulo
+  propio en library.py (como cube_edges) con las MISMAS fórmulas repetidas en `scadgui/gears.py`
+  para la vista aproximada, los datos del panel y los avisos. Si se cambia una, cambiar la otra:
+  `test_openscad` compara el volumen de OpenSCAD con el de Python para los tres.
+  - Recto: evolvente, diámetros por módulo, mínimo de dientes 2/sin²α, distancia m·(z1+z2)/2,
+    giro de fase `mesh_rotation`.
+  - Helicoidal: el módulo y el ángulo de presión que se dan son los NORMALES; en el plano de giro
+    valen mt = m/cos ψ y tan αt = tan α/cos ψ, pero la cabeza y el pie se siguen midiendo con el
+    módulo normal. El perfil del plano de giro sale del mismo núcleo (`_involute_polygon`) y se
+    retuerce con `linear_extrude(twist=)`, que da el helicoide exacto. OJO con el signo: OpenSCAD
+    gira en sentido HORARIO con twist positivo, así que la hélice a derechas lleva twist negativo
+    (comprobado contra OpenSCAD real). La pareja va de MANO CONTRARIA, a m·(z1+z2)/(2·cos ψ);
+    con la misma mano chocan, y hay pruebas que lo verifican en los dos sentidos.
+  - Cremallera: el «dentado básico» del sistema, de flancos rectos. Línea primitiva en y = 0,
+    dientes hacia +Y, cada diente centrado en su paso (los huecos caen en los múltiplos del paso).
+    Con un ángulo de presión grande el hueco acaba en V y el diente en punta: los dos casos están
+    contemplados en el perfil y avisados en el panel.
+  - `geometry.twisted_prism` parte el retorcido en rebanadas como OpenSCAD y usa SU misma diagonal
+    al triangular las caras laterales (`_quads(flip=…)`, que depende del signo del giro), así que
+    la vista aproximada pesa exactamente lo mismo que el modelo de verdad.
+  - `Document.add_meshing_gear` sirve para los tres (translate + rotate tras la pieza); sobre una
+    cremallera crea un `spur_gear`. Holgura por defecto 0.1 mm (impresión 3D).
+  - Fuentes: Machinery's Handbook 27 («Gears and Gearing», «Helical Gearing» p. 2099, «Basic Rack
+    of the 20-Degree and 25-Degree Full-Depth Involute Systems») y AGMA 908-B89 ec. 2 y 4; Casillas.
 - Contraste del tema oscuro: `tests/test_tema.py` mide letra/fondo en cada regla. Un color que en
   claro es letra (DARK lo aclara) y alguna regla usa de fondo va en `DARK_BACKGROUND`.
 - Cinta: `Ribbon.GROUPS` reparte los botones de cada pestaña en grupos con título (marcados con

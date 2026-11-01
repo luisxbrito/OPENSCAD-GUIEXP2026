@@ -32,7 +32,7 @@ def roundtrip(text):
 
 
 def test_catalogo_completo():
-    assert len(SPECS) == 36  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + engranaje
+    assert len(SPECS) == 38  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 3 de engranajes
     for key, _, _ in CATEGORIES:
         assert specs_in(key), key
     for name in SPECS:
@@ -1133,6 +1133,49 @@ def test_engranaje_y_su_pareja():
     except ValueError:
         pass
     assert new2.params["teeth"] == 20
+
+
+def test_helicoidal_y_su_pareja_de_mano_contraria():
+    """La pareja de un helicoidal va a m·(z1+z2)/(2·cos ψ) y con la hélice al revés."""
+    import math
+    doc = Document()
+    g = doc.add("helical_gear")
+    for key, value in (("mod", 2), ("helix_angle", 30), ("bore", 6)):
+        doc.set_param(g.id, key, value)
+    new = doc.add_meshing_gear(g.id, 40)
+    shift = doc.children[1]
+    assert shift.kind == "translate"
+    assert abs(shift.params["v"][0] - 2 * 60 / (2 * math.cos(math.radians(30)))) < 1e-5
+    assert shift.children[0].params["a"] == [0, 0, 4.5]              # 40 dientes: par, medio paso
+    assert new.params["teeth"] == 40 and new.params["left_hand"] is True
+    assert new.params["helix_angle"] == 30 and new.params["bore"] == 6
+    assert doc.add_meshing_gear(new.id, 20).params["left_hand"] is False   # y la de esa, otra vez a derechas
+    text = generate(doc).text
+    assert text.count("module helical_gear(") == 1
+    assert "left_hand = true" in text
+    again = parse(text)
+    assert generate(again).text == text                              # ida y vuelta
+
+
+def test_cremallera_con_su_engranaje():
+    """La cremallera lleva el engranaje a su radio primitivo de altura y en el centro de un hueco."""
+    import math
+    doc = Document()
+    r = doc.add("rack")
+    doc.set_param(r.id, "mod", 2)
+    doc.set_param(r.id, "teeth", 8)
+    new = doc.add_meshing_gear(r.id, 25)
+    shift = doc.children[1]
+    assert new.kind == "spur_gear" and new.params["teeth"] == 25
+    assert new.params["mod"] == 2 and new.params["backlash"] == 0.1   # hereda lo que comparten
+    assert "base" not in new.params                                   # y no lo que no comparten
+    assert abs(shift.params["v"][0] - 4 * math.pi * 2) < 1e-5         # un hueco de la mitad
+    assert shift.params["v"][1] == 25                                 # m·z/2 de altura
+    text = generate(doc).text
+    assert text.count("module rack(") == 1 and text.count("module spur_gear(") == 1
+    again = parse(text)
+    assert generate(again).text == text
+    assert [n.kind for n in again.children] == ["rack", "translate"]
 
 if __name__ == "__main__":
     failures = 0

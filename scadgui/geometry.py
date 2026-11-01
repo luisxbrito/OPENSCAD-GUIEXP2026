@@ -400,14 +400,22 @@ def circle_points(r: float, n: int) -> np.ndarray:
     return np.column_stack([r * np.cos(a), r * np.sin(a)])
 
 
-def _quads(ring_a: np.ndarray, ring_b: np.ndarray, closed: bool = True) -> Tris:
-    """Une dos anillos 3D con la misma cantidad de puntos."""
+def _quads(ring_a: np.ndarray, ring_b: np.ndarray, closed: bool = True, flip: bool = False) -> Tris:
+    """Une dos anillos 3D con la misma cantidad de puntos.
+
+    Cada cuadrilátero se parte en dos triángulos por una de sus diagonales; con flip se usa la
+    otra. En una superficie retorcida el cuadrilátero no es plano y las dos diagonales dan formas
+    algo distintas, así que ``twisted_prism`` usa la misma que OpenSCAD."""
     n = len(ring_a)
     count = n if closed else n - 1
     i = np.arange(count)
     j = (i + 1) % n
-    t1 = np.stack([ring_a[i], ring_a[j], ring_b[j]], axis=1)
-    t2 = np.stack([ring_a[i], ring_b[j], ring_b[i]], axis=1)
+    if flip:
+        t1 = np.stack([ring_a[i], ring_a[j], ring_b[i]], axis=1)
+        t2 = np.stack([ring_a[j], ring_b[j], ring_b[i]], axis=1)
+    else:
+        t1 = np.stack([ring_a[i], ring_a[j], ring_b[j]], axis=1)
+        t2 = np.stack([ring_a[i], ring_b[j], ring_b[i]], axis=1)
     return np.concatenate([t1, t2])
 
 
@@ -611,6 +619,32 @@ def prism(poly: np.ndarray, h: float, z0: float = 0.0) -> Tris:
     return np.concatenate(parts)
 
 
+def twisted_prism(poly: np.ndarray, h: float, z0: float = 0.0, turn: float = 0.0,
+                  slices: int = 8) -> Tris:
+    """Polígono extruido girando con la altura, como ``linear_extrude(twist = …)``.
+
+    turn: giro total en grados, positivo en sentido antihorario (al contrario que el ``twist`` de
+    OpenSCAD, que gira en sentido horario)."""
+    if _area(poly) < 0:
+        poly = poly[::-1]
+    n = max(1, int(slices))
+    rings = []
+    for k in range(n + 1):
+        a = math.radians(turn * k / n)
+        ca, sa = math.cos(a), math.sin(a)
+        xy = np.column_stack([poly[:, 0] * ca - poly[:, 1] * sa, poly[:, 0] * sa + poly[:, 1] * ca])
+        rings.append(np.column_stack([xy, np.full(len(poly), z0 + h * k / n)]))
+    # Al retorcerse, las caras laterales no son planas y cada diagonal da una forma algo distinta.
+    # Esta es la que usa OpenSCAD (la del lado hacia el que gira), así que la vista aproximada sale
+    # con el mismo volumen que el modelo de verdad.
+    parts = [_quads(rings[k], rings[k + 1], flip=turn >= 0) for k in range(n)]
+    tri = triangulate(poly)
+    if tri:
+        idx = np.array(tri)
+        parts += [rings[0][idx][:, ::-1], rings[-1][idx]]
+    return np.concatenate(parts)
+
+
 def spur_gear(p) -> Optional[Tris]:
     """Engranaje recto (vista aproximada: sin el agujero, que lo hace OpenSCAD)."""
     from . import gears
@@ -619,6 +653,34 @@ def spur_gear(p) -> Optional[Tris]:
     if None in (mod, z, t, pa) or mod <= 0 or t <= 0:
         return None
     poly = gears.polygon(mod, int(z), pa, _num(p.get("backlash", 0), 0.0) or 0.0)
+    return prism(poly, t, -t / 2 if p.get("center") is True else 0.0)
+
+
+def helical_gear(p) -> Optional[Tris]:
+    """Engranaje helicoidal (vista aproximada: sin el agujero, que lo hace OpenSCAD)."""
+    from . import gears
+    mod, z = _num(p.get("mod", 1)), _num(p.get("teeth", 20))
+    t, ha = _num(p.get("thickness", 10)), _num(p.get("helix_angle", 20))
+    pa = _num(p.get("pressure_angle", 20))
+    if None in (mod, z, t, ha, pa) or mod <= 0 or t <= 0 or not -89 < ha < 89:
+        return None
+    poly = gears.helical_polygon(mod, int(z), ha, pa, _num(p.get("backlash", 0), 0.0) or 0.0)
+    turn = gears.helix_twist(mod, int(z), ha, t)
+    if p.get("left_hand") is True:
+        turn = -turn
+    return twisted_prism(poly, t, -t / 2 if p.get("center") is True else 0.0, turn,
+                         max(8, int(math.ceil(abs(turn) / 2))))
+
+
+def rack(p) -> Optional[Tris]:
+    """Cremallera recta."""
+    from . import gears
+    mod, z = _num(p.get("mod", 1)), _num(p.get("teeth", 10))
+    t, pa = _num(p.get("thickness", 5)), _num(p.get("pressure_angle", 20))
+    base = _num(p.get("base", 5), 0.0)
+    if None in (mod, z, t, pa, base) or mod <= 0 or t <= 0 or z < 1:
+        return None
+    poly = gears.rack_polygon(mod, int(z), pa, _num(p.get("backlash", 0), 0.0) or 0.0, base)
     return prism(poly, t, -t / 2 if p.get("center") is True else 0.0)
 
 
@@ -1005,6 +1067,10 @@ def solid(node, ctx) -> dict:
         mesh = cube_edges(p, ctx)
     elif k == "spur_gear":
         mesh = spur_gear(p)
+    elif k == "helical_gear":
+        mesh = helical_gear(p)
+    elif k == "rack":
+        mesh = rack(p)
     elif k == "cylinder_edges":
         mesh = cylinder_edges(p, ctx)
     elif k in ("square", "circle", "polygon"):

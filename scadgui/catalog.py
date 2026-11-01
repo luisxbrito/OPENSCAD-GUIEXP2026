@@ -249,6 +249,33 @@ _add(Spec("spur_gear", "Engranaje recto", "solid", False, (
     FN,
 ), keyword="module", hint="Engranaje recto de evolvente. Ø primitivo = m·z; dos engranajes del mismo "
    "módulo engranan con sus centros a m·(z1 + z2)/2."))
+_add(Spec("helical_gear", "Engranaje helicoidal", "solid", False, (
+    Param("mod", "num", 1, label="Módulo normal (mn)", minimum=0.05, step=0.25),
+    Param("teeth", "int", 20, label="Dientes (z)", minimum=3, maximum=400),
+    # Más grueso que un recto: el diente tiene que envolver al menos un paso axial para que el
+    # engrane sea suave (ver el aviso del panel).
+    Param("thickness", "num", 10, label="Grueso", minimum=0.01),
+    Param("helix_angle", "num", 20, label="Ángulo de hélice (°)", minimum=1, maximum=45, step=1),
+    Param("left_hand", "bool", False, label="Hélice a izquierdas"),
+    Param("pressure_angle", "num", 20, label="Ángulo de presión normal (°)", minimum=10, maximum=35, step=0.5),
+    Param("backlash", "num", 0.1, label="Holgura (mm)", minimum=0, step=0.05),
+    Param("bore", "num", 5, optional=True, label="Agujero (Ø)", minimum=0),
+    Param("center", "bool", False, label="Centrado"),
+    FN,
+), keyword="module", hint="Engranaje helicoidal de evolvente. El módulo y el ángulo de presión son los "
+   "normales (perpendiculares al diente); Ø primitivo = m·z/cos ψ. Dos iguales de mano contraria "
+   "engranan con sus centros a m·(z1 + z2)/(2·cos ψ)."))
+_add(Spec("rack", "Cremallera", "solid", False, (
+    Param("mod", "num", 1, label="Módulo (m)", minimum=0.05, step=0.25),
+    Param("teeth", "int", 10, label="Dientes (z)", minimum=1, maximum=400),
+    Param("thickness", "num", 5, label="Grueso", minimum=0.01),
+    Param("base", "num", 5, label="Base (bajo los dientes)", minimum=0, step=0.5),
+    Param("pressure_angle", "num", 20, label="Ángulo de presión (°)", minimum=10, maximum=35, step=0.5),
+    Param("backlash", "num", 0.1, label="Holgura (mm)", minimum=0, step=0.05),
+    Param("center", "bool", False, label="Centrado"),
+), keyword="module", hint="Cremallera recta: el dentado básico del sistema por módulo, de flancos rectos. "
+   "Su línea primitiva queda en y = 0 y los dientes miran a +Y, así que un engranaje del mismo módulo "
+   "engrana con su centro a su radio primitivo de altura."))
 
 # --- Importar ---------------------------------------------------------------
 _add(Spec("import", "Importar", "imp", False, (
@@ -329,6 +356,11 @@ ICONS = {
     "import": "M12 3v12 M8 11l4 4 4-4 M4 17v3h16v-3",
     "surface": "M3 18l4-6 4 3 4-7 6 10z",
     "spur_gear": "M19.42 10.37 L21.92 10.71 L21.92 13.29 L19.42 13.63 L18.96 15.05 L20.78 16.78 L19.26 18.87 L17.05 17.68 L15.84 18.56 L16.29 21.03 L13.84 21.83 L12.74 19.56 L11.26 19.56 L10.16 21.83 L7.71 21.03 L8.16 18.56 L6.95 17.68 L4.74 18.87 L3.22 16.78 L5.04 15.05 L4.58 13.63 L2.08 13.29 L2.08 10.71 L4.58 10.37 L5.04 8.95 L3.22 7.22 L4.74 5.13 L6.95 6.32 L8.16 5.44 L7.71 2.97 L10.16 2.17 L11.26 4.44 L12.74 4.44 L13.84 2.17 L16.29 2.97 L15.84 5.44 L17.05 6.32 L19.26 5.13 L20.78 7.22 L18.96 8.95z M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z",
+    "helical_gear": ("M4.5 6c0-1.21 3.36-2.2 7.5-2.2s7.5 0.99 7.5 2.2v11c0 1.21-3.36 2.2-7.5 2.2"
+                     "s-7.5-0.99-7.5-2.2z M4.5 6c0 1.21 3.36 2.2 7.5 2.2s7.5-0.99 7.5-2.2"
+                     " M5.5 7.1l5 12.1 M9 8l5 11.1 M12.5 8.2l5 10.3"),
+    "rack": ("M2 14H2.7L3.5 7h2l0.8 7h1.4L8.5 7h2l0.8 7h1.4L13.5 7h2l0.8 7h1.4L18.5 7h2l0.8 7H22"
+             "V19H2Z"),
     "cube_edges": "M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5 M12 12v9 M12 12L4 7.5 M17 4.2a4 4 0 0 1 3 3.3",
     "cylinder_edges": "M5 8c0-1.7 3.1-3 7-3s7 1.3 7 3v10c0 1.7-3.1 3-7 3s-7-1.3-7-3z M5 8c0 1.7 3.1 3 7 3s7-1.3 7-3",
     "linear_array": "M2 9h5v6H2z M9.5 9h5v6h-5z M17 9h5v6h-5z M4 5h16 M17 2.5L20 5l-3 2.5",

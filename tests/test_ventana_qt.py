@@ -500,6 +500,43 @@ def test_engranaje_desde_la_cinta_y_pareja_desde_el_panel():
     assert not w.viewer.message.text().startswith("Crea una pieza")  # …no queda el aviso de «vacío»
     w.runner.cancel_preview()
 
+
+def test_helicoidal_y_cremallera_desde_la_cinta():
+    """Botones helical_gear y rack de la cinta; el panel calcula sus datos y crea la pareja."""
+    from PySide6.QtWidgets import QLabel, QPushButton
+    from scadgui.i18n import tr
+    from scadgui.model import Document
+    w = window()
+    w.set_document(Document())
+    w.ribbon.buttons["helical_gear"].click()
+    app.processEvents()
+    gear = w.doc.children[0]
+    assert gear.kind == "helical_gear"
+    texts = [l.text() for l in w.props.findChildren(QLabel)]
+    assert any("Módulo aparente 1.064" in t for t in texts), texts      # m = 1, hélice 20°
+    assert any(t.startswith("Ø primitivo 21.284 mm") for t in texts), texts
+    add = next(b for b in w.props.findChildren(QPushButton) if b.text() == tr("Añadir engranaje que engrane"))
+    add.click()
+    app.processEvents()
+    assert [n.kind for n in w.doc.children] == ["helical_gear", "translate"]
+    assert w.doc.find(w.selected_ids()[0]).params["left_hand"] is True
+    assert "module helical_gear(" in w.code.text.toPlainText()
+
+    w.set_document(Document())
+    w.ribbon.buttons["rack"].click()
+    app.processEvents()
+    rack = w.doc.children[0]
+    assert rack.kind == "rack"
+    texts = [l.text() for l in w.props.findChildren(QLabel)]
+    assert any(t.startswith("Paso 3.142 mm") for t in texts), texts
+    add = next(b for b in w.props.findChildren(QPushButton)
+               if b.text() == tr("Añadir engranaje sobre la cremallera"))
+    add.click()
+    app.processEvents()
+    assert [n.kind for n in w.doc.children] == ["rack", "translate"]
+    assert w.doc.find(w.selected_ids()[0]).kind == "spur_gear"
+    assert "module rack(" in w.code.text.toPlainText()
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

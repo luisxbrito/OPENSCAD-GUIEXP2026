@@ -472,6 +472,116 @@ def test_engranaje_en_la_vista_aproximada():
     assert np.isclose(tris[..., 2].min(), -3) and np.isclose(tris[..., 2].max(), 3)
     assert geo.signed_volume(tris) > 0
 
+
+def test_cremallera_medidas_y_grueso_del_diente():
+    """Proporciones del dentado básico: paso π·m, cabeza m, pie 1.25·m y, en la línea primitiva,
+    un grueso de medio paso en todos los dientes (Machinery's Handbook, «Basic Rack»)."""
+    from scadgui import gears
+    d = gears.rack_dims(2, 10, 20, 5)
+    assert np.isclose(d["pitch"], 2 * math.pi) and np.isclose(d["length"], 20 * math.pi)
+    assert d["height"] == 2.25 * 2 + 5 and np.isclose(d["tooth_thickness"], math.pi)
+    poly = gears.rack_polygon(2, 10, 20, 0, 5)
+    assert np.isclose(poly[:, 1].max(), 2) and np.isclose(poly[:, 1].min(), -7.5)
+    assert np.isclose(poly[:, 0].min(), 0) and np.isclose(poly[:, 0].max(), 20 * math.pi)
+    nxt = np.roll(poly, -1, axis=0)                                  # cortes del perfil con y = 0
+    cut = (poly[:, 1] < 0) != (nxt[:, 1] < 0)
+    xs = poly[cut, 0] + (nxt[cut, 0] - poly[cut, 0]) * (-poly[cut, 1]) / (nxt[cut, 1] - poly[cut, 1])
+    step = 2 * math.pi
+    want = [(i + 0.5) * step + s * step / 4 for i in range(10) for s in (-1, 1)]
+    assert np.allclose(np.sort(xs), np.sort(want))
+
+
+def test_engranaje_rodando_sobre_la_cremallera_no_se_solapa():
+    """El engranaje que coloca «Añadir engranaje sobre la cremallera», rodando un diente: ningún
+    vértice de uno entra en el otro. Si la cremallera avanzara al contrario, chocarían."""
+    from scadgui import gears
+
+    def interferes(m, zr, zg, backlash, reverse=False):
+        rack = gears.rack_polygon(m, zr, 20, backlash, 5)
+        gear = gears.polygon(m, zg, 20, backlash)
+        x0, y0, rot = gears.rack_gear_position(m, zr, zg)
+        for k in range(25):
+            t = k / 24 * 2 * math.pi / zg                            # gira un diente
+            a = math.radians(rot) + t
+            turn = np.array([[math.cos(a), -math.sin(a)], [math.sin(a), math.cos(a)]])
+            moved = rack + [(-1 if reverse else 1) * m * zg / 2 * t, 0]
+            here = gear @ turn.T + [x0, y0]
+            if _inside(here, moved).any() or _inside(moved, here).any():
+                return True
+        return False
+    for m, zr, zg in ((2, 10, 20), (1, 12, 25), (1.5, 8, 18)):
+        assert not interferes(m, zr, zg, 0.1), (m, zr, zg)
+    assert interferes(2, 10, 20, 0.1, reverse=True)                  # la prueba sí detecta choques
+
+
+def test_helicoidal_medidas_y_dientes_minimos():
+    """Machinery's Handbook, «Rules and Formulas for Helical Gear Calculations» y AGMA 908 ec. 4."""
+    from scadgui import gears
+    d = gears.helical_dims(1, 20, 20, 20, 10)
+    cos20 = math.cos(math.radians(20))
+    assert np.isclose(d["pitch_d"], 20 / cos20)                      # D = N / (Pn · cos α)
+    assert np.isclose(d["tip_d"], d["pitch_d"] + 2)                  # la cabeza, con el módulo normal
+    assert np.isclose(d["root_d"], d["pitch_d"] - 2.5)
+    assert np.isclose(d["transverse_angle"],
+                      math.degrees(math.atan(math.tan(math.radians(20)) / cos20)))
+    assert np.isclose(d["lead"], math.pi * d["pitch_d"] / math.tan(math.radians(20)))
+    assert np.isclose(d["twist"], math.degrees(2 * 10 * math.sin(math.radians(20)) / 20))
+    # Menos dientes que un recto, y cuanta más hélice, menos
+    assert [gears.helical_min_teeth(a) for a in (0, 20, 30, 45)] == [18, 15, 12, 7]
+    assert np.isclose(gears.helical_center_distance(2, 20, 40, 30),
+                      2 * 60 / (2 * math.cos(math.radians(30))))
+
+
+def test_pareja_helicoidal_engrana_en_todo_el_grueso():
+    """Dos helicoidales de mano contraria, a lo largo de todo el grueso y girando un diente: no se
+    solapan. Con la misma mano (el fallo típico) sí chocan."""
+    from scadgui import gears
+
+    def turn(poly, a):
+        m = np.array([[math.cos(a), -math.sin(a)], [math.sin(a), math.cos(a)]])
+        return poly @ m.T
+
+    def interferes(m, z1, z2, psi, thick, backlash, same_hand=False):
+        a = gears.helical_center_distance(m, z1, z2, psi)
+        p1 = gears.helical_polygon(m, z1, psi, 20, backlash)
+        p2 = gears.helical_polygon(m, z2, psi, 20, backlash)
+        t1 = math.radians(gears.helix_twist(m, z1, psi, thick))
+        t2 = math.radians(gears.helix_twist(m, z2, psi, thick)) * (1 if same_hand else -1)
+        for j in range(5):                                           # alturas del grueso
+            h = j / 4
+            for k in range(13):                                      # girando un diente
+                t = k / 12 * 2 * math.pi / z1
+                u = math.radians(gears.mesh_rotation(z2)) - t * z1 / z2
+                a1, a2 = turn(p1, t + t1 * h), turn(p2, u + t2 * h) + [a, 0]
+                if _inside(a2, a1).any() or _inside(a1, a2).any():
+                    return True
+        return False
+    for args in ((1, 20, 20, 20, 10), (2, 20, 40, 30, 20), (1, 15, 31, 20, 10), (1.5, 12, 25, 30, 15)):
+        assert not interferes(*args, 0.1), args
+    assert interferes(1, 20, 40, 30, 20, 0.1, same_hand=True)
+
+
+def test_cremallera_y_helicoidal_en_la_vista_aproximada():
+    from scadgui.parser import parse
+    from scadgui import geometry as geo
+    doc = parse("rack(mod = 2, teeth = 6, thickness = 5, base = 4, backlash = 0.1);")
+    tris = next(iter(geo.build_ghosts(doc).values()))
+    assert np.isclose(tris[..., 2].min(), 0) and np.isclose(tris[..., 2].max(), 5)
+    assert geo.signed_volume(tris) > 0
+    doc = parse("helical_gear(mod = 1, teeth = 20, thickness = 10, helix_angle = 20, center = true);")
+    tris = next(iter(geo.build_ghosts(doc).values()))
+    assert np.isclose(tris[..., 2].min(), -5) and np.isclose(tris[..., 2].max(), 5)
+    assert geo.signed_volume(tris) > 0
+    # El perfil de arriba está girado respecto al de abajo justo el giro de la hélice.
+    from scadgui import gears
+    low = tris[np.isclose(tris[..., 2], -5).all(axis=1)].reshape(-1, 3)
+    high = tris[np.isclose(tris[..., 2], 5).all(axis=1)].reshape(-1, 3)
+    far = lambda p: p[np.argmax(np.hypot(p[:, 0], p[:, 1]))]
+    a0, a1 = (math.degrees(math.atan2(*far(q)[1::-1])) for q in (low, high))
+    turned = (a1 - a0) % 18                                          # 20 dientes: uno cada 18°
+    want = gears.helix_twist(1, 20, 20, 10) % 18
+    assert min(abs(turned - want), 18 - abs(turned - want)) < 0.01, (turned, want)
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

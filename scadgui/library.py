@@ -129,7 +129,78 @@ SPUR_GEAR = '''module spur_gear(mod = 1, teeth = 20, thickness = 5, pressure_ang
   }
 }'''
 
-LIBRARY = {"cube_edges": CUBE_EDGES, "cylinder_edges": CYLINDER_EDGES, "spur_gear": SPUR_GEAR}
+HELICAL_GEAR = '''module helical_gear(mod = 1, teeth = 20, thickness = 10, helix_angle = 20, left_hand = false, pressure_angle = 20, backlash = 0, bore = 0, center = false) {
+  // Engranaje helicoidal de evolvente (lo escribe OpenSCAD GUI Mejorada).
+  // mod y pressure_angle son los NORMALES (medidos perpendiculares al diente). En el plano de
+  // giro valen más: mt = mod / cos(hélice) y tan(at) = tan(pressure_angle) / cos(hélice).
+  // Ø primitivo = mod * teeth / cos(hélice). Dos engranajes del mismo módulo y la misma hélice,
+  // uno a derechas y otro a izquierdas, engranan a mod * (z1 + z2) / (2 * cos(hélice)).
+  z = max(3, round(teeth));
+  b = max(0.001, thickness);
+  mt = mod / cos(helix_angle);                        // módulo aparente
+  at = atan(tan(pressure_angle) / cos(helix_angle));  // ángulo de presión aparente
+  r = mt * z / 2;                       // radio primitivo
+  rb = r * cos(at);                     // radio de base
+  ra = r + mod;                         // la cabeza se mide con el módulo normal
+  rf = max(r - 1.25 * mod, mod * 0.1);  // y el pie también
+  r0 = max(rb, rf);
+  function inv(a) = tan(a) - a * PI / 180;
+  function half(R) = max(0, ((PI * mt / 2 - backlash / 2) / (2 * r) + inv(at)
+                             - inv(acos(min(1, rb / R)))) * 180 / PI);
+  n = 8;
+  flank = [for (k = [0 : n]) r0 + (ra - r0) * k / n];
+  root = rf < r0 - 1e-6;
+  pts = [for (i = [0 : z - 1]) let(c = i * 360 / z) each concat(
+           root ? [[rf * cos(c - half(r0)), rf * sin(c - half(r0))]] : [],
+           [for (R = flank) [R * cos(c - half(R)), R * sin(c - half(R))]],
+           [for (k = [n : -1 : 0]) let(R = flank[k]) [R * cos(c + half(R)), R * sin(c + half(R))]],
+           root ? [[rf * cos(c + half(r0)), rf * sin(c + half(r0))]] : [],
+           [[rf * cos(c + 180 / z), rf * sin(c + 180 / z)]])];
+  // Giro del perfil sobre el grueso: 2 * b * sen(hélice) / (z * mod) radianes. OpenSCAD gira en
+  // sentido horario con twist positivo, así que la hélice a derechas lleva twist negativo.
+  turn = 2 * b * sin(helix_angle) / (z * mod) * 180 / PI;
+  translate([0, 0, center ? -b / 2 : 0]) difference() {
+    linear_extrude(b, twist = left_hand ? turn : -turn, slices = max(8, ceil(turn / 2)),
+                   convexity = 10) polygon(pts);
+    if (bore > 0) translate([0, 0, -1]) cylinder(h = b + 2, d = bore);
+  }
+}'''
+
+RACK = '''module rack(mod = 1, teeth = 10, thickness = 5, base = 5, pressure_angle = 20, backlash = 0, center = false) {
+  // Cremallera recta del sistema por módulo (lo escribe OpenSCAD GUI Mejorada).
+  // Es el "dentado básico" que define la forma del diente: flancos rectos inclinados el ángulo
+  // de presión, paso PI * mod, cabeza mod y pie 1.25 * mod. Engrana con cualquier engranaje del
+  // mismo módulo. La línea primitiva queda en y = 0 y los dientes miran a +Y, así que el
+  // engranaje va con su centro a su radio primitivo de altura; cada diente está centrado en su
+  // paso, o sea que los huecos caen en los múltiplos del paso.
+  z = max(1, round(teeth));
+  p = PI * mod;                 // paso
+  total = z * p;                // longitud total
+  ha = mod;                     // cabeza (sobre la línea primitiva)
+  hf = 1.25 * mod;              // pie
+  t = tan(pressure_angle);
+  hp = p / 4 - backlash / 4;    // medio grueso del diente en la línea primitiva
+  // Con un ángulo de presión grande los flancos de dos dientes vecinos se cortan antes de llegar
+  // al fondo: el hueco acaba en V en vez de tener meseta.
+  y_v = (2 * hp - p) / (2 * t);
+  y_bot = max(-hf, y_v);
+  land = y_v <= -hf + 1e-12;    // ¿queda meseta en el fondo del hueco?
+  hb = hp - y_bot * t;          // medio grueso en el fondo del hueco
+  tip = hp - ha * t;            // medio grueso en la cabeza (si no es positivo, acaba en punta)
+  y_back = -hf - max(0, base);
+  pts = concat(
+    land ? [[0, y_bot]] : [],
+    [for (i = [0 : z - 1]) let(c = (i + 0.5) * p) each concat(
+       [[c - hb, y_bot]],
+       tip > 0 ? [[c - tip, ha], [c + tip, ha]] : [[c, hp / t]],
+       [[c + hb, y_bot]])],
+    land ? [[total, y_bot]] : [],
+    [[total, y_back], [0, y_back]]);
+  translate([0, 0, center ? -thickness / 2 : 0]) linear_extrude(thickness) polygon(pts);
+}'''
+
+LIBRARY = {"cube_edges": CUBE_EDGES, "cylinder_edges": CYLINDER_EDGES, "spur_gear": SPUR_GEAR,
+           "helical_gear": HELICAL_GEAR, "rack": RACK}
 
 # Versiones anteriores que ya pueden estar en archivos guardados. Al abrir el archivo se
 # reconocen como nuestras y se sustituyen por la versión actual (no se conservan como código

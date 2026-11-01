@@ -215,7 +215,7 @@ class PropertyPanel(QScrollArea):
             fix = QPushButton(tr("Corregir (misma forma)"))
             fix.clicked.connect(lambda: self.fixRadii.emit(node.id))
             self._lay.addWidget(fix)
-        if node.kind == "spur_gear":
+        if node.kind in ("spur_gear", "helical_gear", "rack"):
             self._gear_info(node)
         if spec and spec.hint:
             self._hint(tr(spec.hint))
@@ -230,29 +230,65 @@ class PropertyPanel(QScrollArea):
         self._operation_helper_form(node)
 
     def _gear_info(self, node: Node) -> None:
-        """Diámetros calculados, avisos de diseño y el botón para añadir la pareja."""
+        """Medidas calculadas, avisos de diseño y el botón para añadir la pareja que engrana."""
         from .. import gears
         p = node.params
-        values = [p.get(k, d) for k, d in (("mod", 1), ("teeth", 20), ("pressure_angle", 20))]
-        if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in values):
+
+        def val(key, default):
+            v = p.get(key, default)
+            return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+        mod, z, pa = val("mod", 1), val("teeth", 20), val("pressure_angle", 20)
+        if None in (mod, z, pa):
             return                                   # con expresiones no se puede calcular aquí
-        mod, z, pa = values
-        num = lambda k: p.get(k) if isinstance(p.get(k), (int, float)) and not isinstance(p.get(k), bool) else 0
-        d = gears.dims(mod, z, pa)
-        self._hint(tr("Ø primitivo {d:g} mm · Ø exterior {da:g} mm · Ø raíz {df:g} mm · paso {p:.3f} mm").format(
-            d=round(d["pitch_d"], 3), da=round(d["tip_d"], 3), df=round(d["root_d"], 3), p=d["circular_pitch"]))
-        for text, values in gears.warnings(mod, z, pa, num("backlash"), num("bore")):
+        num = lambda k: val(k, 0) or 0
+        if node.kind == "rack":
+            d = gears.rack_dims(mod, int(z), pa, num("base"))
+            self._hint(tr("Paso {p:.3f} mm · longitud {l:g} mm · altura {h:g} mm · grueso del diente "
+                          "{t:.3f} mm").format(p=d["pitch"], l=round(d["length"], 3),
+                                               h=round(d["height"], 3), t=d["tooth_thickness"]))
+            problems = gears.rack_warnings(mod, int(z), pa, num("backlash"), num("base"))
+            label = tr("Añadir engranaje sobre la cremallera")
+            tip = tr("Crea un engranaje recto del mismo módulo, ya colocado sobre la cremallera y "
+                     "girado para que los dientes encajen.")
+            start = 20
+        elif node.kind == "helical_gear":
+            psi, thick = val("helix_angle", 20), val("thickness", 10)
+            if None in (psi, thick):
+                return
+            d = gears.helical_dims(mod, int(z), psi, pa, thick)
+            self._hint(tr("Ø primitivo {d:g} mm · Ø exterior {da:g} mm · Ø raíz {df:g} mm").format(
+                d=round(d["pitch_d"], 3), da=round(d["tip_d"], 3), df=round(d["root_d"], 3)))
+            self._hint(tr("Módulo aparente {mt:.3f} · presión aparente {at:.2f}° · avance de la hélice "
+                          "{lead:.1f} mm · giro {tw:.1f}° sobre el grueso · solape axial {ov:.2f}").format(
+                mt=d["transverse_mod"], at=d["transverse_angle"], lead=d["lead"], tw=d["twist"],
+                ov=d["axial_overlap"]))
+            problems = gears.helical_warnings(mod, int(z), psi, pa, num("backlash"), num("bore"), thick)
+            label = tr("Añadir engranaje que engrane")
+            tip = tr("Crea otro engranaje de la misma hélice pero de mano contraria (si no, no "
+                     "engranan), ya colocado a m·(z1 + z2)/(2·cos ψ) y girado para que los dientes "
+                     "encajen.")
+            start = int(z)
+        else:
+            d = gears.dims(mod, z, pa)
+            self._hint(tr("Ø primitivo {d:g} mm · Ø exterior {da:g} mm · Ø raíz {df:g} mm · paso {p:.3f} mm").format(
+                d=round(d["pitch_d"], 3), da=round(d["tip_d"], 3), df=round(d["root_d"], 3), p=d["circular_pitch"]))
+            problems = gears.warnings(mod, z, pa, num("backlash"), num("bore"))
+            label = tr("Añadir engranaje que engrane")
+            tip = tr("Crea otro engranaje del mismo módulo, ya colocado a m·(z1 + z2)/2 y girado "
+                     "para que los dientes encajen.")
+            start = int(z)
+        for text, values in problems:
             self._hint(tr(text).format(**values), "warnText")
         row = QWidget()
         lay = QHBoxLayout(row)
         lay.setContentsMargins(0, 0, 0, 0)
         teeth = QSpinBox()
         teeth.setRange(3, 400)
-        teeth.setValue(int(z))
+        teeth.setValue(start)
         teeth.setToolTip(tr("Dientes del engranaje nuevo"))
-        add = QPushButton(tr("Añadir engranaje que engrane"))
-        add.setToolTip(tr("Crea otro engranaje del mismo módulo, ya colocado a m·(z1 + z2)/2 y girado "
-                          "para que los dientes encajen."))
+        add = QPushButton(label)
+        add.setToolTip(tip)
         add.clicked.connect(lambda: self.addMeshingGear.emit(node.id, teeth.value()))
         lay.addWidget(add, 1)
         lay.addWidget(QLabel(tr("dientes:")))

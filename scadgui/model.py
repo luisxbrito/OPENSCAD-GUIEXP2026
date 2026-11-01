@@ -301,25 +301,47 @@ class Document:
 
     # ----- operaciones (las usan los botones)
     def add_meshing_gear(self, gear_id: int, teeth: Optional[int] = None) -> Node:
-        """Añade, justo después del engranaje, otro del mismo módulo que engrana con él: a la
-        distancia entre centros m·(z1 + z2)/2 en +X y girado para que un hueco quede frente al
-        diente del primero. Devuelve el engranaje nuevo."""
+        """Añade, justo después de la pieza, el engranaje que engrana con ella, ya colocado.
+
+        * engranaje recto: otro del mismo módulo a m·(z1 + z2)/2 en +X;
+        * helicoidal: otro de la misma hélice pero de mano contraria, a m·(z1 + z2)/(2·cos ψ);
+        * cremallera: un engranaje recto del mismo módulo sobre ella, con su centro a su radio
+          primitivo de altura y en el centro de un hueco.
+
+        En todos los casos va girado para que los dientes encajen. Devuelve el engranaje nuevo."""
         from . import gears
         gear = self.find(gear_id)
-        if not isinstance(gear, Node) or gear.kind != "spur_gear":
-            raise ValueError(tr("Selecciona un engranaje (spur_gear)."))
+        if not isinstance(gear, Node) or gear.kind not in ("spur_gear", "helical_gear", "rack"):
+            raise ValueError(tr("Selecciona un engranaje o una cremallera."))
         mod, z1 = gear.params.get("mod", 1), gear.params.get("teeth", 20)
-        if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (mod, z1)):
+        psi = gear.params.get("helix_angle", 0) if gear.kind == "helical_gear" else 0
+        if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (mod, z1, psi)):
             raise ValueError(tr("El módulo y los dientes deben ser números para calcular la pareja."))
-        z2 = int(teeth or z1)
-        new = Node(kind="spur_gear", params=copy.deepcopy(gear.params), name=self.unique_name("spur_gear"))
-        new.params["teeth"] = z2
+        z2 = int(teeth or (20 if gear.kind == "rack" else z1))
+        if gear.kind == "rack":
+            # El engranaje es nuevo: solo hereda del dentado lo que tienen en común.
+            new = make_node("spur_gear", self.unique_name("spur_gear"))
+            for key in ("mod", "thickness", "pressure_angle", "backlash", "center"):
+                if key in gear.params:
+                    new.params[key] = copy.deepcopy(gear.params[key])
+            new.params["teeth"] = z2
+            x, y, rot = gears.rack_gear_position(mod, int(z1), z2)
+            shift_v = [round(x, 6), round(y, 6), 0]
+        else:
+            new = Node(kind=gear.kind, params=copy.deepcopy(gear.params), name=self.unique_name(gear.kind))
+            new.params["teeth"] = z2
+            if gear.kind == "helical_gear":
+                # La pareja de un helicoidal va al revés: una hélice a derechas con otra a izquierdas.
+                new.params["left_hand"] = gear.params.get("left_hand") is not True
+                distance = gears.helical_center_distance(mod, int(z1), z2, psi)
+            else:
+                distance = gears.center_distance(mod, int(z1), z2)
+            rot = gears.mesh_rotation(z2)
+            shift_v = [round(distance, 6), 0, 0]
         inner: Node = new
-        rot = gears.mesh_rotation(z2)
-        if rot:
+        if round(rot, 6):
             inner = Node(kind="rotate", params={"a": [0, 0, round(rot, 6)]}, children=[new])
-        shift = Node(kind="translate", params={"v": [round(gears.center_distance(mod, int(z1), z2), 6), 0, 0]},
-                     children=[inner])
+        shift = Node(kind="translate", params={"v": shift_v}, children=[inner])
         siblings, _parent = self.parent_list(gear_id)
         siblings.insert(siblings.index(gear) + 1, shift)
         return new
