@@ -46,7 +46,7 @@ scadgui/ui/                solo ventanas y diálogos (PySide6)
   properties.py, editors.py, boolean_dialog.py, hardware_dialog.py, sketch.py,
   drawing_dialog.py, module_dialog.py, operation_helper.py, preferences_dialog.py,
   variables.py, style.py, icons.py
-examples/                  rueda_con_eje_giratorio.scad (se abre al arrancar), placa_agujeros.scad
+examples/                  rueda_con_eje_giratorio.scad, placa_agujeros.scad (menú Archivo; se arranca en blanco)
 tests/test_core.py         modelo, parser, generador, tornillería, plano técnico, módulos…
 tests/test_geometry.py     geometría, colores, OFF/STL, selección, explosión
 tests/test_i18n.py         cobertura de traducciones
@@ -155,8 +155,8 @@ python tests/simulacion/sim_ventana_visor_imagen.py
 ```
 
 - Las tres primeras no necesitan Qt ni OpenSCAD.
-- Las `sim_*` usan un PySide6/pyqtgraph simulado y recorren la ventana completa (arranque con
-  la rueda, crear, envolver, propiedades, deshacer, código a mano, clic 3D, medir, gizmo,
+- Las `sim_*` usan un PySide6/pyqtgraph simulado y recorren la ventana completa (arranque en
+  blanco, crear, envolver, propiedades, deshacer, código a mano, clic 3D, medir, gizmo,
   explosión, exportar, guardar). No ven la API real de Qt ni el dibujo: después, abrir la
   aplicación de verdad. No ejecutarlas con pytest junto con Qt real.
 - Un test nuevo debe comprobar el resultado (medidas, orientación, texto generado), no solo

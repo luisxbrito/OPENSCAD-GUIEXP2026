@@ -14,7 +14,9 @@ from scadgui import geometry as geo
 
 QSettings.store.clear()
 w = MainWindow("")
-# al arrancar se abre la rueda; estas pruebas usan la placa, que es más simple
+# la aplicación arranca en blanco; estas pruebas abren el ejemplo de la placa
+assert w.doc.children == [] and w.path == "" and not w.modified
+assert w.code.text.toPlainText().strip() == "// Generado con OpenSCAD GUI Mejorada", w.code.text.toPlainText()
 w.open_example(mw.EXAMPLE_PLACA)
 assert w.gl and isinstance(w.viewer, Viewer3D), w._gl_error
 v = w.viewer

@@ -51,7 +51,6 @@ def _resolve_example_path(filename: str) -> str:
 
 EXAMPLE_RUEDA = _resolve_example_path("rueda_con_eje_giratorio.scad")
 EXAMPLE_PLACA = _resolve_example_path("placa_agujeros.scad")
-EXAMPLE = EXAMPLE_RUEDA
 EXPORT_FILTERS = ("STL (*.stl);;3MF (*.3mf);;OBJ (*.obj);;OFF (*.off);;AMF (*.amf);;"
                   "SVG – solo 2D (*.svg);;DXF – solo 2D (*.dxf);;PDF – solo 2D (*.pdf);;Imagen PNG (*.png)")
 
@@ -579,7 +578,7 @@ class MainWindow(QMainWindow):
         if path:
             self.load(path)
         else:
-            self.open_example()
+            self.set_document(Document())  # se empieza en blanco; los ejemplos están en el menú Archivo
 
     # ------------------------------------------------------------- documento
     def set_document(self, doc: Document, path: str = "", keep_history: bool = False) -> None:
@@ -1518,7 +1517,7 @@ class MainWindow(QMainWindow):
         if self.maybe_save():
             self.set_document(Document())
 
-    def open_example(self, path: str = EXAMPLE) -> None:
+    def open_example(self, path: str) -> None:
         """Abre un ejemplo como documento sin guardar (no se sobrescribe el archivo del ejemplo)."""
         if not self.maybe_save():
             return

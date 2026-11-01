@@ -58,7 +58,7 @@ program. Elsewhere:
 
 ```bash
 python -m pip install -r requirements.txt
-python main.py                 # opens the swivel caster example
+python main.py                 # starts with an empty model (examples are in the File menu)
 python main.py part.scad       # opens a file
 ```
 
