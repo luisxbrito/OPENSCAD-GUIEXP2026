@@ -50,6 +50,25 @@ SNIPPETS_CATALOG = [
 ]
 
 
+# Nombres de ejemplo de los fragmentos: se traducen como los comentarios, pero tienen que seguir
+# siendo identificadores válidos de OpenSCAD (sin acentos ni espacios).
+SNIPPET_NAMES = ("mi_pieza", "ancho", "alto")
+_SNIPPET_NAME = re.compile(r"\b(" + "|".join(SNIPPET_NAMES) + r")\b")
+_CODE_COMMENT = re.compile(r"(//[ \t]*)(.+)$", re.MULTILINE)
+
+
+def localized_code(code: str, lang: Optional[str] = None) -> str:
+    """Una plantilla o un fragmento con sus comentarios y nombres en el idioma de la interfaz."""
+    code = _SNIPPET_NAME.sub(lambda m: tr(m.group(1), lang), code)
+    return _CODE_COMMENT.sub(lambda m: m.group(1) + tr(m.group(2), lang), code)
+
+
+def code_texts() -> set:
+    """Los textos de las plantillas y fragmentos que necesitan traducción."""
+    codes = [*BOOLEAN_TEMPLATES.values(), *(code for _label, code in SNIPPETS_CATALOG)]
+    return {m.group(2) for code in codes for m in _CODE_COMMENT.finditer(code)} | set(SNIPPET_NAMES)
+
+
 # --------------------------------------------------------------------------- Catálogo de funciones matemáticas y utilidades
 OPENSCAD_BUILTINS: dict[str, dict] = {
     # Matemáticas y trigonometría básica

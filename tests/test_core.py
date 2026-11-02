@@ -1046,16 +1046,122 @@ def test_modulos_propios_con_comentarios_en_ingles():
     def code_only(text):
         return " ".join(re.sub(r"//[^\n]*", "", text).split())
 
-    assert set(SPANISH_COMMENTS) == set(LIBRARY)
+    assert set(SPANISH_COMMENTS) == set(LIBRARY) - {"shaft_bore"}   # shaft_bore nació ya en inglés
     for name, code in LIBRARY.items():
-        assert code.isascii(), name
+        assert all(c.isascii() for c in re.findall(r"//[^\n]*", code)), name
         assert "written by OpenSCAD GUI Mejorada" in code and "lo escribe" not in code, name
-        old = SPANISH_COMMENTS[name]
-        assert code_only(old) == code_only(code), name
+    for name, old in SPANISH_COMMENTS.items():
+        code = LIBRARY[name]
+        if name in ("cube_edges", "cylinder_edges", "rack"):  # los demás cambiaron también el código
+            assert code_only(old) == code_only(code), name
         doc = parse(f"{name}();\n\n{old}\n")
         assert [n.kind for n in doc.children] == [name], name
         text = generate(doc).text
         assert code in text and "lo escribe" not in text, name
+
+
+def test_cunero_medidas_de_la_tabla():
+    """BS 4235 (Handbook, tabla 12): cada fila vale para «más de, hasta e incluido», las filas no
+    dejan huecos, fuera de la tabla no se inventa una medida, y el módulo lleva los mismos datos."""
+    import re
+    from scadgui import gears
+    from scadgui.library import SHAFT_BORE
+    assert gears.keyway_size(8) == (2, 1)            # 8 todavía es de la fila 6-8
+    assert gears.keyway_size(8.01) == (3, 1.4)
+    assert gears.keyway_size(25) == (8, 3.3)
+    assert gears.keyway_size(50) == (14, 3.8)
+    assert gears.keyway_size(500) == (100, 19.5)
+    assert gears.key_row(25)[3:5] == (7, 4)          # cuña 8 x 7, profundidad en el eje 4
+    assert gears.keyway_size(6) is None and gears.keyway_size(501) is None   # 6 es «más de 6»
+    assert gears.keyway_size(5, 2, 1) == (2, 1)      # a medida, fuera de la tabla
+    assert gears.keyway_size(5, 2) is None           # falta la profundidad: no se saca de otra fila
+    assert gears.keyway_size(25, 9) == (9, 3.3) and gears.keyway_size(25, 0, 4) == (8, 4)
+    for low, high in zip(gears.KEY_TABLE, gears.KEY_TABLE[1:]):
+        assert low[1] == high[0], (low, high)
+    table = re.search(r"table = \[(.*?)\];", SHAFT_BORE, re.S).group(1)
+    rows = [tuple(float(x) for x in r.split(",")) for r in re.findall(r"\[([^\[\]]+)\]", table)]
+    assert rows == [(float(a), float(b), float(w), float(t2)) for a, b, w, _h, _t1, t2 in gears.KEY_TABLE]
+
+
+def test_cunero_codigo_avisos_y_archivos_viejos():
+    from scadgui import gears
+    from scadgui.library import LIBRARY, PREVIOUS_VERSIONS
+    for kind in ("spur_gear", "helical_gear", "bevel_gear", "pulley", "v_pulley"):
+        doc = Document()
+        first = doc.add(kind)
+        doc.add(kind)
+        doc.set_param(first.id, "bore", 20)
+        doc.set_param(first.id, "keyway", True)
+        text = generate(doc).text
+        assert "bore = 20, keyway = true" in text, kind
+        assert text.count(f"module {kind}(") == 1 and text.count("module shaft_bore(") == 1, kind
+        again = parse(text)
+        assert [n.kind for n in again.children] == [kind, kind], kind    # nada queda como código
+        assert again.children[0].params["keyway"] is True, kind
+        for old in PREVIOUS_VERSIONS[kind]:                  # un archivo de antes se actualiza
+            updated = generate(parse(f"{kind}(bore = 8);\n\n{old}\n")).text
+            assert LIBRARY[kind] in updated and old not in updated and "module shaft_bore(" in updated, kind
+    assert "shaft_bore" not in generate(parse("rack();")).text       # la cremallera no tiene agujero
+    assert gears.keyway_warnings(0, 0, 0, 40)                        # sin agujero
+    assert "tabla" in gears.keyway_warnings(5, 0, 0, 40)[0][0]       # Ø fuera de la tabla
+    assert not gears.keyway_warnings(5, 2, 1, 40)                    # a medida, sí vale
+    assert not gears.keyway_warnings(20, 0, 0, 40)                   # sobran 40/2 - (10 + 2.8) mm
+    assert "quedan" in gears.keyway_warnings(35, 0, 0, 40)[0][0]     # 20 - (17.5 + 3.3) < 0: se sale
+    assert not gears.keyway_warnings(30, 0, 0, 40)                   # 20 - (15 + 3.3) = 1.7
+
+
+def test_flange_de_la_polea_en_el_idioma_elegido():
+    """El código lleva el valor en el idioma pedido, el modelo guarda siempre el mismo, y el módulo
+    escrito en el archivo entiende todas las traducciones (si no, la pestaña desaparecería)."""
+    from scadgui.catalog import SPECS
+    from scadgui.geometry import pulley
+    from scadgui.i18n import LANGUAGES, tr
+    from scadgui.library import PREVIOUS_VERSIONS, PULLEY, library_name
+    options = next(p for p in SPECS["pulley"].params if p.name == "flange").options
+    for lang in LANGUAGES:
+        names = [tr(o, lang) for o in options]
+        assert len(set(names)) == len(options), (lang, names)   # dos valores no pueden confundirse
+        for option in options:
+            doc = Document()
+            pu = doc.add("pulley")
+            doc.set_param(pu.id, "flange", option)
+            text = generate(doc, header_lang=lang).text
+            assert f'flange = "{tr(option, lang)}"' in text, (lang, option)
+            if option != "ninguna":
+                assert f'"{tr(option, lang)}"' in PULLEY, (lang, option)
+            again = parse(text)
+            assert again.children[0].params["flange"] == option, (lang, option)
+    en = parse('pulley(flange = "bottom", flange_height = 2);').children[0]
+    es = parse('pulley(flange = "inferior", flange_height = 2);').children[0]
+    assert en.params == es.params and pulley(en.params) is not None
+    other = parse('pulley(flange = "otra");').children[0]
+    assert other.params["flange"] == "otra"                     # lo desconocido no se pierde
+    assert 'flange = "otra"' in generate(parse('pulley(flange = "otra");')).text
+    assert library_name(PREVIOUS_VERSIONS["pulley"][0]) == "pulley"
+
+
+def test_lamina_y_plantillas_en_el_idioma_elegido():
+    """Los comentarios de la lámina y de las plantillas salen en el idioma de la interfaz."""
+    from scadgui.code_assist import BOOLEAN_TEMPLATES, SNIPPETS_CATALOG, localized_code
+    from scadgui.drawing import generate_technical_drawing_code
+    from scadgui.i18n import set_language
+    snippets = dict(SNIPPETS_CATALOG)
+    assert localized_code(BOOLEAN_TEMPLATES["difference"]) == BOOLEAN_TEMPLATES["difference"]   # español
+    assert "// BASE SOLID (the one subtracted from):" in localized_code(BOOLEAN_TEMPLATES["difference"], "en")
+    assert "SÓLIDO" not in localized_code(BOOLEAN_TEMPLATES["difference"], "en")
+    assert localized_code(snippets["Cubo (cube)"], "de").endswith("// Würfel")
+    assert "// Hole" in localized_code(snippets["Restar (difference)"], "en")
+    module = localized_code(snippets["Módulo de usuario"], "de")
+    assert "module mein_teil(breite = 20, hoehe = 10)" in module and "cube([breite, breite, hoehe]" in module
+    set_language("en")
+    try:
+        sheet = generate_technical_drawing_code("cube(10);")
+    finally:
+        set_language("es")
+    assert sheet.startswith("// Technical drawing sheet generated with OpenSCAD GUI Mejorada")
+    assert "// --- Outer frame and margin ---" in sheet and "// --- Title block ---" in sheet
+    assert "// --- 2D projections (first-angle system) ---" in sheet
+    assert "Lámina" not in sheet and "Cajetín" not in sheet and "Marco" not in sheet
 
 
 

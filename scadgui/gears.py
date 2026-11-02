@@ -612,3 +612,48 @@ def v_pulley_warnings(section: str, datum_d: float, grooves: int,
         out.append((N_("El agujero ({b} mm) casi llega al fondo de la ranura (Ø {f:.1f} mm): deja "
                     "algo de material alrededor."), {"b": f"{bore:g}", "f": max(0.0, d["root_d"])}))
     return out
+
+
+# --------------------------------------------------------------------------- Cuñeros
+
+# Cuñas paralelas métricas BS 4235-1, con las medidas de ISO R773 (Machinery's Handbook 27, tabla 12,
+# p. 2376): (Ø del eje más de, hasta e incluido, ancho b, alto h, profundidad en el eje t1,
+# profundidad en el cubo t2), en mm. Las mismas que el módulo shaft_bore de library.py.
+KEY_TABLE = (
+    (6, 8, 2, 2, 1.2, 1), (8, 10, 3, 3, 1.8, 1.4), (10, 12, 4, 4, 2.5, 1.8), (12, 17, 5, 5, 3, 2.3),
+    (17, 22, 6, 6, 3.5, 2.8), (22, 30, 8, 7, 4, 3.3), (30, 38, 10, 8, 5, 3.3), (38, 44, 12, 8, 5, 3.3),
+    (44, 50, 14, 9, 5.5, 3.8), (50, 58, 16, 10, 6, 4.3), (58, 65, 18, 11, 7, 4.4), (65, 75, 20, 12, 7.5, 4.9),
+    (75, 85, 22, 14, 9, 5.4), (85, 95, 25, 14, 9, 5.4), (95, 110, 28, 16, 10, 6.4), (110, 130, 32, 18, 11, 7.4),
+    (130, 150, 36, 20, 12, 8.4), (150, 170, 40, 22, 13, 9.4), (170, 200, 45, 25, 15, 10.4), (200, 230, 50, 28, 17, 11.4),
+    (230, 260, 56, 32, 20, 12.4), (260, 290, 63, 32, 20, 12.4), (290, 330, 70, 36, 22, 14.4), (330, 380, 80, 40, 25, 15.4),
+    (380, 440, 90, 45, 28, 17.4), (440, 500, 100, 50, 31, 19.5),
+)
+
+
+def key_row(bore: float) -> tuple | None:
+    """Fila de la tabla para ese Ø de eje, o None si la norma no lo cubre."""
+    return next((row for row in KEY_TABLE if row[0] < bore <= row[1]), None)
+
+
+def keyway_size(bore: float, width: float = 0.0, depth: float = 0.0) -> tuple[float, float] | None:
+    """(ancho, profundidad en el cubo) del cuñero. ``width`` y ``depth`` sustituyen a la tabla; fuera
+    de ella, sin los dos, no hay cuñero: nunca se toma la medida de otro diámetro."""
+    row = key_row(bore)
+    b = width if width > 0 else row[2] if row else 0
+    t2 = depth if depth > 0 else row[5] if row else 0
+    return (b, t2) if b > 0 and t2 > 0 else None
+
+
+def keyway_warnings(bore: float, width: float, depth: float, root_d: float) -> list[tuple[str, dict]]:
+    """Problemas de diseño del cuñero: (texto en español, valores para format)."""
+    if bore <= 0:
+        return [(N_("El cuñero necesita un agujero: activa «Agujero (Ø)»."), {})]
+    size = keyway_size(bore, width, depth)
+    if size is None:
+        return [(N_("La tabla de cuñeros va de Ø {a:g} a Ø {z:g} mm: para Ø {d:g} mm indica el ancho y "
+                    "la profundidad."), {"a": KEY_TABLE[0][0], "z": KEY_TABLE[-1][1], "d": bore})]
+    wall = root_d / 2 - (bore / 2 + size[1])
+    if wall < 1.0:
+        return [(N_("Entre el fondo del cuñero y el Ø de fondo de la pieza ({f:.1f} mm) quedan {w:.2f} mm: "
+                    "deja algo más de material."), {"f": root_d, "w": wall})]
+    return []

@@ -233,6 +233,66 @@ def test_polea_dentada_con_pestanas():
         assert abs(volume_of(generate(doc).text) - mine) < 1, flange
 
 
+def test_pestanas_de_la_polea_en_todos_los_idiomas():
+    """El módulo escrito en el archivo entiende el valor de flange en cualquier idioma: la pieza
+    pesa lo mismo que en español y las pestañas no desaparecen."""
+    from scadgui.i18n import LANGUAGES
+    doc = Document()
+    pu = doc.add("pulley")
+    plain = volume_of(generate(doc).text)
+    doc.set_param(pu.id, "flange_height", 2)
+    for flange in ("superior", "inferior", "ambas"):
+        doc.set_param(pu.id, "flange", flange)
+        reference = volume_of(generate(doc, header_lang="es").text)
+        assert reference > plain + 1, flange
+        for lang in LANGUAGES:
+            text = generate(doc, header_lang=lang).text
+            assert abs(volume_of(text) - reference) < 1, (flange, lang)
+
+
+def test_cunero_en_engranajes_y_poleas():
+    """El fondo del cuñero queda a d/2 + t2 del eje, con el ancho de la tabla, a lo largo de toda la
+    pieza; quita el volumen que le toca, y sin medida en la tabla no talla nada."""
+    from scadgui import gears
+    d = 20
+    b, t2 = gears.keyway_size(d)
+    # Lo que quita fuera del agujero: el rectángulo menos lo que ya estaba hueco (círculo en |y| < b/2).
+    steps = 2000
+    hollow = sum(math.sqrt((d / 2) ** 2 - ((i + 0.5) / steps * b - b / 2) ** 2) * b / steps for i in range(steps))
+    area = b * (d / 2 + t2) - hollow
+    pieces = (("spur_gear", {"mod": 2, "teeth": 40, "thickness": 10}),
+              ("helical_gear", {"mod": 2, "teeth": 40, "thickness": 10, "helix_angle": 15}),
+              ("bevel_gear", {"mod": 2, "teeth": 40, "mate_teeth": 40, "face_width": 10}),
+              ("pulley", {"section": "H", "teeth": 30, "width": 10}),
+              ("v_pulley", {"section": "A", "datum_d": 120}))
+    for kind, params in pieces:
+        doc = Document()
+        doc.fn = 96
+        node = doc.add(kind)
+        for key, value in {**params, "bore": d}.items():
+            doc.set_param(node.id, key, value)
+        solid = volume_of(generate(doc).text)
+        doc.set_param(node.id, "keyway", True)
+        tris = render(generate(doc).text)
+        pts = tris.reshape(-1, 3)
+        corners = pts[(abs(pts[:, 0] - (d / 2 + t2)) < 0.01) & (abs(abs(pts[:, 1]) - b / 2) < 0.01)]
+        assert {round(float(y), 2) for y in corners[:, 1]} == {-b / 2, b / 2}, kind
+        length = float(corners[:, 2].max() - corners[:, 2].min())
+        assert length > 1, kind
+        removed = solid - abs(signed_volume(tris))
+        assert abs(removed - area * length) < 0.03 * area * length, (kind, removed, area * length)
+    doc = Document()
+    node = doc.add("spur_gear")
+    doc.set_param(node.id, "mod", 2)
+    doc.set_param(node.id, "bore", 5)
+    plain = volume_of(generate(doc).text)
+    doc.set_param(node.id, "keyway", True)
+    assert abs(volume_of(generate(doc).text) - plain) < 1e-6          # Ø 5 no está en la tabla
+    doc.set_param(node.id, "key_width", 2)
+    doc.set_param(node.id, "key_depth", 1)
+    assert plain - volume_of(generate(doc).text) > 1                  # a medida, sí
+
+
 def test_polea_trapecial_volumen_y_agujero():
     """La polea trapecial sale con el volumen de la vista aproximada (mismas fórmulas en Python
     y OpenSCAD, vía rotate_extrude) y el agujero del eje la atraviesa entera."""

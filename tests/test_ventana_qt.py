@@ -526,6 +526,60 @@ def test_polea_desde_la_cinta():
     assert "module pulley(" in w.code.text.toPlainText()
 
 
+def test_cunero_en_el_panel():
+    """El panel da las medidas de la tabla según el agujero y avisa si no están en ella."""
+    from PySide6.QtWidgets import QLabel
+    from scadgui.model import Document
+    w = window()
+    for kind in ("spur_gear", "helical_gear", "bevel_gear", "pulley", "v_pulley"):
+        w.set_document(Document())
+        w.ribbon.buttons[kind].click()
+        app.processEvents()
+        node = w.doc.children[0]
+
+        def labels(bore):
+            w.mutate(lambda: (w.doc.set_param(node.id, "bore", bore), w.doc.set_param(node.id, "keyway", True)),
+                     select=[node.id])
+            app.processEvents()
+            return [l.text() for l in w.props.findChildren(QLabel)]
+
+        texts = labels(20)
+        assert any(t.startswith("Cuñero para eje Ø 20: ancho 6 mm") for t in texts), (kind, texts)
+        texts = labels(5)
+        assert any(t.startswith("La tabla de cuñeros") for t in texts), (kind, texts)
+        assert "module shaft_bore(" in w.code.text.toPlainText(), kind
+
+
+def test_pestanas_de_la_polea_en_el_idioma_de_la_interfaz():
+    """El desplegable y el código salen en el idioma elegido; el modelo guarda siempre el mismo valor."""
+    from PySide6.QtWidgets import QComboBox
+    from scadgui.i18n import set_language
+    from scadgui.model import Document
+    w = window()
+    w.set_document(Document())
+    w.ribbon.buttons["pulley"].click()
+    app.processEvents()
+    pu = w.doc.children[0]
+    w.mutate(lambda: w.doc.set_param(pu.id, "flange", "superior"), select=[pu.id])
+    set_language("en")
+    try:
+        w.retranslate_ui()
+        w.select_ids([])
+        w.select_ids([pu.id])
+        app.processEvents()
+        combo = next(c for c in w.props.findChildren(QComboBox) if c.findText("both") >= 0)
+        assert combo.currentText() == "top"
+        assert 'flange = "top"' in w.code.text.toPlainText()
+        combo.setCurrentIndex(combo.findText("both"))
+        app.processEvents()
+        assert w.doc.find(pu.id).params["flange"] == "ambas"
+        assert 'flange = "both"' in w.code.text.toPlainText()
+    finally:
+        set_language("es")
+        w.retranslate_ui()
+    assert 'flange = "ambas"' in w.code.text.toPlainText()
+
+
 def test_polea_trapecial_desde_la_cinta():
     """Botón v_pulley de la cinta; el panel calcula sus medidas (sección A por defecto)."""
     from PySide6.QtWidgets import QLabel

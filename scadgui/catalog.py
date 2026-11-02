@@ -26,6 +26,7 @@ class Param:
     maximum: float = 1e9
     step: float = 1.0
     initial: bool = False  # opcional, pero la pieza nueva ya lo trae (r: se puede cambiar por d)
+    translated: bool = False  # choice cuyos valores salen en el idioma de la interfaz (y en el código)
 
     @property
     def title(self) -> str:
@@ -236,6 +237,14 @@ _add(Spec("cylinder_edges", "Cilindro con bordes", "edges", False, (
     hint="Cilindro con el borde superior (top) y/o inferior (bottom) redondeado o achaflanado."))
 
 # --- Piezas mecánicas -------------------------------------------------------
+# Cuñero en el agujero de engranajes y poleas. Las medidas salen de la tabla según el Ø del agujero
+# (gears.KEY_TABLE); el ancho y la profundidad son para los que no estén en ella o sean a medida.
+KEYWAY = (
+    Param("keyway", "bool", True, optional=True, label="Cuñero"),
+    Param("key_width", "num", 2, optional=True, label="Ancho del cuñero", minimum=0.1, step=0.5),
+    Param("key_depth", "num", 1, optional=True, label="Profundidad del cuñero", minimum=0.1, step=0.1),
+)
+
 _add(Spec("spur_gear", "Engranaje recto", "solid", False, (
     Param("mod", "num", 1, label="Módulo (m)", minimum=0.05, step=0.25),
     Param("teeth", "int", 20, label="Dientes (z)", minimum=3, maximum=400),
@@ -245,6 +254,7 @@ _add(Spec("spur_gear", "Engranaje recto", "solid", False, (
     # en 3D suelen quedar agarrotados.
     Param("backlash", "num", 0.1, label="Holgura (mm)", minimum=0, step=0.05),
     Param("bore", "num", 5, optional=True, label="Agujero (Ø)", minimum=0),
+    *KEYWAY,
     Param("center", "bool", False, label="Centrado"),
     FN,
 ), keyword="module", hint="Engranaje recto de evolvente. Ø primitivo = m·z; dos engranajes del mismo "
@@ -260,6 +270,7 @@ _add(Spec("helical_gear", "Engranaje helicoidal", "solid", False, (
     Param("pressure_angle", "num", 20, label="Ángulo de presión normal (°)", minimum=10, maximum=35, step=0.5),
     Param("backlash", "num", 0.1, label="Holgura (mm)", minimum=0, step=0.05),
     Param("bore", "num", 5, optional=True, label="Agujero (Ø)", minimum=0),
+    *KEYWAY,
     Param("center", "bool", False, label="Centrado"),
     FN,
 ), keyword="module", hint="Engranaje helicoidal de evolvente. El módulo y el ángulo de presión son los "
@@ -275,6 +286,7 @@ _add(Spec("bevel_gear", "Engranaje cónico", "solid", False, (
     Param("pressure_angle", "num", 20, label="Ángulo de presión (°)", minimum=10, maximum=35, step=0.5),
     Param("backlash", "num", 0.1, label="Holgura (mm)", minimum=0, step=0.05),
     Param("bore", "num", 5, optional=True, label="Agujero (Ø)", minimum=0),
+    *KEYWAY,
     FN,
 ), keyword="module", hint="Engranaje cónico recto para ejes que se cortan. El vértice del cono queda en "
    "el origen y la rueda mira hacia +Z, así que la pareja es la misma pieza girada el ángulo entre ejes, "
@@ -302,10 +314,11 @@ _add(Spec("pulley", "Polea dentada", "solid", False, (
     Param("teeth", "int", 20, label="Dientes (z)", minimum=3, maximum=400),
     Param("width", "num", 6, label="Ancho (correa)", minimum=0.01),
     Param("bore", "num", 5, optional=True, label="Agujero (Ø)", minimum=0),
+    *KEYWAY,
     # Sin pestañas la correa se puede salir por el eje; con ellas, un collar sobresale del Ø
     # exterior a un lado, al otro o a los dos. Opcionales: con "ninguna" no hace falta decir más.
     Param("flange", "choice", "ninguna", optional=True, label="Pestañas",
-          options=("ninguna", "superior", "inferior", "ambas")),
+          options=("ninguna", "superior", "inferior", "ambas"), translated=True),
     Param("flange_height", "num", 1.5, optional=True, label="Vuelo de la pestaña", minimum=0.1, step=0.5),
     Param("center", "bool", False, label="Centrado"),
 ), keyword="module", hint="Polea para correa dentada (síncrona), secciones ANSI/RMA clásicas "
@@ -317,6 +330,7 @@ _add(Spec("v_pulley", "Polea trapecial", "solid", False, (
     Param("datum_d", "num", 80, label="Ø primitivo (datum)", minimum=10, step=5),
     Param("grooves", "int", 1, label="Ranuras", minimum=1, maximum=20),
     Param("bore", "num", 10, optional=True, label="Agujero (Ø)", minimum=0),
+    *KEYWAY,
     Param("center", "bool", False, label="Centrado"),
 ), keyword="module", hint="Polea para correa en V, secciones trapeciales clásicas ANSI/RMA "
    "A/B/C/D (las variantes de muesca moldeada AX/BX/CX/DX usan la misma ranura que su letra). "

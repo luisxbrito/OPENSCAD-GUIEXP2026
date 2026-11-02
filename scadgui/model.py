@@ -111,6 +111,17 @@ def format_value(v: Any) -> str:
     raise TypeError(f"Valor no soportado: {v!r}")
 
 
+def canonical_choice(spec: Optional[Spec], key: str, value: Any) -> Any:
+    """El valor de un ``translated`` escrito en cualquier idioma, tal como se guarda en el modelo.
+    Lo que no se reconoce se deja igual: abrir y guardar no puede perder nada."""
+    param = next((p for p in spec.params if p.name == key and p.translated), None) if spec else None
+    if param and isinstance(value, str):
+        for option in param.options:
+            if any(value == tr(option, lang) for lang in LANGUAGES):
+                return option
+    return value
+
+
 # --------------------------------------------------------------------------- nodos
 
 @dataclass
@@ -140,8 +151,10 @@ class Node:
         # Sin nombre se muestra la palabra de OpenSCAD (cube, translate...), igual que en el código.
         return self.name or self.kind
 
-    def call(self) -> str:
-        """``cube([10, 10, 10], center = true)`` sin modificador ni punto y coma."""
+    def call(self, lang: Optional[str] = None) -> str:
+        """``cube([10, 10, 10], center = true)`` sin modificador ni punto y coma.
+
+        Los valores ``translated`` salen en ``lang`` (por defecto, el idioma de la interfaz)."""
         spec = self.spec
         if spec and spec.keyword == "for":
             return array_head(self)
@@ -149,9 +162,11 @@ class Node:
         if spec:
             ordered = [p.name for p in spec.params if p.name in self.params]
         ordered += [k for k in self.params if k not in ordered]
+        translated = {p.name: p.options for p in spec.params if p.translated} if spec else {}
         parts = []
         for i, key in enumerate(ordered):
-            value = format_value(self.params[key])
+            raw = self.params[key]
+            value = format_value(tr(raw, lang) if raw in translated.get(key, ()) else raw)
             if i == 0 and self.kind in FIRST_UNNAMED and spec and spec.positional and key == spec.positional[0]:
                 parts.append(value)
             else:
@@ -851,7 +866,7 @@ def generate(doc: Document, highlight=(), header: bool = True, library: bool = T
         # Un nombre igual a la palabra de OpenSCAD ("cube" en un cube) no aporta nada: no se escribe.
         name = clean_name(node.name)
         comment = f" // {name}" if name and name != node.kind else ""
-        head = f"{indent}{mod}{node.call()}"
+        head = f"{indent}{mod}{node.call(header_lang)}"
         if not node.is_container:
             out.append(head + ";" + comment)
         elif not node.children:

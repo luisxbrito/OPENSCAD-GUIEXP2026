@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import math
 import os
 from typing import Any, Optional
 
@@ -316,6 +317,10 @@ class PropertyPanel(QScrollArea):
             start = int(z)
         for text, values in problems:
             self._hint(tr(text).format(**values), "warnText")
+        if node.kind == "bevel_gear":     # el Ø más estrecho del cono de pie, en el lado interior
+            self._keyway_info(p, 2 * d["inner_z"] * math.tan(math.radians(d["root_angle"])))
+        elif node.kind != "rack":
+            self._keyway_info(p, d["root_d"])
         row = QWidget()
         lay = QHBoxLayout(row)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -330,6 +335,31 @@ class PropertyPanel(QScrollArea):
         lay.addWidget(QLabel(tr("dientes:")))
         lay.addWidget(teeth)
         self._lay.addWidget(row)
+
+    def _keyway_info(self, p: dict, root_d: float) -> None:
+        """Medidas y avisos del cuñero, si la pieza lo lleva."""
+        from .. import gears
+        if p.get("keyway") is not True:
+            return
+
+        def val(key):
+            v = p.get(key, 0)
+            return None if isinstance(v, bool) or not isinstance(v, (int, float)) else v
+
+        bore, width, depth = val("bore"), val("key_width"), val("key_depth")
+        if None in (bore, width, depth):
+            return                                   # con expresiones no se puede calcular aquí
+        size = gears.keyway_size(bore, width, depth)
+        row = gears.key_row(bore)
+        if bore > 0 and size and row and size == (row[2], row[5]):
+            self._hint(tr("Cuñero para eje Ø {d:g}: ancho {b:g} mm · profundidad en el cubo {t:g} mm · "
+                          "cuña {b:g} × {h:g} mm · profundidad en el eje {s:g} mm (BS 4235)").format(
+                d=bore, b=row[2], t=row[5], h=row[3], s=row[4]))
+        elif bore > 0 and size:
+            self._hint(tr("Cuñero a medida: ancho {b:g} mm · profundidad en el cubo {t:g} mm").format(
+                b=size[0], t=size[1]))
+        for text, values in gears.keyway_warnings(bore, width, depth, root_d):
+            self._hint(tr(text).format(**values), "warnText")
 
     def _pulley_info(self, node: Node) -> None:
         """Medidas calculadas y avisos de diseño de la polea dentada."""
@@ -358,6 +388,7 @@ class PropertyPanel(QScrollArea):
                 side=flange_label, fd=round(d["outer_d"] + 2 * fh, 3)))
         for text, values in gears.pulley_warnings(section, int(z), bore):
             self._hint(tr(text).format(**values), "warnText")
+        self._keyway_info(p, d["root_d"])
 
     def _v_pulley_info(self, node: Node) -> None:
         """Medidas calculadas y avisos de diseño de la polea trapecial."""
@@ -381,6 +412,7 @@ class PropertyPanel(QScrollArea):
                                               sg=d["groove_spacing"], se=d["edge_distance"]))
         for text, values in gears.v_pulley_warnings(section, dd, int(ng), bore):
             self._hint(tr(text).format(**values), "warnText")
+        self._keyway_info(p, d["root_d"])
 
     def _operation_helper_form(self, node: Node) -> None:
         """Añade el widget helper interactivo si la operación tiene guía o presets disponibles."""
@@ -601,9 +633,10 @@ class PropertyPanel(QScrollArea):
             return edit
         if k == "choice":
             combo = self._guarded(QComboBox())
-            combo.addItems(list(p.options))
-            combo.setCurrentText(value)
-            combo.currentTextChanged.connect(lambda t: self._emit(node, p.name, t))
+            for option in p.options:
+                combo.addItem(tr(option) if p.translated else option, option)
+            combo.setCurrentIndex(max(0, combo.findData(value)))
+            combo.currentIndexChanged.connect(lambda i: self._emit(node, p.name, combo.itemData(i)))
             return combo
         if k == "color":
             return self._color_editor(node, p, value)

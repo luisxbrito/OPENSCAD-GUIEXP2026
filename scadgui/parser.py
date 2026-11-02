@@ -17,7 +17,7 @@ from typing import Any, Optional
 
 from .catalog import SPECS
 from .library import library_name
-from .model import MODIFIERS, Document, Expr, Node, RawCode, header_language
+from .model import MODIFIERS, Document, Expr, Node, RawCode, canonical_choice, header_language
 
 
 class ParseError(Exception):
@@ -355,7 +355,7 @@ class _Parser:
                 value_toks = arg
             if key in params:
                 return None
-            params[key] = literal(self.src[value_toks[0].start:value_toks[-1].end])
+            params[key] = canonical_choice(spec, key, literal(self.src[value_toks[0].start:value_toks[-1].end]))
         return params
 
     def raw(self) -> RawCode:

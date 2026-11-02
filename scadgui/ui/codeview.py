@@ -31,7 +31,7 @@ from PySide6.QtWidgets import (QCompleter, QFrame, QHBoxLayout, QLabel, QLineEdi
                                QPushButton, QTextEdit, QToolButton, QVBoxLayout, QWidget)
 
 from ..catalog import CONTROL_KEYWORDS, openscad_modules
-from ..code_assist import (BOOLEAN_TEMPLATES, OPENSCAD_BUILTINS, SNIPPETS_CATALOG, find_active_call,
+from ..code_assist import (BOOLEAN_TEMPLATES, OPENSCAD_BUILTINS, SNIPPETS_CATALOG, find_active_call, localized_code,
                            format_signature_html, get_signature_info)
 from ..i18n import tr
 from .icons import icon
@@ -331,7 +331,7 @@ class ScadEditor(QPlainTextEdit):
         clean_word = completion.split()[0].replace("();", "").replace("()", "")
         if clean_word in self._templates and ("//" not in completion):
             tc.select(QTextCursor.SelectionType.WordUnderCursor)
-            template_code = self._templates[clean_word]
+            template_code = localized_code(self._templates[clean_word])
             tc.insertText(template_code)
             self.setTextCursor(tc)
             self.update_signature_help(force=False)
@@ -970,7 +970,7 @@ class CodeView(QWidget):
         menu = QMenu(self)
         for label, snippet in SNIPPETS_CATALOG:
             action = menu.addAction(tr(label))
-            action.triggered.connect(lambda _=False, s=snippet: self.insert_snippet(s))
+            action.triggered.connect(lambda _=False, s=localized_code(snippet): self.insert_snippet(s))
         self.btn_snippets.setMenu(menu)
 
     def retranslate_ui(self) -> None:

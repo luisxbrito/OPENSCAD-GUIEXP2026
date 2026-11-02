@@ -48,6 +48,10 @@ Italian and Portuguese (*Edit › Preferences*).
 
   Like the edge modules, the three are written at the end of the file, so the `.scad` opens in
   plain OpenSCAD without any library.
+- **Keyways.** Gears and pulleys can have a keyway in their bore. Width and hub depth come from the
+  metric parallel key table BS 4235-1 / ISO R773 according to the bore (over 6 up to 500 mm), and the
+  panel also shows the key section and the depth to cut in the shaft. Give the width and depth by hand
+  for other bores or custom keys. The keyway is cut towards +X.
 - **Arrays.** Linear, polar and grid arrays of the selected parts. Each one is written as a
   plain `for` loop, for example `for (i = [0 : 3]) translate(i * [20, 0, 0]) { ... }`, and is
   recognised again when the file is reopened. Other `for` loops are kept as code.

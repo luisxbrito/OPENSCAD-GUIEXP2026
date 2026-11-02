@@ -55,20 +55,20 @@ def generate_technical_drawing_code(
         stripped = line.lstrip()
         (head if stripped.startswith(("include ", "include<", "use ", "use<")) else body).append(line)
 
-    lines = ["// Lámina de dibujo técnico generada con OpenSCAD GUI Mejorada", *head, "$fn = 48;", "",
+    lines = ["// " + tr("Lámina de dibujo técnico generada con OpenSCAD GUI Mejorada"), *head, "$fn = 48;", "",
              "module __modelo_base__() {"]
     lines += ["  " + line if line.strip() else "" for line in body]
     lines += ["}", ""]
 
     if include_border:
         lines.extend([
-            "// --- Marco exterior y margen ---",
+            f"// --- {tr('Marco exterior y margen')} ---",
             "difference() {",
             f"  square([{w}, {h}]);",
             f"  translate([10, 10]) square([{w - 20}, {h - 20}]);",
             "}",
             "",
-            "// --- Cajetín técnico ---",
+            f"// --- {tr('Cajetín técnico')} ---",
             f"translate([{w - 120}, 10]) {{",
             "  difference() {",
             "    square([110, 36]);",
@@ -95,7 +95,7 @@ def generate_technical_drawing_code(
         ("isometric", (x_right, y_bottom), tr("Isométrica").upper()),
     )
 
-    lines.append("// --- Proyecciones 2D (sistema europeo) ---")
+    lines.append(f"// --- {tr('Proyecciones 2D (sistema europeo)')} ---")
     for key, (x, y), label in layout:
         if not views.get(key, True):
             continue

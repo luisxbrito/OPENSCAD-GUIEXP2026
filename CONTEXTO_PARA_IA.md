@@ -94,8 +94,9 @@ build_portable.py, OpenSCAD_GUI_Mejorada.spec   ejecutable portable con PyInstal
    archivos de `scadgui/locales/`; `tests/test_i18n.py` falla si falta alguna, si hay claves
    duplicadas o si una traducción se quedó en español. Esto incluye los nombres que ponen
    los asistentes (tornillería, bocetos) y los rótulos de la lámina técnica: salen en el
-   idioma activo al crear la pieza. Los archivos de `locales/` se ordenan por
-   `clave.lower()`.
+   idioma activo al crear la pieza. También los comentarios de la lámina (`drawing.py`) y de las
+   plantillas del editor (`code_assist.localized_code`, que traduce además los nombres de ejemplo
+   de `SNIPPET_NAMES`). Los archivos de `locales/` se ordenan por `clave.lower()`.
 9. **La lógica va fuera de `ui/`.** Datos y cálculos (presets, perfiles, firmas, piezas
    normalizadas, láminas) viven en `scadgui/*.py` sin importar Qt, y sus pruebas no pueden
    necesitar PySide6. `ui/` solo construye widgets y llama a esa lógica.
@@ -294,6 +295,12 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     (abajo, arriba o los dos) y restando luego el agujero del eje por toda la pieza, incluidas
     las pestañas. Con pestañas, el centrado (`center`) centra el TOTAL (pestañas + dentado), no
     solo el dentado.
+    El valor de `flange` es un `Param(translated=True)`: el modelo guarda siempre el valor en español
+    (`ninguna`, `superior`…), `Node.call(lang)` lo escribe traducido, `canonical_choice` lo reconoce
+    en cualquier idioma al leer y el módulo `pulley` lista todas las traducciones, porque el archivo
+    tiene que funcionar en el OpenSCAD normal. Si cambia una traducción, cambiar también esas listas
+    (`test_flange_de_la_polea_en_el_idioma_elegido` lo comprueba) y guardar el módulo anterior en
+    `PREVIOUS_VERSIONS`. Sigue a `header_lang`: un archivo que ya tiene idioma lo conserva al guardar.
   - Polea trapecial (`v_pulley`), correa en V: secciones clásicas ANSI/RMA IP-20 A/B/C/D
     (Machinery's Handbook 27, tabla 9 «Classical V-Belt Sheave and Groove Dimensions ANSI/RMA
     IP-20, 1988»; leída de la imagen de la página, no del texto extraído, porque `pdftotext`
@@ -311,6 +318,17 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     el `geometry.revolve(poly, ctx)` ya existente (pensado para `rotate_extrude`, reutilizado
     aquí). Por eso su mesh-builder recibe `ctx` (como `cube_edges`/`cylinder_edges`), a diferencia
     de `pulley`/`spur_gear`/etc.
+  - Cuñeros (`keyway`, y `key_width`/`key_depth` opcionales; en `spur_gear`, `helical_gear`,
+    `bevel_gear`, `pulley` y `v_pulley`): cuñas paralelas métricas BS 4235-1, con las medidas de ISO
+    R773 (Machinery's Handbook 27, tabla 12, p. 2376; la tabla 1 de ANSI B17.1 es en pulgadas y no se
+    usa). La tabla está en `gears.KEY_TABLE` y en el módulo `shaft_bore`; un test exige que coincidan.
+    Cada fila es «más de, hasta e incluido», así que Ø 6 no está en la tabla y Ø 8 es de la fila 6-8.
+    El cuñero va hacia +X y su fondo queda a d/2 + t2 del eje (t2: profundidad en el cubo). Fuera de la
+    tabla no se talla nada salvo que se den las dos medidas: nunca se toma la de otro Ø (regla 12).
+    `shaft_bore` es el único módulo de `library.py` que usan otros, y por eso va el último en `LIBRARY`:
+    `needed_definitions` busca también en lo que ya ha añadido. Los parámetros van al final de las
+    firmas para no mover los argumentos posicionales de los archivos guardados. La vista aproximada
+    no talla el agujero, así que tampoco el cuñero: solo se ve con la malla de OpenSCAD.
 - Contraste del tema oscuro: `tests/test_tema.py` mide letra/fondo en cada regla. Un color que en
   claro es letra (DARK lo aclara) y alguna regla usa de fondo va en `DARK_BACKGROUND`.
 - Cinta: `Ribbon.GROUPS` reparte los botones de cada pestaña en grupos con título (marcados con

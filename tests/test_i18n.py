@@ -71,10 +71,12 @@ def interface_strings() -> set:
         out.update(info[k] for k in ("title", "summary", "how_it_works", "pro_tip", "category") if k in info)
         out.update(p[0] for p in info.get("presets", []))
     out.update(label for _, label in PROFILES)
-    from scadgui.code_assist import OPENSCAD_BUILTINS, SNIPPETS_CATALOG
+    from scadgui.code_assist import OPENSCAD_BUILTINS, SNIPPETS_CATALOG, code_texts
     out.update(info["doc"] for info in OPENSCAD_BUILTINS.values())
     out.update(param[2] for info in OPENSCAD_BUILTINS.values() for param in info["params"])
     out.update(label for label, _code in SNIPPETS_CATALOG)
+    out.update(code_texts())
+    out.update(o for s in SPECS.values() for p in s.params if p.translated for o in p.options)
 
     # Datos de módulos con Qt: se leen del código sin importarlos.
     for rel, var, index in (("scadgui/ui/hardware_dialog.py", "CATEGORIES", 1),
