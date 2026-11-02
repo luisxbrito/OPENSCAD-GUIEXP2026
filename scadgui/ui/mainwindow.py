@@ -131,7 +131,7 @@ class Ribbon(QTabWidget):
     # Grupos de cada pestaña, con su título debajo (como en Fusion). Un comando de la pestaña que
     # no esté en ningún grupo va al último, para que nunca se quede sin botón.
     GROUPS = {
-        "solid": ((N_("Primitivas"), ("cube", "sphere", "cylinder", "polyhedron")), (N_("Mecánica"), ("spur_gear", "helical_gear", "bevel_gear", "rack", "pulley", "v_pulley")),
+        "solid": ((N_("Primitivas"), ("cube", "sphere", "cylinder", "polyhedron")), (N_("Mecánica"), ("spur_gear", "helical_gear", "bevel_gear", "rack", "pulley", "v_pulley", "spline")),
                   (N_("Asistentes"), ("hardware",))),
         "shape2d": ((N_("Primitivas 2D"), ("square", "circle", "polygon", "text")), (N_("Modificar"), ("offset",)),
                     (N_("Asistentes"), ("sketch2d", "drawing2d"))),
@@ -1398,7 +1398,7 @@ class MainWindow(QMainWindow):
         self._refresh_item(node_id)
 
     def add_meshing_gear(self, node_id: int, teeth: int = 0) -> None:
-        """Panel del engranaje o la cremallera › botón de la pareja: crea el engranaje que engrana."""
+        """Panel del engranaje, la cremallera o el estriado › botón de la pareja: crea la pieza que encaja."""
         created = {}
 
         def change():

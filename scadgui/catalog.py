@@ -325,6 +325,21 @@ _add(Spec("pulley", "Polea dentada", "solid", False, (
    "MXL/XL/L/H/XH. Ø primitivo = dientes·paso/π; el hueco es el negativo del diente de la "
    "correa. No necesita pareja: el centro entre dos poleas lo pone la longitud de la correa."))
 
+_add(Spec("spline", "Estriado", "solid", False, (
+    Param("mod", "num", 1, label="Módulo (m)", minimum=0.25, step=0.25),
+    Param("teeth", "int", 20, label="Dientes (z)", minimum=3, maximum=400),
+    Param("length", "num", 20, label="Longitud", minimum=0.01),
+    Param("pressure_angle", "num", 30, label="Ángulo de presión (°)", minimum=30, maximum=45, step=7.5),
+    Param("fillet_root", "bool", True, optional=True, label="Fondo redondeado (30°)"),
+    Param("internal", "bool", True, optional=True, label="Cubo (estriado interior)"),
+    Param("hub_d", "num", 60, optional=True, label="Ø exterior del cubo", minimum=0.1),
+    Param("clearance", "num", 0.1, optional=True, label="Holgura (mm)", minimum=0, step=0.05),
+    Param("center", "bool", False, label="Centrado"),
+    FN,
+), keyword="module", hint="Estriado de evolvente por módulo, de ajuste lateral (ANSI B92.2M, derivada de "
+   "ISO 4156). El eje y el cubo encajan en el mismo sitio, sin moverlos ni girarlos. La holgura solo "
+   "adelgaza el diente del eje: el hueco del cubo siempre tiene el ancho básico."))
+
 _add(Spec("v_pulley", "Polea trapecial", "solid", False, (
     Param("section", "choice", "A", label="Sección", options=("A", "B", "C", "D")),
     Param("datum_d", "num", 80, label="Ø primitivo (datum)", minimum=10, step=5),
@@ -424,6 +439,8 @@ ICONS = {
     "pulley": ("M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20z M12 6a6 6 0 1 0 0 12a6 6 0 1 0 0-12z"
                " M12 2v3 M12 19v3 M2 12h3 M19 12h3 M5.3 5.3l2.2 2.2 M16.5 16.5l2.2 2.2"
                " M5.3 18.7l2.2-2.2 M16.5 7.5l2.2-2.2"),
+    "spline": ("M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 3v5 M12 16v5 M3 12h5 M16 12h5"
+               " M5.6 5.6l3.5 3.5 M14.9 14.9l3.5 3.5 M5.6 18.4l3.5-3.5 M14.9 9.1l3.5-3.5"),
     "v_pulley": ("M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20z"
                  " M9 2.5l3 3l3-3 M9 21.5l3-3l3 3 M2.5 9l3 3l-3 3 M21.5 9l-3 3l3 3"),
     "rack": ("M2 14H2.7L3.5 7h2l0.8 7h1.4L8.5 7h2l0.8 7h1.4L13.5 7h2l0.8 7h1.4L18.5 7h2l0.8 7H22"

@@ -32,7 +32,7 @@ def roundtrip(text):
 
 
 def test_catalogo_completo():
-    assert len(SPECS) == 41  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 6 de engranajes
+    assert len(SPECS) == 42  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 7 de mecánica
     for key, _, _ in CATEGORIES:
         assert specs_in(key), key
     for name in SPECS:
@@ -1046,7 +1046,7 @@ def test_modulos_propios_con_comentarios_en_ingles():
     def code_only(text):
         return " ".join(re.sub(r"//[^\n]*", "", text).split())
 
-    assert set(SPANISH_COMMENTS) == set(LIBRARY) - {"shaft_bore"}   # shaft_bore nació ya en inglés
+    assert set(SPANISH_COMMENTS) == set(LIBRARY) - {"shaft_bore", "spline"}   # nacieron ya en inglés
     for name, code in LIBRARY.items():
         assert all(c.isascii() for c in re.findall(r"//[^\n]*", code)), name
         assert "written by OpenSCAD GUI Mejorada" in code and "lo escribe" not in code, name
@@ -1058,6 +1058,61 @@ def test_modulos_propios_con_comentarios_en_ingles():
         assert [n.kind for n in doc.children] == [name], name
         text = generate(doc).text
         assert code in text and "lo escribe" not in text, name
+
+
+def test_estriado_medidas_de_la_tabla_13():
+    """ANSI B92.2M (Handbook, tabla 13): las cuatro columnas, la holgura y los coeficientes del módulo."""
+    import math
+    import re
+    from scadgui import gears
+    from scadgui.library import SPLINE
+    d = gears.spline_dims(2, 20)                     # 30°, fondo plano
+    assert d["pitch_d"] == 40 and abs(d["base_d"] - 34.641) < 1e-3 and abs(d["pitch"] - 6.2832) < 1e-3
+    assert (d["major_e"], d["minor_e"], d["major_i"]) == (42, 37, 43)
+    assert abs(d["form_e"] - 37.829) < 1e-3 and abs(d["minor_i"] - 38.229) < 1e-3 and abs(d["form_i"] - 42.4) < 1e-9
+    assert d["hub_d"] == 51                          # sin Ø: dos módulos de pared a cada lado
+    d = gears.spline_dims(2, 20, 30, True)           # 30°, fondo redondeado
+    assert (d["major_e"], d["minor_e"], d["major_i"]) == (42, 36.4, 43.6)
+    d = gears.spline_dims(2, 20, 37.5)
+    assert abs(d["major_e"] - 41.8) < 1e-9 and abs(d["minor_e"] - 37.2) < 1e-9 and abs(d["major_i"] - 42.8) < 1e-9
+    d = gears.spline_dims(2, 20, 45)
+    assert abs(d["major_e"] - 41.6) < 1e-9 and abs(d["minor_e"] - 37.6) < 1e-9 and abs(d["major_i"] - 42.4) < 1e-9
+    d = gears.spline_dims(2, 20, 30, False, 0.1)     # es: DEE y DIE bajan es/tan α; DII usa el H/h
+    assert abs(d["major_e"] - (42 - 0.1 / math.tan(math.radians(30)))) < 1e-9
+    assert abs(d["minor_i"] - gears.spline_dims(2, 20)["minor_i"]) < 1e-12
+    k = re.search(r"k = (pressure_angle == 45.*?);\n", SPLINE, re.S).group(1)
+    rows = [tuple(float(x) for x in r.split(",")) for r in re.findall(r"\[([\d., ]+)\]", k)]
+    assert rows == [gears.SPLINE_45, gears.SPLINE_37_5, gears.SPLINE_FILLET_ROOT, gears.SPLINE_FLAT_ROOT]
+
+
+def test_estriado_codigo_pareja_y_avisos():
+    from scadgui import gears
+    doc = Document()
+    shaft = doc.add("spline")
+    for key, value in (("mod", 2), ("clearance", 0.1)):
+        doc.set_param(shaft.id, key, value)
+    hub = doc.add_meshing_gear(shaft.id)
+    assert [n.kind for n in doc.children] == ["spline", "spline"] and hub is doc.children[1]
+    assert hub.params["internal"] is True and "clearance" not in hub.params   # la holgura es del eje
+    assert hub.params["mod"] == 2
+    doc.set_param(hub.id, "hub_d", 70)
+    back = doc.add_meshing_gear(hub.id)
+    assert "internal" not in back.params and "hub_d" not in back.params
+    text = generate(doc).text
+    assert "spline(mod = 2, teeth = 20, length = 20, pressure_angle = 30, internal = true, hub_d = 70" in text
+    assert text.count("module spline(") == 1 and "shaft_bore" not in text
+    again = parse(text)
+    assert [n.kind for n in again.children] == ["spline"] * 3     # nada queda como código
+    assert again.children[1].params["internal"] is True
+    assert not gears.spline_warnings(2, 20)
+    assert "serie" in gears.spline_warnings(2.2, 20)[0][0]
+    assert "37,5" in gears.spline_warnings(2, 20, 35)[0][0]
+    assert "módulo" in gears.spline_warnings(5, 20, 45)[0][0]     # 45° solo llega a módulo 2,5
+    assert not gears.spline_warnings(5, 20, 30)
+    assert "pared" in gears.spline_warnings(2, 20, 30, internal=True, hub_d=45)[0][0]
+    assert not gears.spline_warnings(2, 20, 30, internal=True, hub_d=60)
+    assert "holgura" in gears.spline_warnings(2, 20, clearance=3.2)[0][0]   # grueso básico: 3.14 mm
+    assert not gears.spline_warnings(2, 20, clearance=0.1)
 
 
 def test_cunero_medidas_de_la_tabla():

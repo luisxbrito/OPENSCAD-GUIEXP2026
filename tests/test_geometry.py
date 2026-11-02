@@ -782,6 +782,25 @@ def test_polea_trapecial_en_la_vista_aproximada():
     assert geo.signed_volume(tris) > 0
 
 
+def test_estriado_cubo_con_hueco_y_eje_que_cabe():
+    """El cubo es una corona: pesa el círculo menos el hueco, y sus tapas no tapan el hueco. A cualquier
+    radio, el diente del eje cabe en el hueco del cubo; con holgura, sobra."""
+    from scadgui import gears
+    from scadgui.geometry import _area, signed_volume, spline
+    ctx = {"fn": 96, "fa": 12, "fs": 2}
+    for pa in (30, 37.5, 45):
+        hole = gears.spline_polygon(2, 20, pa, internal=True)
+        mesh = spline({"mod": 2, "teeth": 20, "length": 10, "pressure_angle": pa, "internal": True, "hub_d": 70}, ctx)
+        ring = 96 * 0.5 * 35 ** 2 * math.sin(2 * math.pi / 96)
+        assert abs(abs(signed_volume(mesh)) - (ring - abs(_area(hole))) * 10) < 1e-6, pa
+        assert (mesh[:, :, 2] == 10).any() and (np.linalg.norm(mesh[:, :, :2], axis=2) >= 19).all(), pa
+        shaft = gears.spline_polygon(2, 20, pa)
+        loose = gears.spline_polygon(2, 20, pa, clearance=0.1)
+        assert abs(_area(loose)) < abs(_area(shaft)) < abs(_area(hole)), pa
+        assert np.linalg.norm(shaft, axis=1).max() < np.linalg.norm(hole, axis=1).max(), pa   # no toca el fondo
+    assert spline({"mod": 2, "internal": True, "hub_d": 10}, ctx) is None     # el hueco se sale del cubo
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

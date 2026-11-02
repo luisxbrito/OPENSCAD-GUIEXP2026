@@ -626,6 +626,40 @@ def prism(poly: np.ndarray, h: float, z0: float = 0.0, shift: float = 0.0,
     return np.concatenate(parts)
 
 
+def annular_prism(outer: np.ndarray, hole: np.ndarray, h: float, z0: float = 0.0) -> Tris:
+    """Corona extruida: ``outer`` con el hueco ``hole``, los dos antihorarios y en estrella respecto
+    al origen. La tapa se teje avanzando por ángulo entre los dos contornos."""
+    def turn(ring):
+        ang = np.arctan2(ring[:, 1], ring[:, 0]) % (2 * math.pi)
+        first = int(np.argmin(ang))
+        return np.roll(ring, -first, axis=0), np.roll(ang, -first)
+
+    a, aa = turn(outer)
+    b, ab = turn(hole)
+    i = j = 0
+    na, nb = len(a), len(b)
+    cap = []
+    while i < na or j < nb:
+        next_a = aa[i + 1] if i + 1 < na else aa[0] + 2 * math.pi
+        next_b = ab[j + 1] if j + 1 < nb else ab[0] + 2 * math.pi
+        if j >= nb or (i < na and next_a <= next_b):
+            cap.append((a[i % na], a[(i + 1) % na], b[j % nb]))
+            i += 1
+        else:
+            cap.append((b[j % nb], a[i % na], b[(j + 1) % nb]))
+            j += 1
+    flat = np.array(cap)
+
+    def at(ring, z):
+        return np.column_stack([ring, np.full(len(ring), z)])
+
+    def lid(z):
+        return np.concatenate([flat, np.full((len(flat), 3, 1), z)], axis=2)
+
+    return np.concatenate([_quads(at(a, z0), at(a, z0 + h)), _quads(at(b[::-1], z0), at(b[::-1], z0 + h)),
+                           lid(z0)[:, ::-1], lid(z0 + h)])
+
+
 def twisted_prism(poly: np.ndarray, h: float, z0: float = 0.0, turn: float = 0.0,
                   slices: int = 8) -> Tris:
     """Polígono extruido girando con la altura, como ``linear_extrude(twist = …)``.
@@ -728,6 +762,25 @@ def pulley(p) -> Optional[Tris]:
         if top > 0:
             parts.append(prism(ring, top, z0 + bot + w))
     return np.concatenate(parts)
+
+
+def spline(p, ctx) -> Optional[Tris]:
+    """Estriado de evolvente: el eje es un prisma y el cubo, una corona con el hueco estriado."""
+    from . import gears
+    mod, z, length = _num(p.get("mod", 1)), _num(p.get("teeth", 20)), _num(p.get("length", 20))
+    pa, es = _num(p.get("pressure_angle", 30)), _num(p.get("clearance", 0), 0.0)
+    hub = _num(p.get("hub_d", 0), 0.0)
+    if None in (mod, z, length, pa, es, hub) or mod <= 0 or length <= 0 or z < 3 or not 0 < pa < 90:
+        return None
+    fillet, internal = p.get("fillet_root") is True, p.get("internal") is True
+    z0 = -length / 2 if p.get("center") is True else 0.0
+    poly = gears.spline_polygon(mod, int(z), pa, fillet, internal, es)
+    if not internal:
+        return prism(poly, length, z0)
+    d = gears.spline_dims(mod, int(z), pa, fillet, 0.0, hub)
+    if d["hub_d"] <= d["major_i"]:
+        return None                                  # el hueco se sale del cubo: no hay pieza
+    return annular_prism(circle_points(d["hub_d"] / 2, fragments(d["hub_d"] / 2, ctx)), poly, length, z0)
 
 
 def v_pulley(p, ctx) -> Optional[Tris]:
@@ -1153,6 +1206,8 @@ def solid(node, ctx) -> dict:
         mesh = pulley(p)
     elif k == "v_pulley":
         mesh = v_pulley(p, ctx)
+    elif k == "spline":
+        mesh = spline(p, ctx)
     elif k == "cylinder_edges":
         mesh = cylinder_edges(p, ctx)
     elif k in ("square", "circle", "polygon"):

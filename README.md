@@ -48,6 +48,10 @@ Italian and Portuguese (*Edit › Preferences*).
 
   Like the edge modules, the three are written at the end of the file, so the `.scad` opens in
   plain OpenSCAD without any library.
+- **Splines.** `spline` is a metric module involute spline with side fit (ANSI B92.2M, derived from ISO
+  4156): 30° flat or fillet root, 37.5° and 45°. The same part is a shaft or, with `internal`, a hub; a
+  button adds the mating part, and both mesh in place without moving or turning them. The clearance
+  only thins the shaft tooth. Roots are drawn straight and tolerance classes are not modelled.
 - **Keyways.** Gears and pulleys can have a keyway in their bore. Width and hub depth come from the
   metric parallel key table BS 4235-1 / ISO R773 according to the bore (over 6 up to 500 mm), and the
   panel also shows the key section and the depth to cut in the shaft. Give the width and depth by hand

@@ -657,3 +657,110 @@ def keyway_warnings(bore: float, width: float, depth: float, root_d: float) -> l
         return [(N_("Entre el fondo del cuñero y el Ø de fondo de la pieza ({f:.1f} mm) quedan {w:.2f} mm: "
                     "deja algo más de material."), {"f": root_d, "w": wall})]
     return []
+
+
+# --------------------------------------------------------------------------- Estriados
+
+# Estrías métricas de evolvente ANSI B92.2M-1980, derivada de ISO 4156 (Machinery's Handbook 27,
+# tabla 13, p. 2179). Por módulo: (Ø mayor del eje, Ø mayor del cubo, Ø menor del eje, hs, Ø de forma
+# del cubo). Las mismas que el módulo spline de library.py.
+SPLINE_FLAT_ROOT = (1.0, 1.5, 1.5, 0.6, 1.0)
+SPLINE_FILLET_ROOT = (1.0, 1.8, 1.8, 0.6, 1.0)
+SPLINE_37_5 = (0.9, 1.4, 1.4, 0.55, 0.9)
+SPLINE_45 = (0.8, 1.2, 1.2, 0.5, 0.8)
+SPLINE_MODULES = (0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5, 6, 8, 10)
+
+
+def spline_dims(mod: float, teeth: int, pressure_angle: float = 30.0, fillet_root: bool = False,
+                clearance: float = 0.0, hub_d: float = 0.0) -> dict:
+    """Medidas del estriado (mm). ``clearance`` es el es de la norma: solo adelgaza el eje."""
+    z = max(3, int(round(teeth)))
+    ke, ki, kn, hs, kf = (SPLINE_45 if pressure_angle == 45 else SPLINE_37_5 if pressure_angle == 37.5
+                          else SPLINE_FILLET_ROOT if fillet_root else SPLINE_FLAT_ROOT)
+    a = math.radians(pressure_angle)
+    d = mod * z
+    db = d * math.cos(a)
+    es = max(0.0, clearance)
+
+    def form(e: float) -> float:
+        rise = max(0.0, d / 2 * math.sin(a) - (hs * mod + e / 2 / math.tan(a)) / math.sin(a))
+        return 2 * math.sqrt((db / 2) ** 2 + rise ** 2)
+
+    cf = 0.1 * mod
+    major_i = mod * (z + ki)
+    return {
+        "teeth": z, "pitch_d": d, "base_d": db, "pitch": math.pi * mod, "angle": a,
+        "basic_width": math.pi * mod / 2, "es": es,
+        "major_e": mod * (z + ke) - es / math.tan(a), "minor_e": mod * (z - kn) - es / math.tan(a),
+        "form_e": form(es), "major_i": major_i, "minor_i": form(0.0) + 2 * cf,
+        "form_i": mod * (z + kf) + 2 * cf, "hub_d": hub_d if hub_d > 0 else major_i + 4 * mod,
+    }
+
+
+def spline_polygon(mod: float, teeth: int, pressure_angle: float = 30.0, fillet_root: bool = False,
+                   internal: bool = False, clearance: float = 0.0) -> np.ndarray:
+    """Contorno del eje o del hueco del cubo (N × 2), antihorario. Un diente del eje y un hueco del
+    cubo van centrados en +X, así que los dos encajan sin girarlos."""
+    d = spline_dims(mod, teeth, pressure_angle, fillet_root, 0.0 if internal else clearance)
+    z, a = d["teeth"], d["angle"]
+    rb = d["base_d"] / 2
+    width = d["basic_width"] - d["es"]
+    if internal:
+        low, start, end, high = d["minor_i"] / 2, d["minor_i"] / 2, d["form_i"] / 2, d["major_i"] / 2
+    else:
+        low, start, end, high = d["minor_e"] / 2, d["form_e"] / 2, d["major_e"] / 2, d["major_e"] / 2
+    start = max(rb, start)
+
+    def half(R: float) -> float:
+        return min(max(0.0, width / d["pitch_d"] + _inv(a) - _inv(math.acos(min(1.0, rb / R)))),
+                   math.radians(179.9 / z))
+
+    flank = [start + (end - start) * k / FLANK_STEPS for k in range(FLANK_STEPS + 1)]
+    pts = []
+    for i in range(z):
+        c = 2 * math.pi * i / z
+
+        def at(R: float, sign: int) -> tuple[float, float]:
+            return (R * math.cos(c + sign * half(R)), R * math.sin(c + sign * half(R)))
+
+        def tied(R: float, ref: float, sign: int) -> tuple[float, float]:
+            return (R * math.cos(c + sign * half(ref)), R * math.sin(c + sign * half(ref)))
+
+        if low < start - 1e-6:
+            pts.append(tied(low, start, -1))
+        pts += [at(R, -1) for R in flank]
+        if high > end + 1e-6:
+            pts += [tied(high, end, -1), tied(high, end, 1)]
+        pts += [at(R, 1) for R in reversed(flank)]
+        if low < start - 1e-6:
+            pts.append(tied(low, start, 1))
+    return np.array(pts, dtype=np.float64)
+
+
+def spline_warnings(mod: float, teeth: int, pressure_angle: float = 30.0, fillet_root: bool = False,
+                    internal: bool = False, clearance: float = 0.0,
+                    hub_d: float = 0.0) -> list[tuple[str, dict]]:
+    """Problemas de diseño del estriado: (texto en español, valores para format)."""
+    out = []
+    if float(pressure_angle) not in (30.0, 37.5, 45.0):
+        out.append((N_("La norma solo tiene ángulos de 30°, 37,5° y 45°: con {a:g}° las demás medidas "
+                       "se toman de la columna de 30°."), {"a": pressure_angle}))
+    if mod not in SPLINE_MODULES:
+        out.append((N_("El módulo {m:g} no es de la serie normal: {serie}."),
+                    {"m": mod, "serie": "; ".join(f"{x:g}" for x in SPLINE_MODULES)}))
+    low, high = (0.25, 2.5) if pressure_angle == 45 else (0.5, 10)
+    if not low <= mod <= high:
+        out.append((N_("Con {a:g}° la norma va de módulo {lo:g} a {hi:g}."),
+                    {"a": pressure_angle, "lo": low, "hi": high}))
+    d = spline_dims(mod, teeth, pressure_angle, fillet_root, 0.0 if internal else clearance, hub_d)
+    if internal:
+        wall = (d["hub_d"] - d["major_i"]) / 2
+        if wall < 2 * mod:
+            out.append((N_("La pared del cubo es de {w:.2f} mm: deja al menos dos módulos ({m:.2f} mm)."),
+                        {"w": wall, "m": 2 * mod}))
+    else:
+        tip = math.acos(min(1.0, d["base_d"] / d["major_e"]))
+        width = d["basic_width"] - d["es"]
+        if width <= 0 or width / d["pitch_d"] + _inv(d["angle"]) - _inv(tip) <= 0:
+            out.append((N_("La holgura de {c:g} mm se come el diente."), {"c": clearance}))
+    return out

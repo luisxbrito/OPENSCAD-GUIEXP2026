@@ -250,6 +250,34 @@ def test_pestanas_de_la_polea_en_todos_los_idiomas():
             assert abs(volume_of(text) - reference) < 1, (flange, lang)
 
 
+def test_estriado_volumen_y_encaje():
+    """La pieza de OpenSCAD pesa lo mismo que la vista aproximada, en todas las columnas de la tabla;
+    el eje y el cubo encajan sin chocar y girar el eje medio paso los haría chocar."""
+    from scadgui import geometry
+    ctx = {"fn": 0, "fa": 12, "fs": 2}
+    cases = ({"mod": 2}, {"mod": 2, "fillet_root": True}, {"mod": 2, "pressure_angle": 37.5},
+             {"mod": 2, "pressure_angle": 45}, {"mod": 1.5, "teeth": 11, "clearance": 0.1},
+             {"mod": 2, "internal": True}, {"mod": 2, "internal": True, "hub_d": 70, "center": True},
+             {"mod": 2, "pressure_angle": 45, "internal": True}, {"mod": 1, "teeth": 9, "internal": True})
+    for params in cases:
+        doc = Document()
+        node = doc.add("spline")
+        for key, value in params.items():
+            doc.set_param(node.id, key, value)
+        mine = abs(signed_volume(geometry.spline(node.params, ctx)))
+        got = volume_of(generate(doc).text)
+        assert abs(got - mine) < max(1, mine * 1e-5), (params, got, mine)
+    shaft, hub = ("spline(mod = 2, teeth = 20, length = 10);",
+                  "spline(mod = 2, teeth = 20, length = 10, internal = true);")
+    doc = Document()
+    doc.add("spline")                                  # para que generate() escriba el módulo
+    module = generate(doc, header=False).text
+    module = module[module.index("module spline("):]
+    assert volume_of(f"intersection() {{ {shaft} {hub} }}\n{module}") < 1      # encajan
+    half = 360 / 20 / 2
+    assert volume_of(f"intersection() {{ rotate([0, 0, {half}]) {shaft} {hub} }}\n{module}") > 100
+
+
 def test_cunero_en_engranajes_y_poleas():
     """El fondo del cuñero queda a d/2 + t2 del eje, con el ancho de la tabla, a lo largo de toda la
     pieza; quita el volumen que le toca, y sin medida en la tabla no talla nada."""

@@ -526,6 +526,30 @@ def test_polea_desde_la_cinta():
     assert "module pulley(" in w.code.text.toPlainText()
 
 
+def test_estriado_desde_la_cinta_y_pareja_desde_el_panel():
+    """Botón spline de la cinta; el panel da las medidas y el botón añade el cubo en el mismo sitio."""
+    from PySide6.QtWidgets import QLabel, QPushButton
+    from scadgui.i18n import tr
+    from scadgui.model import Document
+    w = window()
+    w.set_document(Document())
+    w.ribbon.buttons["spline"].click()
+    app.processEvents()
+    shaft = w.doc.children[0]
+    assert shaft.kind == "spline" and w.selected_ids() == [shaft.id]
+    texts = [l.text() for l in w.props.findChildren(QLabel)]
+    assert any(t.startswith("Ø primitivo 20 mm · Ø base 17.321 mm") for t in texts), texts
+    assert any(t.startswith("Eje: Ø mayor 21.000 mm") for t in texts), texts
+    next(b for b in w.props.findChildren(QPushButton) if b.text() == tr("Añadir la pieza pareja")).click()
+    app.processEvents()
+    assert [n.kind for n in w.doc.children] == ["spline", "spline"]
+    hub = w.doc.find(w.selected_ids()[0])
+    assert hub is w.doc.children[1] and hub.params["internal"] is True
+    texts = [l.text() for l in w.props.findChildren(QLabel)]
+    assert any(t.startswith("Cubo: Ø mayor 21.500 mm") for t in texts), texts
+    assert "module spline(" in w.code.text.toPlainText()
+
+
 def test_cunero_en_el_panel():
     """El panel da las medidas de la tabla según el agujero y avisa si no están en ella."""
     from PySide6.QtWidgets import QLabel

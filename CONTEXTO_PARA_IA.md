@@ -329,6 +329,19 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     `needed_definitions` busca también en lo que ya ha añadido. Los parámetros van al final de las
     firmas para no mover los argumentos posicionales de los archivos guardados. La vista aproximada
     no talla el agujero, así que tampoco el cuñero: solo se ve con la malla de OpenSCAD.
+  - Estriado (`spline`): estrías métricas de evolvente de ajuste lateral, ANSI B92.2M-1980, derivada
+    de ISO 4156 (Machinery's Handbook 27, tabla 13, p. 2179). En esa tabla `pdftotext -layout` mezcla
+    las columnas; sin `-layout` salen en orden. Hay 4 columnas: 30° de fondo plano, 30° de fondo
+    redondeado, 37,5° y 45°. Los coeficientes (por módulo) están en `gears.SPLINE_*` y en el módulo
+    `spline`, y un test exige que coincidan. Módulos normales y rangos: 0,5-10, y 0,25-2,5 con 45°.
+    Una sola pieza: `internal = true` es el cubo (`hub_d`; sin él, dos módulos de pared). El diente del
+    eje y el hueco del cubo van centrados en +X, así que encajan en el mismo sitio y la pareja
+    (`add_meshing_gear`) no lleva translate ni rotate. `clearance` es el es de la norma: solo adelgaza
+    el eje y baja sus Ø mayor y menor es/tan α; el Ø menor del cubo siempre sale de la forma del
+    ajuste H/h (nota b de la tabla). No se modelan los redondeos del fondo: «fondo redondeado» cambia
+    los diámetros de la tabla, pero el fondo sale recto. Tampoco las clases de tolerancia 4-7 ni la tabla 14.
+    El cubo se dibuja en la vista aproximada con `geometry.annular_prism`, la primera malla con hueco.
+    Las estrías rectas SAE (tablas 18-21) están en pulgadas y no se ofrecen.
 - Contraste del tema oscuro: `tests/test_tema.py` mide letra/fondo en cada regla. Un color que en
   claro es letra (DARK lo aclara) y alguna regla usa de fondo va en `DARK_BACKGROUND`.
 - Cinta: `Ribbon.GROUPS` reparte los botones de cada pestaña en grupos con título (marcados con

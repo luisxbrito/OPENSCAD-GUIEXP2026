@@ -222,6 +222,8 @@ class PropertyPanel(QScrollArea):
             self._pulley_info(node)
         if node.kind == "v_pulley":
             self._v_pulley_info(node)
+        if node.kind == "spline":
+            self._spline_info(node)
         if spec and spec.hint:
             self._hint(tr(spec.hint))
         if spec and spec.container and not node.children:
@@ -360,6 +362,35 @@ class PropertyPanel(QScrollArea):
                 b=size[0], t=size[1]))
         for text, values in gears.keyway_warnings(bore, width, depth, root_d):
             self._hint(tr(text).format(**values), "warnText")
+
+    def _spline_info(self, node: Node) -> None:
+        """Medidas calculadas, avisos de diseño y el botón para añadir la pieza pareja."""
+        from .. import gears
+        p = node.params
+        values = [p.get(k, v) for k, v in (("mod", 1), ("teeth", 20), ("pressure_angle", 30),
+                                           ("clearance", 0), ("hub_d", 0))]
+        if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in values):
+            return                                   # con expresiones no se puede calcular aquí
+        mod, z, pa, es, hub = values
+        fillet, internal = p.get("fillet_root") is True, p.get("internal") is True
+        d = gears.spline_dims(mod, int(z), pa, fillet, 0.0 if internal else es, hub)
+        self._hint(tr("Ø primitivo {d:g} mm · Ø base {b:.3f} mm · paso {p:.3f} mm · grueso del diente "
+                      "{s:.3f} mm").format(d=round(d["pitch_d"], 3), b=d["base_d"], p=d["pitch"],
+                                           s=d["basic_width"] - d["es"]))
+        if internal:
+            self._hint(tr("Cubo: Ø mayor {a:.3f} mm · Ø de forma {f:.3f} mm · Ø menor {i:.3f} mm · Ø "
+                          "exterior {o:.3f} mm").format(a=d["major_i"], f=d["form_i"], i=d["minor_i"],
+                                                        o=d["hub_d"]))
+        else:
+            self._hint(tr("Eje: Ø mayor {a:.3f} mm · Ø de forma {f:.3f} mm · Ø menor {i:.3f} mm").format(
+                a=d["major_e"], f=d["form_e"], i=d["minor_e"]))
+        for text, data in gears.spline_warnings(mod, int(z), pa, fillet, internal, es, hub):
+            self._hint(tr(text).format(**data), "warnText")
+        add = QPushButton(tr("Añadir la pieza pareja"))
+        add.setToolTip(tr("Crea el cubo o el eje que encaja con esta pieza, en el mismo sitio: no hay "
+                          "que moverlo ni girarlo."))
+        add.clicked.connect(lambda: self.addMeshingGear.emit(node.id, 0))
+        self._lay.addWidget(add)
 
     def _pulley_info(self, node: Node) -> None:
         """Medidas calculadas y avisos de diseño de la polea dentada."""

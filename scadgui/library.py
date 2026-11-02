@@ -349,6 +349,55 @@ V_PULLEY = '''module v_pulley(section = "A", datum_d = 80, grooves = 1, bore = 0
   }
 }'''
 
+SPLINE = '''module spline(mod = 1, teeth = 20, length = 20, pressure_angle = 30, fillet_root = false, internal = false, hub_d = 0, clearance = 0, center = false) {
+  // Involute spline by module, side fit (written by OpenSCAD GUI Mejorada).
+  // ANSI B92.2M-1980, derived from ISO 4156 (Machinery's Handbook 27, table 13, p. 2179). The shaft
+  // and the hub (internal = true) mesh in the same place, without moving or turning either: a
+  // shaft tooth and a hub space are both centred on +X. clearance is the tooth thickness
+  // modification es: it only thins the shaft, the hub always keeps the basic space width.
+  z = max(3, round(teeth));
+  // Table 13, times mod: [external major, internal major, minor, rack dimension hs, internal form].
+  k = pressure_angle == 45 ? [0.8, 1.2, 1.2, 0.5, 0.8] :
+      pressure_angle == 37.5 ? [0.9, 1.4, 1.4, 0.55, 0.9] :
+      fillet_root ? [1, 1.8, 1.8, 0.6, 1] : [1, 1.5, 1.5, 0.6, 1];
+  a = pressure_angle;
+  d = mod * z;                          // pitch diameter
+  rb = d / 2 * cos(a);                  // base radius
+  es = internal ? 0 : max(0, clearance);
+  function form(e) = 2 * sqrt(rb * rb + pow(max(0, d / 2 * sin(a) - (k[3] * mod + e / 2 / tan(a)) / sin(a)), 2));
+  cf = 0.1 * mod;                       // form clearance
+  dei = mod * (z + k[1]);               // internal major diameter
+  dii = form(0) + 2 * cf;               // internal minor: always from the form diameter of the H/h fit
+  dfi = mod * (z + k[4]) + 2 * cf;      // internal form diameter
+  dee = mod * (z + k[0]) - es / tan(a); // external major diameter
+  die = mod * (z - k[2]) - es / tan(a); // external minor diameter
+  r_low = internal ? dii / 2 : die / 2;
+  lo = max(rb, internal ? dii / 2 : form(es) / 2);    // the involute runs from lo to hi
+  hi = internal ? dfi / 2 : dee / 2;
+  high = internal ? dei / 2 : dee / 2;
+  s = PI * mod / 2 - es;                // tooth thickness (or space width) on the pitch circle
+  function inv(x) = tan(x) - x * PI / 180;
+  // Half the tooth (or space), in degrees, at distance R from the centre.
+  function half(R) = min(max(0, (s / d + inv(a) - inv(acos(min(1, rb / R)))) * 180 / PI), 179.9 / z);
+  n = 8;
+  flank = [for (j = [0 : n]) lo + (hi - lo) * j / n];
+  root = r_low < lo - 1e-6;
+  tip = high > hi + 1e-6;
+  pts = [for (i = [0 : z - 1]) let(c = i * 360 / z) each concat(
+           root ? [[r_low * cos(c - half(lo)), r_low * sin(c - half(lo))]] : [],
+           [for (R = flank) [R * cos(c - half(R)), R * sin(c - half(R))]],
+           tip ? [[high * cos(c - half(hi)), high * sin(c - half(hi))],
+                  [high * cos(c + half(hi)), high * sin(c + half(hi))]] : [],
+           [for (j = [n : -1 : 0]) let(R = flank[j]) [R * cos(c + half(R)), R * sin(c + half(R))]],
+           root ? [[r_low * cos(c + half(lo)), r_low * sin(c + half(lo))]] : [])];
+  translate([0, 0, center ? -length / 2 : 0]) linear_extrude(length, convexity = 10)
+    if (internal) difference() {
+      circle(d = hub_d > 0 ? hub_d : dei + 4 * mod);
+      polygon(pts);
+    }
+    else polygon(pts);
+}'''
+
 # Lo usan los engranajes y las poleas, así que needed_definitions lo añade después de ellos.
 SHAFT_BORE = '''module shaft_bore(d, h, keyway = false, key_width = 0, key_depth = 0) {
   // Shaft bore, optionally with a keyway on +X (written by OpenSCAD GUI Mejorada).
@@ -371,7 +420,7 @@ SHAFT_BORE = '''module shaft_bore(d, h, keyway = false, key_width = 0, key_depth
 
 LIBRARY = {"cube_edges": CUBE_EDGES, "cylinder_edges": CYLINDER_EDGES, "spur_gear": SPUR_GEAR,
            "helical_gear": HELICAL_GEAR, "rack": RACK, "bevel_gear": BEVEL_GEAR, "pulley": PULLEY,
-           "v_pulley": V_PULLEY, "shaft_bore": SHAFT_BORE}
+           "v_pulley": V_PULLEY, "spline": SPLINE, "shaft_bore": SHAFT_BORE}
 
 # Versiones anteriores que ya pueden estar en archivos guardados. Al abrir el archivo se
 # reconocen como nuestras y se sustituyen por la versión actual (no se conservan como código

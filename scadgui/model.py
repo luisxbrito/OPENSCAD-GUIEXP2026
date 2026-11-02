@@ -324,14 +324,26 @@ class Document:
           LA MISMA MANO si el dentado va inclinado), con su centro a su radio primitivo de altura
           y en el centro de un hueco;
         * cónico: el otro cónico de la pareja, girado el ángulo entre ejes. Los dos comparten el
-          vértice del cono, que está en el origen, así que no hay nada que mover.
+          vértice del cono, que está en el origen, así que no hay nada que mover;
+        * estriado: el cubo de un eje o el eje de un cubo, en el mismo sitio.
 
         En todos los casos va girado para que los dientes encajen. Devuelve el engranaje nuevo."""
         from . import gears
         gear = self.find(gear_id)
         if not isinstance(gear, Node) or gear.kind not in ("spur_gear", "helical_gear", "rack",
-                                                            "bevel_gear"):
+                                                            "bevel_gear", "spline"):
             raise ValueError(tr("Selecciona un engranaje o una cremallera."))
+        if gear.kind == "spline":
+            new = Node(kind="spline", params=copy.deepcopy(gear.params), name=self.unique_name("spline"))
+            if gear.params.get("internal") is True:       # del cubo sale el eje
+                new.params.pop("internal", None)
+                new.params.pop("hub_d", None)
+            else:                                         # la holgura es solo del eje
+                new.params["internal"] = True
+                new.params.pop("clearance", None)
+            siblings, _parent = self.parent_list(gear_id)
+            siblings.insert(siblings.index(gear) + 1, new)
+            return new
         mod, z1 = gear.params.get("mod", 1), gear.params.get("teeth", 20)
         psi = gear.params.get("helix_angle", 0) if gear.kind == "helical_gear" else 0
         if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (mod, z1, psi)):
