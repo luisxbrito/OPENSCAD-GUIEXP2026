@@ -8,3 +8,6 @@ dist/
 
 # Temporales de la vista previa (se borran solos, salvo si el programa se cierra a mitad)
 .scadgui_preview_*.scad
+
+# Manuales de referencia: tienen derechos de autor y no se publican
+*.pdf

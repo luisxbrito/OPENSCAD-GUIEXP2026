@@ -1,195 +1,198 @@
 # OpenSCAD GUI Mejorada
 
-A desktop front end for [OpenSCAD](https://openscad.org) that lets you build models with
-buttons, a model tree and a 3D view, FreeCAD style, while every action is written as plain
-OpenSCAD code. The `.scad` file it saves opens in regular OpenSCAD, and code you write by
-hand (variables, loops, your own modules) is kept as is.
+**Point-and-click modelling for OpenSCAD, with mechanical parts and fits taken from engineering
+handbooks.** Build parts with buttons, a model tree and a 3D view. Every action is written as plain
+OpenSCAD code that you can read, edit by hand and open in regular OpenSCAD.
 
-The interface is in Spanish by default and also available in English, French, German,
-Italian and Portuguese (*Edit › Preferences*).
+![Main window: ribbon, model tree, 3D view with the move gizmo, properties and the generated code](docs/images/main_window.png)
 
-## What it does
+> **Unofficial.** This is an independent side project. It is not affiliated with or endorsed by the
+> OpenSCAD project. It does not replace or modify OpenSCAD: it drives your installed copy from the
+> command line, and every file it saves is standard OpenSCAD code.
 
-- **Model tree and properties.** Ribbon with the 30 OpenSCAD primitives, transformations,
-  booleans and extrusions. The property panel is generated from each module's parameters.
-  Each part's name is stored as a trailing comment: `cube([40, 30, 10]); // Base`.
-- **Rounded and chamfered edges.** With *Pick edges* in the 3D view you click the edges of a
-  `cube` or the top/bottom rim of a `cylinder` and round or chamfer them. The part becomes
-  `cube_edges(...)` or `cylinder_edges(...)`; the definition of those two modules is written
-  at the end of the file, so it opens in plain OpenSCAD without any library.
-- **Gears and racks.** *3D Solids › Mechanical* has three involute parts, all by module:
-  `spur_gear`, `helical_gear` and `rack`. The panel works out their measurements, warns about
-  design problems, and a button places the part that meshes with the selected one, already in
-  position and in phase.
-  - **Spur gear** (module, teeth, pressure angle, backlash, bore): the panel shows the pitch,
-    outside and root diameters, and warns about undercut teeth. The mating gear goes at
-    m·(z1 + z2)/2.
-  - **Helical gear** (plus helix angle and hand): the module and pressure angle given are the
-    *normal* ones, so the pitch Ø is m·z/cos ψ. The panel also shows the transverse module and
-    pressure angle, the lead of the helix, the twist over the face width and the axial overlap —
-    it warns when that overlap drops below 1, because then the tooth does not wrap a whole pitch
-    and the gear runs like a spur one. The mating gear is made with the **opposite hand** (two
-    gears of the same hand do not mesh) and placed at m·(z1 + z2)/(2·cos ψ).
-  - **Bevel gear** (module, teeth, teeth of the mate, shaft angle, face width): a straight bevel
-    gear for shafts that cross, from the Handbook's milled-bevel formulas. Its cone angle depends
-    on both tooth counts, so the mate's has to be given. The tooth comes from Tredgold's virtual
-    spur gear (N/cos α teeth) and the profile is swept from the cone apex, which puts the face,
-    pitch and root cones exactly where the tables say and gives the standard outside diameter
-    D + 2·m·cos α. The apex sits at the origin and the gear faces +Z, so **the mate is the same
-    part turned by the shaft angle** — nothing to move. The panel shows the cone angles, the cone
-    distance, the virtual teeth and the maximum face width (C/3 or 8·m).
-  - **Rack** (module, teeth, thickness, base, pressure angle, backlash): the basic tooth form of
-    the module system, with straight flanks. Its pitch line sits at y = 0 and the teeth point
-    towards +Y, so the gear put on it has its centre one pitch radius above. Tick **helix angle**
-    and the teeth slant: the profile is sheared tan ψ per mm of thickness, the pitch becomes the
-    transverse one, and the gear button then makes a **helical gear of the same hand** (a rack and
-    a gear mesh with the same hand, unlike two gears). The ends of a helical rack come out at the
-    slant of the teeth; square them off with a `difference()` if you need a flat end.
+## Who it is for
 
-  Like the edge modules, the three are written at the end of the file, so the `.scad` opens in
-  plain OpenSCAD without any library.
-- **Splines.** `spline` is a metric module involute spline with side fit (ANSI B92.2M, derived from ISO
-  4156): 30° flat or fillet root, 37.5° and 45°. The same part is a shaft or, with `internal`, a hub; a
-  button adds the mating part, and both mesh in place without moving or turning them. The clearance
-  only thins the shaft tooth. Roots are drawn straight and tolerance classes are not modelled.
-- **Keyways.** Gears and pulleys can have a keyway in their bore. Width and hub depth come from the
-  metric parallel key table BS 4235-1 / ISO R773 according to the bore (over 6 up to 500 mm), and the
-  panel also shows the key section and the depth to cut in the shaft. Give the width and depth by hand
-  for other bores or custom keys. The keyway is cut towards +X.
-- **Arrays.** Linear, polar and grid arrays of the selected parts. Each one is written as a
-  plain `for` loop, for example `for (i = [0 : 3]) translate(i * [20, 0, 0]) { ... }`, and is
-  recognised again when the file is reopened. Other `for` loops are kept as code.
-- **Code kept in sync.** Clicking a line selects the part. You can edit the code by hand and
-  apply it back (Ctrl+Enter). Anything the tree cannot represent (other loops, `if`, user modules,
-  `include`) shows up with a lock icon and is never lost when saving.
-- **3D view (OpenGL).** OpenSCAD computes the final mesh only when the model changes;
-  rotating, selecting and highlighting do not re-run it. Click a part in the 3D view to
-  select it (clicking the wall of a hole selects the cylinder that was subtracted). Also:
-  a translation gizmo, a measuring tool, colours from `color()`, and an exploded view that
-  separates the parts of an assembly while keeping their holes.
-  The model tree can float over the 3D view (button *Tree* or *View › Tree over the 3D view*),
-  like the browser in Fusion, so the view can use the whole window width.
-  View shortcuts work as in Blender, on the numeric keypad or the number row, with the mouse
-  over the 3D view: 1 front, 3 right, 7 top (Ctrl+key: the opposite view), 0 isometric,
-  9 flip, 2/4/6/8 orbit 15°, 5 perspective/orthographic, `.` frame selection, Home frame all.
-- **Boolean helper.** Shows which solid is the base of a `difference` and which ones are
-  subtracted, and lets you change the base.
-- **Standard parts.** ISO 4762, DIN 933, DIN 7991 and ISO 7380 screws, DIN 934/985 nuts,
-  DIN 125 washers, heat-set inserts, 6xx ball bearings and 2020/2040 aluminium profiles, each
-  as a solid or as the matching clearance hole (ISO 273). Only the sizes listed in each
-  standard are offered. The parts have no thread and the profile slots are straight (no
-  T shape): they are meant for fit-checking and drawings.
-- **Bearing seats.** A sizing aid in the same dialog, for 60xx, 62xx, 63xx and small bearings: it lists the
-  housing limits for the chosen fit (G7, H7, J6, K6, M6, or a rough allowance for 3D printing), the shaft
-  limits and, for 62xx, the shoulder diameters and fillet radius. The mask cuts the mean diameter, with an
-  optional clearance hole through the wall. A mesh cannot hold these tolerances: machine to the listed values.
-- **Grooves.** The same dialog cuts retaining ring grooves (metric ANSI B27.7, series 3AM1 for shafts and
-  3BM1 for bores) and O-ring grooves by cross-section (1.78 to 6.99 mm), on a shaft, in a bore or on a flat
-  face. They are masks: with a part selected they are subtracted from it, and you then move them along
-  the axis. The flat-face groove reuses the static gland depth and width, which the source only gives
-  for shafts and bores.
-- **2D profiles.** A dialog that creates rounded rectangles, slots, regular polygons, stars,
-  rings and L profiles from normal OpenSCAD nodes, optionally extruded.
-- **Technical drawing.** An A4/A3 sheet with front, top, left-side and isometric projections
-  in first-angle (ISO E) layout, border and title block, exportable to SVG, DXF or PDF.
-- **Global variables and modules.** A panel for top-level variables, and a command that
-  turns the selected parts into a parametric `module`.
-- **Export** to STL, 3MF, OBJ, OFF, AMF, SVG, DXF, PDF and PNG through OpenSCAD.
+- **OpenSCAD beginners** who open the editor, see an empty code window and do not know where to
+  start. Click a part, watch its code appear, and learn the language by reading it.
+- **People who design functional parts** (gears, pulleys, shafts, bearing housings) and want the
+  dimensions from a standard rather than from a guess.
+- **OpenSCAD users** who want a quick visual way to place things or check a fit, without giving up
+  their `.scad` files.
 
-## Requirements
+## What makes it different
 
+- **Your file stays OpenSCAD.** Clicking writes plain code, and code you type is read back into the
+  tree. Anything the tree cannot represent (variables, `for` loops, `if`, your own modules,
+  `include`) is kept exactly as written, shown with a lock icon. Opening and saving never drops code.
+- **No library to install.** The extra modules it uses (gears, rounded edges, splines…) are written
+  at the end of the file, so the `.scad` opens on any OpenSCAD 2021.01 or newer.
+- **Dimensions come from cited sources.** Gears, pulleys, splines, keyways, retaining ring grooves,
+  O-ring grooves and bearing fits use tables from *Machinery's Handbook* (27th ed.) and *Shigley's
+  Mechanical Engineering Design*. Each source is named in the code and in this README.
+- **The geometry is checked against OpenSCAD itself.** Each mechanical part has a test that renders
+  it with the real OpenSCAD and compares its volume with the program's own calculation, so the
+  quick preview and the exported part are the same shape.
+
+## Features
+
+### Modelling
+- Ribbon with the OpenSCAD primitives, transformations, booleans and extrusions; the property panel
+  is built from each module's parameters.
+- Model tree with multi-selection, drag and drop, wrap and unwrap, duplicate, and the `# % ! *`
+  modifiers. It can float over the 3D view, like the browser in Fusion.
+- **Rounded and chamfered edges**: click edges of a `cube`, or the rim of a `cylinder`, in the 3D view.
+- **Arrays**: linear, polar and grid, written as plain `for` loops and recognised again on reopening.
+- Boolean helper that shows which solid is the base of a `difference` and which are subtracted.
+- Global variables panel, and *convert selection to a parametric module*.
+- 2D profile wizard: rounded rectangles, slots, polygons, stars, rings, L profiles.
+
+### Mechanical parts
+All by module (metric). The panel shows the calculated dimensions and warns about design problems.
+
+| Part | What you get |
+|---|---|
+| Spur gear | Involute profile, undercut warning, button that adds the mating gear already placed and in phase |
+| Helical gear | Normal module and pressure angle, lead, twist and axial overlap; the mate is made with the opposite hand |
+| Bevel gear | Straight bevel from the Handbook's milled-bevel formulas; the mate is the same part turned by the shaft angle |
+| Rack | Straight or helical, meshes with a gear placed on it |
+| Timing pulley | MXL, XL, L, H, XH sections (ANSI/RMA IP-24), optional flanges |
+| V-belt pulley | A, B, C, D sections (ANSI/RMA IP-20), groove angle by diameter range |
+| Involute spline | Shaft and hub (ANSI B92.2M / ISO 4156), 30°, 37.5° and 45°; the hub is added in place, already meshing |
+| Keyways | On gears and pulleys, sized by bore from BS 4235-1 / ISO R773 |
+
+![Spur gear pair with keyways](docs/images/gears_spur_pair.png)
+
+| | |
+|---|---|
+| ![Helical rack and gear](docs/images/gears_helical_rack.png) | ![Bevel gear pair](docs/images/gears_bevel_pair.png) |
+| ![Spline shaft in its hub](docs/images/spline_shaft_hub.png) | ![Timing and V-belt pulleys](docs/images/pulleys.png) |
+
+### Standard parts and fits
+- Screws (ISO 4762, DIN 933, DIN 7991, ISO 7380), nuts (DIN 934, DIN 985), washers (DIN 125),
+  heat-set inserts, ball bearings, and 2020/2040 aluminium profiles, each as a solid or as the
+  matching clearance hole (ISO 273). Only the sizes listed in each standard are offered.
+- **Bearing seats**: pick a bearing (60xx, 62xx, 63xx and common small ones) and a fit (G7, H7, J6,
+  K6, M6, or a rough allowance for 3D printing). You get the housing limits, the shaft limits and,
+  for 62xx, the shoulder diameters, plus a mask to subtract.
+- **Retaining ring grooves** (metric ANSI B27.7, series 3AM1 and 3BM1) and **O-ring grooves**
+  (1.78 to 6.99 mm cross-sections) on a shaft, in a bore or on a flat face.
+
+Masks are subtracted from the selected part in one step.
+
+![Plate with a 6204 bearing seat and counterbored screw holes](docs/images/plate_bearing_seat.png)
+
+### 3D view
+- OpenSCAD computes the final mesh only when the model changes; rotating, selecting and highlighting
+  are instant.
+- Click a part in the view to select it, including the wall of a hole, which selects the cylinder
+  that was subtracted.
+- Move gizmo with snapping, measuring tool, colours from `color()`, exploded view, axis ruler and grid.
+- Blender-style view keys (1, 3, 7, 0, 5…) and OpenSCAD colour schemes.
+- Works without OpenSCAD too: you then see an approximate model, without the boolean operations.
+
+### Code, drawings and export
+- Code editor in sync with the tree: click a line to select the part, edit by hand and apply with
+  Ctrl+Enter, autocompletion, parameter hints and snippets.
+- Technical drawing on A4/A3 with first-angle (ISO E) front, top, side and isometric views, border
+  and title block; export to SVG, DXF or PDF.
+- Export to STL, 3MF, OBJ, OFF, AMF, SVG, DXF, PDF and PNG through OpenSCAD.
+- Interface in English, Spanish, French, German, Italian and Portuguese, with a light and a dark theme.
+
+## Getting started
+
+### Requirements
+- Windows (the platform it is developed and tested on). It is plain Python and Qt, so Linux and macOS
+  should work, but they have not been tested.
 - Python 3.10 or newer.
-- OpenSCAD, installed or as a portable copy next to the program (it is found automatically
-  in `C:\Program Files\OpenSCAD\`, next to the `.exe`, or in an `openscad/` subfolder).
-  Without OpenSCAD the 3D view shows an approximate model without the boolean operations.
-- Python packages: `PySide6`, `pyqtgraph`, `PyOpenGL`, `numpy` (see `requirements.txt`).
+- [OpenSCAD](https://openscad.org/downloads.html) 2021.01 or newer, installed or as a portable copy
+  next to the program. Without it you get the approximate preview and no export.
 
-## Running
-
-On Windows, double-click `run.bat`: it installs the packages the first time and starts the
-program. Elsewhere:
+### Run it
+On Windows, double-click `run.bat`: it installs the packages the first time and starts the program.
+Elsewhere:
 
 ```bash
 python -m pip install -r requirements.txt
-python main.py                 # starts with an empty model (examples are in the File menu)
-python main.py part.scad       # opens a file
+python main.py                 # empty model; examples are in the File menu
+python main.py part.scad       # open a file
 ```
 
-If the OpenGL view does not work on a machine, untick *View › OpenGL Viewport* and restart:
-the program falls back to static images rendered by OpenSCAD.
+The interface starts in Spanish; change it in *Edit › Preferences*. If the 3D view does not work on
+your machine, untick *View › OpenGL viewport* and restart: the program falls back to images rendered
+by OpenSCAD.
 
-## Portable Windows executable
-
+### Portable Windows build
 ```bash
 python -m pip install pyinstaller
-python build_portable.py        # or double-click build_portable.bat
+python build_portable.py
 ```
+This produces `dist/OpenSCAD_GUI_Mejorada.exe` and a zip with the examples. OpenSCAD is not bundled.
 
-This produces `dist/OpenSCAD_GUI_Mejorada.exe` (a single file, no Python needed) and
-`dist/OpenSCAD_GUI_Mejorada_Portable.zip` with the examples. OpenSCAD is not bundled: put a
-portable OpenSCAD in the same folder or in `openscad/`, or install it.
+## Before you machine or print anything
 
-## Project layout
-
-```text
-main.py                  entry point
-scadgui/
-  catalog.py             the 30 OpenSCAD modules and the 3 arrays: parameters, icons
-  model.py               Document / Node / RawCode and the code generator
-  parser.py              .scad -> Document (unknown code is kept as RawCode)
-  geometry.py            per-part approximate meshes, STL/OFF reading, lighting, picking,
-                         exploded view (numpy only)
-  runner.py              runs openscad in the background
-  hardware.py            standard parts tables and builders
-  sketches.py            2D profile builders
-  drawing.py             technical drawing sheet generator
-  operations.py          help texts and quick presets for each operation
-  library.py, edges.py   cube_edges / cylinder_edges / spur_gear / helical_gear / bevel_gear /
-                         rack / pulley / v_pulley modules and the edge rounding logic
-  gears.py               involute gear, bevel, rack, timing-pulley and V-belt pulley maths (same formulas as those modules)
-  code_assist.py         code templates and parameter hints for the editor
-  i18n.py, locales/      translations (one file per language)
-  ui/                    PySide6 windows and dialogs
-examples/                swivel caster assembly and a plate with holes
-tests/                   see below
-```
-
-Adding an OpenSCAD module only needs a new `Spec` in `catalog.py`: the ribbon button, the
-property form, the generator and the parser all read from it.
-
-## Tests
-
-None of these need OpenSCAD except the last one; the first three do not need Qt either.
-
-```bash
-python tests/test_core.py        # model, generator, parser round-trip, standard parts, drawing
-python tests/test_geometry.py    # meshes, volumes, STL/OFF, picking, colours, exploded view
-python tests/test_i18n.py        # every interface text translated, no duplicate keys
-python tests/test_tema.py        # dark theme: text/background contrast, tooltips, colour schemes
-python tests/simulacion/sim_ventana_visor_opengl.py   # whole window against a stub of Qt
-python tests/simulacion/sim_ventana_visor_imagen.py
-python tests/test_openscad.py    # renders generated code with the real OpenSCAD (skipped if not found)
-python tests/test_ventana_qt.py  # real mouse events on the 3D view with real Qt (skipped without PySide6)
-```
-
-On Windows, `run_tests.bat` runs all of them in order and says at the end whether any failed.
-Install `pyqtgraph` in the same Python you start the program with, or the window tests are skipped;
-those are the ones that catch Windows-only drawing problems.
-
-The two `sim_*` scripts drive the main window with a fake PySide6/pyqtgraph, so they catch
-logic errors but not drawing problems; after changes, also open the real program.
+- The dimension tables were read from the cited books, and some of them come out jumbled in the PDF
+  text, so check critical values against a manufacturer's catalog. Places where this applies are
+  marked in [CONTEXTO_PARA_IA.md](CONTEXTO_PARA_IA.md): for example the 60xx and 63xx bearing series,
+  the rotating-shaft fit choice, and the flat-face O-ring groove, which the Handbook does not cover.
+- A mesh cannot hold a tolerance of hundredths of a millimetre. For fits, machine to the values the
+  dialog lists, not to the exported STL.
+- The 3D-printing allowances are starting points, not standards. Print a test piece first.
+- Parts are modelled for fit-checking and drawings: no threads, flat roots instead of fillet radii,
+  and no tolerance classes on gears.
 
 ## Known limitations
 
-- Picking in the 3D view works for parts with literal values (cube, sphere, cylinder,
-  polyhedron, 2D shapes and extrusions). Text, imports, the result of `hull`/`minkowski`
-  and parts driven by variables are visible but must be selected in the tree or the code.
-- When OpenSCAD does not export face colours, colours are worked out by matching faces to
-  parts, so faces produced by `hull`/`minkowski` come out grey.
+- Only `cube` and straight `cylinder` edges can be rounded, one radius per part. There is no general
+  fillet on any edge.
+- Picking in the 3D view works for parts with literal values. Text, imports, the result of
+  `hull`/`minkowski` and parts driven by variables must be selected in the tree or the code.
 - Comments placed between the arguments of a call are lost when the code is regenerated.
-- Only edges of `cube` and straight `cylinder` parts can be rounded, and not inside an
-  extrusion, `hull`, `minkowski` or `resize`. Each part has a single radius for all its rounded
-  edges. Where three rounded edges meet the corner is a sphere; where only two meet, the two
-  fillets simply cross (no vertex blend), as in most CAD programs without a corner setback.
-- The 2D profile dialog is form based; there is no constraint-driven sketcher.
-- No license has been chosen yet: add a `LICENSE` file before publishing the code.
+- The 2D profile wizard is form based; there is no constraint-driven sketcher.
+- Source code comments and internal notes are in Spanish. Generated OpenSCAD code is commented in
+  English.
+
+## How it is built
+
+- Python 3 and PySide6 (Qt 6); the 3D view uses pyqtgraph, PyOpenGL and numpy.
+- The model is the source of truth, like an ORM: the interface edits a document of nodes, and the
+  generator turns it into OpenSCAD code. A tolerant parser turns code back into nodes.
+- All logic (model, parser, geometry, gear and standard-part maths) lives outside the Qt code and is
+  tested without a window.
+
+### Tests
+About 160 automated tests:
+
+```bash
+python tests/test_core.py        # model, generator, parser round trip, standard parts, tables
+python tests/test_geometry.py    # meshes, volumes, picking, exploded view
+python tests/test_i18n.py        # every interface text translated in the 5 other languages
+python tests/test_tema.py        # dark theme contrast
+python tests/test_openscad.py    # renders generated code with the real OpenSCAD and checks volumes
+python tests/test_ventana_qt.py  # real mouse events and dialogs on the real Qt window
+```
+
+On Windows, `run_tests.bat` runs them all. The first three need neither Qt nor OpenSCAD and run on
+every push (see `.github/workflows`).
+
+## How this was made
+
+This project is developed with heavy help from an AI coding assistant (Anthropic's Claude), directed
+and tested by a human user who designs mechanical parts. The safeguards are the ones described above:
+cited sources for every dimension table, comparisons against the real OpenSCAD, and a test suite that
+has to pass before each change is committed. If you find a wrong dimension or a bug, please open an
+issue with the part, its parameters and the source you checked against.
+
+## Contributing
+
+Issues and pull requests are welcome, in English or Spanish. [CONTEXTO_PARA_IA.md](CONTEXTO_PARA_IA.md)
+(in Spanish) describes the architecture, the rules that keep `.scad` files lossless, and the lessons
+learned so far. Please run the tests before opening a pull request.
+
+## License
+
+Copyright (C) 2026 luisxbrito.
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the License,
+or (at your option) any later version (`GPL-3.0-or-later`). It is distributed in the hope that it will
+be useful, but WITHOUT ANY WARRANTY. See [LICENSE](LICENSE) for the full text.

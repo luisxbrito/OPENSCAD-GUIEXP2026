@@ -1,0 +1,19 @@
+name: tests
+
+# Las pruebas que no necesitan Qt ni OpenSCAD: modelo, parser, geometría, tablas y traducciones.
+on:
+  push:
+  pull_request:
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install "numpy>=1.24"
+      - run: python tests/test_core.py
+      - run: python tests/test_geometry.py
+      - run: python tests/test_i18n.py

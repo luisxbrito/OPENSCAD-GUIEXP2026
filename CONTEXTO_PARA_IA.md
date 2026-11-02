@@ -390,5 +390,5 @@ python tests/simulacion/sim_ventana_visor_imagen.py
 - Sin colores en la exportación OFF de OpenSCAD, las caras de `hull`/`minkowski` salen grises.
 - Los comentarios entre los argumentos de una llamada se pierden al regenerar.
 - El asistente 2D es un formulario de perfiles; no hay croquis con restricciones.
-- Falta elegir licencia y añadir `LICENSE`.
+- Licencia: GPL-3.0-or-later, la misma GPLv3 con que se publicó la primera versión (archivo `LICENSE`).
 - Posibles mejoras: malla aproximada para `import` (STL/OFF), croquis 2D con restricciones.
