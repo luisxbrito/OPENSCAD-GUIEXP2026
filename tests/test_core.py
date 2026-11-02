@@ -1036,6 +1036,28 @@ def test_archivos_con_la_version_anterior_de_cube_edges_se_actualizan():
     assert CUBE_EDGES in text and old not in text
 
 
+def test_modulos_propios_con_comentarios_en_ingles():
+    """Los comentarios de los módulos que se escriben en el archivo van en inglés, solo cambiaron
+    los comentarios, y un archivo guardado con los de antes (en español) se actualiza al abrirlo."""
+    import re
+    from scadgui.library import LIBRARY
+    from scadgui.library_old import SPANISH_COMMENTS
+
+    def code_only(text):
+        return " ".join(re.sub(r"//[^\n]*", "", text).split())
+
+    assert set(SPANISH_COMMENTS) == set(LIBRARY)
+    for name, code in LIBRARY.items():
+        assert code.isascii(), name
+        assert "written by OpenSCAD GUI Mejorada" in code and "lo escribe" not in code, name
+        old = SPANISH_COMMENTS[name]
+        assert code_only(old) == code_only(code), name
+        doc = parse(f"{name}();\n\n{old}\n")
+        assert [n.kind for n in doc.children] == [name], name
+        text = generate(doc).text
+        assert code in text and "lo escribe" not in text, name
+
+
 
 def test_radios_sin_avisos_de_openscad():
     from scadgui import geometry as g

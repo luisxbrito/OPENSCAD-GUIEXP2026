@@ -3,7 +3,7 @@
 Mandan eventos de ratón de verdad a la vista 3D, que es lo que las simulaciones de
 tests/simulacion no pueden comprobar. Si falta PySide6 o pyqtgraph, se omiten.
 
-Usa la configuración guardada del programa (solo la lee): si el visor está puesto en
+Usa la configuración guardada del programa (salvo el idioma: siempre en español): si el visor está puesto en
 "imágenes" en Preferencias, estas pruebas no se pueden hacer.
 
 Ejecutar:  python tests/test_ventana_qt.py
@@ -20,7 +20,7 @@ sys.path.insert(0, ROOT)
 try:
     import numpy as np
     import pyqtgraph  # noqa: F401
-    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtCore import QPoint, QSettings, Qt
     from PySide6.QtTest import QTest
     from PySide6.QtWidgets import QApplication
 except ImportError as exc:
@@ -34,7 +34,16 @@ LEFT, NONE = Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier
 
 
 def window():
-    w = mw.MainWindow("")
+    settings = QSettings("OpenSCAD-GUI-Mejorada", "app")
+    saved = settings.value("language")
+    settings.setValue("language", "es")   # las pruebas miran textos en español, sea cual sea el guardado
+    try:
+        w = mw.MainWindow("")
+    finally:
+        if saved is None:
+            settings.remove("language")
+        else:
+            settings.setValue("language", saved)
     w.resize(1400, 900)
     w.show()
     app.processEvents()   # el arranque (en blanco) se hace en el primer ciclo de eventos

@@ -14,7 +14,8 @@ El archivo `.scad` que se guarda es OpenSCAD estándar y se abre en el OpenSCAD 
 - OpenSCAD **no se modifica ni se compila**: se usa el programa instalado, por línea de
   comandos (`openscad.com` en Windows, porque `openscad.exe` no devuelve mensajes).
 - El usuario trabaja en **Windows**. Los textos de la interfaz se escriben en **español** en el código y
-  se traducen con `tr()` a otros 5 idiomas. Los comentarios del código están en español.
+  se traducen con `tr()` a otros 5 idiomas. Los comentarios del código están en español, salvo
+  los de los módulos de `library.py`, que se escriben en el `.scad` del usuario: esos, en inglés.
 - La carpeta `openscad-master/` que contiene a esta es el código fuente de OpenSCAD. Solo
   sirvió de referencia para el catálogo de comandos; la app no la usa.
 
@@ -35,6 +36,7 @@ scadgui/                   lógica SIN Qt (se prueba sin PySide6)
   drawing.py               lámina técnica 2D (vistas en sistema europeo)
   operations.py            textos y ajustes rápidos de la guía de cada operación
   library.py               módulos propios (cube_edges, cylinder_edges) que se escriben en el .scad
+  library_old.py           los mismos con los comentarios en español, para reconocer archivos viejos
   edges.py                 redondear/achaflanar: cube ↔ cube_edges, cylinder ↔ cylinder_edges
   radii.py                 r/d/r1/d1/r2/d2 sin choques (las reglas de prioridad de OpenSCAD)
   code_assist.py           plantillas, fragmentos y ayuda de parámetros del editor

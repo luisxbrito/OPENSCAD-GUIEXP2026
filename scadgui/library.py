@@ -8,11 +8,17 @@ ha modificado. Así el ``.scad`` funciona en cualquier OpenSCAD sin bibliotecas 
 Cada arista de un cubo se nombra por los dos lados que toca, con 0 para el lado mínimo y 1
 para el máximo: "x1y1" es la arista vertical en X máximo e Y máximo; "y0z1", la arista paralela
 a X en Y mínimo y Z máximo.
+
+Los comentarios DENTRO de los módulos van en inglés, sea cual sea el idioma de la interfaz: es
+código que acaba en el archivo del usuario. Si se cambia un módulo, la versión que había antes
+se añade a ``PREVIOUS_VERSIONS`` para que los archivos ya guardados se sigan reconociendo.
 """
 
 from __future__ import annotations
 
 import re
+
+from .library_old import SPANISH_COMMENTS
 
 CUBE_EDGE_KEYS = (
     "x0y0", "x0y1", "x1y0", "x1y1",   # paralelas a Z (verticales)
@@ -22,10 +28,10 @@ CUBE_EDGE_KEYS = (
 CYLINDER_EDGE_KEYS = ("bottom", "top")
 
 CUBE_EDGES = '''module cube_edges(size = [10, 10, 10], center = false, edges = [], rounding = 0, chamfer = 0) {
-  // Cubo con aristas redondeadas o achaflanadas (lo escribe OpenSCAD GUI Mejorada).
-  // "x1y1" es la arista vertical en X máximo e Y máximo; 0 es el lado mínimo.
+  // Cube with rounded or chamfered edges (written by OpenSCAD GUI Mejorada).
+  // "x1y1" is the vertical edge at maximum X and maximum Y; 0 is the minimum side.
   s = is_list(size) ? size : [size, size, size];
-  // Un pelo menos que la mitad del lado: si dos redondeos se tocaran, sus puntos coincidirían.
+  // Just under half the side: if two fillets touched, their points would coincide.
   r = min(chamfer > 0 ? chamfer : rounding, min(s) / 2 * 0.9999);
   function has(k) = len([for (x = edges) if (x == k) 1]) > 0;
   n = max(1, ceil(($fn > 0 ? max($fn, 3) : ceil(max(min(360 / $fa, r * 2 * PI / $fs), 5))) / 4));
@@ -34,17 +40,17 @@ CUBE_EDGES = '''module cube_edges(size = [10, 10, 10], center = false, edges = [
     else if (chamfer > 0) chamfered();
     else rounded();
 
-  // Redondeo: el cubo redondeado es convexo, así que es la envolvente (hull) de los puntos de sus
-  // ocho esquinas. Una esquina con sus tres aristas redondeadas es un octante de esfera; si no, la
-  // superficie de cada cilindro dentro de la esquina, recortada por el otro (lift sube el punto
-  // hasta ese corte). CGAL falla con puntos repetidos o alineados: se evitan los dos.
+  // Rounding: the rounded cube is convex, so it is the hull of the points of its eight corners.
+  // A corner with its three edges rounded is a sphere octant; otherwise, the surface of each
+  // cylinder inside the corner, trimmed by the other one (lift raises the point up to that cut).
+  // CGAL fails with repeated or collinear points: both are avoided.
   module rounded() {
     arc = [for (i = [0 : n]) let(a = 90 * i / n) [r - r * cos(a), r - r * sin(a)]];
     function lift(t, q) = q < r ? max(t, r - sqrt(max(0, r * r - (r - q) * (r - q)))) : t;
     function unique(v) = [for (i = [0 : len(v) - 1])
                             if (len([for (j = [0 : 1 : i - 1]) if (norm(v[j] - v[i]) < 1e-6) 1]) == 0) v[i]];
-    // Esquina en el origen con la pieza hacia +X+Y+Z; z, x, y: si están redondeadas sus aristas
-    // paralelas a Z, X e Y. A lo largo de cada cilindro bastan los extremos del tramo (0 y r).
+    // Corner at the origin with the part towards +X+Y+Z; z, x, y: whether its edges parallel to
+    // Z, X and Y are rounded. Along each cylinder the ends of the stretch (0 and r) are enough.
     function corner(z, x, y) =
       z && x && y ? concat([for (i = [0 : n], j = [0 : n - 1]) let(a = 90 * i / n, b = 90 * j / n)
                              [r, r, r] - r * [cos(b) * cos(a), cos(b) * sin(a), sin(b)]], [[r, r, 0]])
@@ -59,12 +65,12 @@ CUBE_EDGES = '''module cube_edges(size = [10, 10, 10], center = false, edges = [
     hull() polyhedron(pts, [[for (i = [0 : len(pts) - 1]) i]]);
   }
 
-  // Chaflán: intersección de tres prismas, uno por eje, con las esquinas de su perfil cortadas.
+  // Chamfer: intersection of three prisms, one per axis, with the corners of their profile cut.
   module chamfered() {
     function corner(w, h, c, cut) = let(p = [c[0] * w, c[1] * h]) !cut ? [p]
       : c == [0, 0] ? [p + [0, r], p + [r, 0]] : c == [1, 0] ? [p - [r, 0], p + [0, r]]
       : c == [1, 1] ? [p - [0, r], p - [r, 0]] : [p + [r, 0], p - [0, r]];
-    // Rectángulo w x h con las esquinas de keys cortadas, en orden (0,0), (1,0), (1,1), (0,1).
+    // Rectangle w x h with the corners in keys cut, in the order (0,0), (1,0), (1,1), (0,1).
     module profile(w, h, keys) {
       polygon(concat(corner(w, h, [0, 0], has(keys[0])), corner(w, h, [1, 0], has(keys[1])),
                      corner(w, h, [1, 1], has(keys[2])), corner(w, h, [0, 1], has(keys[3]))));
@@ -80,7 +86,7 @@ CUBE_EDGES = '''module cube_edges(size = [10, 10, 10], center = false, edges = [
 }'''
 
 CYLINDER_EDGES = '''module cylinder_edges(h = 10, r = 5, center = false, edges = [], rounding = 0, chamfer = 0) {
-  // Cilindro con el borde "top" y/o "bottom" redondeado o achaflanado (lo escribe OpenSCAD GUI Mejorada).
+  // Cylinder with its "top" and/or "bottom" rim rounded or chamfered (written by OpenSCAD GUI Mejorada).
   c = min(chamfer > 0 ? chamfer : rounding, r, h / 2);
   function cut(k) = c > 0 && len([for (x = edges) if (x == k) 1]) > 0 ? c : 0;
   b = cut("bottom");
@@ -101,17 +107,17 @@ CYLINDER_EDGES = '''module cylinder_edges(h = 10, r = 5, center = false, edges =
 }'''
 
 SPUR_GEAR = '''module spur_gear(mod = 1, teeth = 20, thickness = 5, pressure_angle = 20, backlash = 0, bore = 0, center = false) {
-  // Engranaje recto de evolvente por módulo (lo escribe OpenSCAD GUI Mejorada).
-  // Diámetro primitivo = mod * teeth; exterior = mod * (teeth + 2); dos engranajes del mismo
-  // módulo engranan con sus centros a mod * (z1 + z2) / 2. backlash: holgura en mm entre los dos.
+  // Involute spur gear by module (written by OpenSCAD GUI Mejorada).
+  // Pitch diameter = mod * teeth; outside = mod * (teeth + 2); two gears of the same module
+  // mesh with their centres mod * (z1 + z2) / 2 apart. backlash: clearance in mm between the two.
   z = max(3, round(teeth));
-  r = mod * z / 2;                      // radio primitivo
-  rb = r * cos(pressure_angle);         // radio de base (de él sale la evolvente)
-  ra = r + mod;                         // radio exterior
-  rf = max(r - 1.25 * mod, mod * 0.1);  // radio de raíz
+  r = mod * z / 2;                      // pitch radius
+  rb = r * cos(pressure_angle);         // base radius (the involute starts from it)
+  ra = r + mod;                         // outside radius
+  rf = max(r - 1.25 * mod, mod * 0.1);  // root radius
   r0 = max(rb, rf);
-  function inv(a) = tan(a) - a * PI / 180;   // involuta, en radianes, de un ángulo en grados
-  // Medio grueso del diente, en grados, a la distancia R del centro.
+  function inv(a) = tan(a) - a * PI / 180;   // involute, in radians, of an angle in degrees
+  // Half the tooth thickness, in degrees, at distance R from the centre.
   function half(R) = max(0, ((PI * mod / 2 - backlash / 2) / (2 * r) + inv(pressure_angle)
                              - inv(acos(min(1, rb / R)))) * 180 / PI);
   n = 8;
@@ -130,19 +136,19 @@ SPUR_GEAR = '''module spur_gear(mod = 1, teeth = 20, thickness = 5, pressure_ang
 }'''
 
 HELICAL_GEAR = '''module helical_gear(mod = 1, teeth = 20, thickness = 10, helix_angle = 20, left_hand = false, pressure_angle = 20, backlash = 0, bore = 0, center = false) {
-  // Engranaje helicoidal de evolvente (lo escribe OpenSCAD GUI Mejorada).
-  // mod y pressure_angle son los NORMALES (medidos perpendiculares al diente). En el plano de
-  // giro valen más: mt = mod / cos(hélice) y tan(at) = tan(pressure_angle) / cos(hélice).
-  // Ø primitivo = mod * teeth / cos(hélice). Dos engranajes del mismo módulo y la misma hélice,
-  // uno a derechas y otro a izquierdas, engranan a mod * (z1 + z2) / (2 * cos(hélice)).
+  // Involute helical gear (written by OpenSCAD GUI Mejorada).
+  // mod and pressure_angle are the NORMAL ones (measured perpendicular to the tooth). In the
+  // transverse plane they are larger: mt = mod / cos(helix), tan(at) = tan(pressure_angle) / cos(helix).
+  // Pitch diameter = mod * teeth / cos(helix). Two gears of the same module and helix angle,
+  // one right-handed and one left-handed, mesh at mod * (z1 + z2) / (2 * cos(helix)).
   z = max(3, round(teeth));
   b = max(0.001, thickness);
-  mt = mod / cos(helix_angle);                        // módulo aparente
-  at = atan(tan(pressure_angle) / cos(helix_angle));  // ángulo de presión aparente
-  r = mt * z / 2;                       // radio primitivo
-  rb = r * cos(at);                     // radio de base
-  ra = r + mod;                         // la cabeza se mide con el módulo normal
-  rf = max(r - 1.25 * mod, mod * 0.1);  // y el pie también
+  mt = mod / cos(helix_angle);                        // transverse module
+  at = atan(tan(pressure_angle) / cos(helix_angle));  // transverse pressure angle
+  r = mt * z / 2;                       // pitch radius
+  rb = r * cos(at);                     // base radius
+  ra = r + mod;                         // the addendum uses the normal module
+  rf = max(r - 1.25 * mod, mod * 0.1);  // and so does the dedendum
   r0 = max(rb, rf);
   function inv(a) = tan(a) - a * PI / 180;
   function half(R) = max(0, ((PI * mt / 2 - backlash / 2) / (2 * r) + inv(at)
@@ -156,8 +162,8 @@ HELICAL_GEAR = '''module helical_gear(mod = 1, teeth = 20, thickness = 10, helix
            [for (k = [n : -1 : 0]) let(R = flank[k]) [R * cos(c + half(R)), R * sin(c + half(R))]],
            root ? [[rf * cos(c + half(r0)), rf * sin(c + half(r0))]] : [],
            [[rf * cos(c + 180 / z), rf * sin(c + 180 / z)]])];
-  // Giro del perfil sobre el grueso: 2 * b * sen(hélice) / (z * mod) radianes. OpenSCAD gira en
-  // sentido horario con twist positivo, así que la hélice a derechas lleva twist negativo.
+  // Twist of the profile over the thickness: 2 * b * sin(helix) / (z * mod) radians. OpenSCAD turns
+  // clockwise with a positive twist, so a right-hand helix takes a negative twist.
   turn = 2 * b * sin(helix_angle) / (z * mod) * 180 / PI;
   translate([0, 0, center ? -b / 2 : 0]) difference() {
     linear_extrude(b, twist = left_hand ? turn : -turn, slices = max(8, ceil(turn / 2)),
@@ -167,33 +173,33 @@ HELICAL_GEAR = '''module helical_gear(mod = 1, teeth = 20, thickness = 10, helix
 }'''
 
 RACK = '''module rack(mod = 1, teeth = 10, thickness = 5, base = 5, pressure_angle = 20, backlash = 0, helix_angle = 0, left_hand = false, center = false) {
-  // Cremallera del sistema por módulo (lo escribe OpenSCAD GUI Mejorada).
-  // Es el "dentado básico" que define la forma del diente: flancos rectos inclinados el ángulo
-  // de presión, paso PI * mod, cabeza mod y pie 1.25 * mod. Engrana con cualquier engranaje del
-  // mismo módulo. La línea primitiva queda en y = 0 y los dientes miran a +Y, así que el
-  // engranaje va con su centro a su radio primitivo de altura; cada diente está centrado en su
-  // paso, o sea que los huecos caen en los múltiplos del paso.
-  // Con helix_angle engrana con un engranaje helicoidal DE LA MISMA MANO: el diente es una recta
-  // que forma ese ángulo con el eje del engranaje, o sea que el perfil se sesga tan(hélice) por
-  // cada mm de grueso. Entonces mod y pressure_angle son los NORMALES y el paso y los flancos
-  // salen de los aparentes, como en helical_gear. Los extremos quedan al sesgo del dentado; si se
-  // quieren a escuadra, recortarlos con una resta.
+  // Rack of the module system (written by OpenSCAD GUI Mejorada).
+  // It is the "basic rack" that defines the tooth form: straight flanks inclined at the pressure
+  // angle, pitch PI * mod, addendum mod and dedendum 1.25 * mod. It meshes with any gear of the
+  // same module. The pitch line sits at y = 0 and the teeth point towards +Y, so the gear goes
+  // with its centre one pitch radius above it; each tooth is centred in its pitch, so the
+  // spaces fall on the multiples of the pitch.
+  // With helix_angle it meshes with a helical gear OF THE SAME HAND: the tooth is a straight line
+  // at that angle to the gear axis, so the profile is sheared tan(helix) per mm of thickness.
+  // Then mod and pressure_angle are the NORMAL ones and the pitch and flanks come from the
+  // transverse ones, as in helical_gear. The ends follow the slant of the teeth; to square them
+  // off, trim them with a difference.
   z = max(1, round(teeth));
-  mt = mod / cos(helix_angle);                        // módulo aparente
-  at = atan(tan(pressure_angle) / cos(helix_angle));  // ángulo de presión aparente
-  p = PI * mt;                  // paso (en el plano de giro)
-  total = z * p;                // longitud total
-  ha = mod;                     // cabeza (sobre la línea primitiva), con el módulo normal
-  hf = 1.25 * mod;              // pie, también
+  mt = mod / cos(helix_angle);                        // transverse module
+  at = atan(tan(pressure_angle) / cos(helix_angle));  // transverse pressure angle
+  p = PI * mt;                  // pitch (in the transverse plane)
+  total = z * p;                // total length
+  ha = mod;                     // addendum (above the pitch line), with the normal module
+  hf = 1.25 * mod;              // dedendum, likewise
   t = tan(at);
-  hp = p / 4 - backlash / 4;    // medio grueso del diente en la línea primitiva
-  // Con un ángulo de presión grande los flancos de dos dientes vecinos se cortan antes de llegar
-  // al fondo: el hueco acaba en V en vez de tener meseta.
+  hp = p / 4 - backlash / 4;    // half the tooth thickness at the pitch line
+  // With a large pressure angle the flanks of two neighbouring teeth cross before reaching the
+  // bottom: the space ends in a V instead of a flat land.
   y_v = (2 * hp - p) / (2 * t);
   y_bot = max(-hf, y_v);
-  land = y_v <= -hf + 1e-12;    // ¿queda meseta en el fondo del hueco?
-  hb = hp - y_bot * t;          // medio grueso en el fondo del hueco
-  tip = hp - ha * t;            // medio grueso en la cabeza (si no es positivo, acaba en punta)
+  land = y_v <= -hf + 1e-12;    // is there a flat land at the bottom of the space?
+  hb = hp - y_bot * t;          // half thickness at the bottom of the space
+  tip = hp - ha * t;            // half thickness at the tip (if not positive, it ends in a point)
   y_back = -hf - max(0, base);
   pts = concat(
     land ? [[0, y_bot]] : [],
@@ -203,40 +209,40 @@ RACK = '''module rack(mod = 1, teeth = 10, thickness = 5, base = 5, pressure_ang
        [[c + hb, y_bot]])],
     land ? [[total, y_bot]] : [],
     [[total, y_back], [0, y_back]]);
-  shear = (left_hand ? -1 : 1) * tan(helix_angle);    // lo que se corre el dentado con el grueso
+  shear = (left_hand ? -1 : 1) * tan(helix_angle);    // how far the teeth shift with the thickness
   translate([0, 0, center ? -thickness / 2 : 0])
     multmatrix([[1, 0, shear, 0], [0, 1, 0, 0], [0, 0, 1, 0]])
       linear_extrude(thickness) polygon(pts);
 }'''
 
 BEVEL_GEAR = '''module bevel_gear(mod = 1, teeth = 20, mate_teeth = 20, shaft_angle = 90, face_width = 4, pressure_angle = 20, backlash = 0, bore = 0) {
-  // Engranaje cónico recto (lo escribe OpenSCAD GUI Mejorada).
+  // Straight bevel gear (written by OpenSCAD GUI Mejorada).
   // Machinery's Handbook 27, "Rules and Formulas for Calculating Dimensions of Milled Bevel
-  // Gears", p. 2087. El vértice del cono queda en el ORIGEN y la rueda mira hacia +Z, así que
-  // su pareja es la misma pieza girada el ángulo entre ejes: no hay que moverla.
-  // El diente sale del engranaje virtual de Tredgold (uno recto del mismo módulo con
-  // teeth/cos(cono) dientes) y el perfil se barre hacia el vértice, con lo que los conos de
-  // cabeza, primitivo y pie salen exactos.
+  // Gears", p. 2087. The cone apex sits at the ORIGIN and the gear faces +Z, so its mate is the
+  // same part turned by the shaft angle: there is no need to move it.
+  // The tooth comes from Tredgold's virtual gear (a spur gear of the same module with
+  // teeth/cos(cone) teeth) and the profile is swept towards the apex, which makes the face,
+  // pitch and root cones exact.
   z = max(3, round(teeth));
   zm = max(3, round(mate_teeth));
-  g = atan2(sin(shaft_angle), zm / z + cos(shaft_angle));   // ángulo del cono primitivo
-  C = mod * z / (2 * sin(g));                               // distancia de cono exterior
-  ha = atan(mod / C);                                       // ángulo de cabeza
-  hf = atan(1.25 * mod / C);                                // ángulo de pie
-  // La cara trasera se tornea plana, en el plano donde el cono de cabeza llega al diámetro
-  // exterior D + 2*mod*cos(g): es la "vertex distance" J del Handbook.
+  g = atan2(sin(shaft_angle), zm / z + cos(shaft_angle));   // pitch cone angle
+  C = mod * z / (2 * sin(g));                               // outer cone distance
+  ha = atan(mod / C);                                       // addendum angle
+  hf = atan(1.25 * mod / C);                                // dedendum angle
+  // The back face is turned flat, in the plane where the face cone reaches the outside
+  // diameter D + 2*mod*cos(g): this is the "vertex distance" J of the Handbook.
   zo = (mod * z / 2 + mod * cos(g)) / tan(g + ha);
-  F = min(max(0.01, face_width), zo / cos(g) * 0.95);       // ancho de cara, sobre el primitivo
+  F = min(max(0.01, face_width), zo / cos(g) * 0.95);       // face width, along the pitch cone
   zi = zo - F * cos(g);
-  rv = mod * (z / cos(g)) / 2;                              // radio primitivo del virtual
+  rv = mod * (z / cos(g)) / 2;                              // pitch radius of the virtual gear
   rbv = rv * cos(pressure_angle);
   rf = max(rv - 1.25 * mod, mod * 0.1);
   r0 = max(rbv, rf);
   function inv(a) = tan(a) - a * PI / 180;
-  // Medio grueso del diente ALREDEDOR DEL EJE: el del virtual, dividido por cos(cono).
+  // Half the tooth thickness AROUND THE AXIS: that of the virtual gear, divided by cos(cone).
   function half(p) = max(0, ((PI * mod / 2 - backlash / 2) / (2 * rv) + inv(pressure_angle)
                              - inv(acos(min(1, rbv / p)))) * 180 / PI) / cos(g);
-  // Un punto que en el virtual está a p del centro queda sobre el cono g + atan((p - rv)/C).
+  // A point at p from the centre of the virtual gear lies on the cone g + atan((p - rv)/C).
   function rad(p) = zo * tan(g + atan((p - rv) / C));
   n = 8;
   flank = [for (k = [0 : n]) r0 + (rv + mod - r0) * k / n];
@@ -249,7 +255,7 @@ BEVEL_GEAR = '''module bevel_gear(mod = 1, teeth = 20, mate_teeth = 20, shaft_an
            root ? [[rad(rf) * cos(c + half(r0)), rad(rf) * sin(c + half(r0))]] : [],
            [[rad(rf) * cos(c + 180 / z), rad(rf) * sin(c + 180 / z)]])];
   difference() {
-    // Barrido hacia el vértice: el perfil de la cara delantera es el de la trasera a escala.
+    // Sweep towards the apex: the front face profile is the back one, scaled.
     translate([0, 0, zi])
       linear_extrude(zo - zi, scale = zo / zi) polygon([for (q = pts) q * zi / zo]);
     if (bore > 0) translate([0, 0, -1]) cylinder(h = zo + 2, d = bore);
@@ -258,14 +264,14 @@ BEVEL_GEAR = '''module bevel_gear(mod = 1, teeth = 20, mate_teeth = 20, shaft_an
 
 PULLEY = '''module pulley(section = "XL", teeth = 20, width = 6, bore = 0, flange = "ninguna",
                flange_height = 1.5, center = false) {
-  // Polea dentada para correa síncrona (lo escribe OpenSCAD GUI Mejorada).
-  // Secciones trapeciales clásicas ANSI/RMA IP-24 (Machinery's Handbook 27, tablas 40 y 44):
-  // paso, ángulo de diente, altura (ht) y grueso en la línea primitiva (bt), y cuánto la
-  // circunferencia primitiva PD = z*paso/PI queda por encima de la exterior (Ø ext = PD - 2*PLD).
-  // El hueco es el negativo del diente de la correa, de flancos rectos (sin los redondeos ra/rr
-  // de la tabla, igual que la cremallera tampoco los lleva).
-  // Las pestañas (flange) son simples collares cilíndricos que sobresalen flange_height del Ø
-  // exterior, a un lado, al otro o a los dos: sin ellas la correa puede salirse por el eje.
+  // Toothed pulley for a synchronous belt (written by OpenSCAD GUI Mejorada).
+  // Classic trapezoidal sections ANSI/RMA IP-24 (Machinery's Handbook 27, tables 40 and 44):
+  // pitch, tooth angle, height (ht) and pitch-line tooth width (bt), and how far the pitch
+  // circle PD = z*pitch/PI lies above the outside one (outside diameter = PD - 2*PLD).
+  // The groove is the negative of the belt tooth, with straight flanks (without the ra/rr radii
+  // of the table, just as the rack has none either).
+  // The flanges are plain cylindrical collars standing flange_height above the outside
+  // diameter, on one side or both: without them the belt can slip off along the axis.
   data = section == "MXL" ? [2.032, 40, 0.508, 1.143, 0.254] :
          section == "XL" ? [5.08, 50, 1.27, 2.5654, 0.254] :
          section == "L" ? [9.525, 40, 1.905, 4.6482, 0.381] :
@@ -277,8 +283,8 @@ PULLEY = '''module pulley(section = "XL", teeth = 20, width = 6, bore = 0, flang
   outer_d = pitch_d - 2 * pld;
   root_d = outer_d - 2 * ht;
   t = tan(ang / 2);
-  tip_half = max(0, bt / 2 - (ht + pld) * t);      // medio grueso del hueco en el fondo
-  top_half = max(0, bt / 2 - pld * t);             // medio grueso del hueco en la boca
+  tip_half = max(0, bt / 2 - (ht + pld) * t);      // half width of the groove at the bottom
+  top_half = max(0, bt / 2 - pld * t);             // half width of the groove at the mouth
   r_out = outer_d / 2;
   r_root = max(0.1, root_d / 2);
   half_step = 180 / z;
@@ -305,13 +311,13 @@ PULLEY = '''module pulley(section = "XL", teeth = 20, width = 6, bore = 0, flang
 }'''
 
 V_PULLEY = '''module v_pulley(section = "A", datum_d = 80, grooves = 1, bore = 0, center = false) {
-  // Polea trapecial para correa en V (lo escribe OpenSCAD GUI Mejorada).
-  // Secciones clasicas ANSI/RMA IP-20 (Machinery's Handbook 27, tabla 9): angulo de la ranura
-  // (ang) y su ancho en la boca (bg) por tramos de diametro primitivo/datum; hg (profundidad),
-  // Sg (separacion entre ranuras) y Se (margen al borde) son fijos por seccion. El ancho de
-  // cara sale solo de las ranuras: Sg*(ranuras - 1) + 2*Se. Pieza axisimetrica (sin el redondeo
-  // RB del fondo de la tabla, igual que la cremallera y la polea dentada no llevan los suyos):
-  // se gira un perfil una sola vez con rotate_extrude.
+  // V-belt pulley (written by OpenSCAD GUI Mejorada).
+  // Classic sections ANSI/RMA IP-20 (Machinery's Handbook 27, table 9): groove angle (ang) and
+  // width at the mouth (bg) by ranges of pitch/datum diameter; hg (depth), Sg (spacing between
+  // grooves) and Se (edge margin) are fixed per section. The face width follows from the
+  // grooves: Sg*(grooves - 1) + 2*Se. Axisymmetric part (without the bottom radius RB of the
+  // table, just as the rack and the toothed pulley have none):
+  // a profile is revolved once with rotate_extrude.
   hg = section == "A" ? 11.684 : section == "B" ? 13.97 : section == "C" ? 19.05 : 25.908;
   se = section == "A" ? 9.525 : section == "B" ? 12.7 : section == "C" ? 17.4752 : 22.225;
   sg = section == "A" ? 15.875 : section == "B" ? 19.05 : section == "C" ? 25.4 : 36.5252;
@@ -388,6 +394,7 @@ def _normalized(text: str) -> str:
 
 _NORMALIZED = {_normalized(code): name for name, code in LIBRARY.items()}
 _NORMALIZED.update({_normalized(code): name for name, codes in PREVIOUS_VERSIONS.items() for code in codes})
+_NORMALIZED.update({_normalized(code): name for name, code in SPANISH_COMMENTS.items()})
 
 
 def library_name(text: str) -> str:

@@ -244,13 +244,14 @@ def test_polea_trapecial_volumen_y_agujero():
         for key, value in (("section", section), ("datum_d", datum_d), ("grooves", grooves)):
             doc.set_param(pu.id, key, value)
         mine = abs(signed_volume(geometry.v_pulley(pu.params, ctx)))
-        assert abs(volume_of(generate(doc).text) - mine) < 1, (section, datum_d, grooves)
+        tol = max(1, mine * 1e-5)      # el STL de OpenSCAD 2021 lleva 6 cifras: el error crece con la pieza
+        assert abs(volume_of(generate(doc).text) - mine) < tol, (section, datum_d, grooves)
         doc.set_param(pu.id, "bore", bore)
         from scadgui import gears
         width = gears.v_pulley_dims(section, datum_d, grooves)["face_width"]
         n = geometry.fragments(bore / 2, ctx)          # $fn=0 -> fórmula de fragments con $fa/$fs
         hole = n * 0.5 * (bore / 2) ** 2 * math.sin(2 * math.pi / n) * width
-        assert abs(volume_of(generate(doc).text) - (mine - hole)) < 1, (section, datum_d, grooves, bore)
+        assert abs(volume_of(generate(doc).text) - (mine - hole)) < tol, (section, datum_d, grooves, bore)
 
 
 if __name__ == "__main__":
