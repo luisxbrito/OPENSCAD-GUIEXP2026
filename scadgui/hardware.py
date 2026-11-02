@@ -143,6 +143,50 @@ BEARINGS_ISO = {
     "626":  {"d": 6.0,  "D": 19.0, "B": 6.0},
     "688":  {"d": 8.0,  "D": 16.0, "B": 5.0},
     "6900": {"d": 10.0, "D": 22.0, "B": 6.0},
+    # Series 60xx y 63xx (ISO 15): no están en los manuales del proyecto, compruébalas en un catálogo.
+    "6000": {"d": 10.0, "D": 26.0, "B": 8.0},
+    "6001": {"d": 12.0, "D": 28.0, "B": 8.0},
+    "6002": {"d": 15.0, "D": 32.0, "B": 9.0},
+    "6003": {"d": 17.0, "D": 35.0, "B": 10.0},
+    "6004": {"d": 20.0, "D": 42.0, "B": 12.0},
+    "6005": {"d": 25.0, "D": 47.0, "B": 12.0},
+    "6006": {"d": 30.0, "D": 55.0, "B": 13.0},
+    "6007": {"d": 35.0, "D": 62.0, "B": 14.0},
+    "6008": {"d": 40.0, "D": 68.0, "B": 15.0},
+    "6009": {"d": 45.0, "D": 75.0, "B": 16.0},
+    "6010": {"d": 50.0, "D": 80.0, "B": 16.0},
+    "6300": {"d": 10.0, "D": 35.0, "B": 11.0},
+    "6301": {"d": 12.0, "D": 37.0, "B": 12.0},
+    "6302": {"d": 15.0, "D": 42.0, "B": 13.0},
+    "6303": {"d": 17.0, "D": 47.0, "B": 14.0},
+    "6304": {"d": 20.0, "D": 52.0, "B": 15.0},
+    "6305": {"d": 25.0, "D": 62.0, "B": 17.0},
+    "6306": {"d": 30.0, "D": 72.0, "B": 19.0},
+    "6307": {"d": 35.0, "D": 80.0, "B": 21.0},
+    "6308": {"d": 40.0, "D": 90.0, "B": 23.0},
+    "6309": {"d": 45.0, "D": 100.0, "B": 25.0},
+    "6310": {"d": 50.0, "D": 110.0, "B": 27.0},
+    # Serie 62xx: Shigley, 8.ª ed., tabla 11-2 (también BEARING_SHOULDERS).
+    "6200": {"d": 10.0, "D": 30.0, "B": 9.0},
+    "6201": {"d": 12.0, "D": 32.0, "B": 10.0},
+    "6202": {"d": 15.0, "D": 35.0, "B": 11.0},
+    "6203": {"d": 17.0, "D": 40.0, "B": 12.0},
+    "6204": {"d": 20.0, "D": 47.0, "B": 14.0},
+    "6205": {"d": 25.0, "D": 52.0, "B": 15.0},
+    "6206": {"d": 30.0, "D": 62.0, "B": 16.0},
+    "6207": {"d": 35.0, "D": 72.0, "B": 17.0},
+    "6208": {"d": 40.0, "D": 80.0, "B": 18.0},
+    "6209": {"d": 45.0, "D": 85.0, "B": 19.0},
+    "6210": {"d": 50.0, "D": 90.0, "B": 20.0},
+    "6211": {"d": 55.0, "D": 100.0, "B": 21.0},
+    "6212": {"d": 60.0, "D": 110.0, "B": 22.0},
+    "6213": {"d": 65.0, "D": 120.0, "B": 23.0},
+    "6214": {"d": 70.0, "D": 125.0, "B": 24.0},
+    "6215": {"d": 75.0, "D": 130.0, "B": 25.0},
+    "6216": {"d": 80.0, "D": 140.0, "B": 26.0},
+    "6217": {"d": 85.0, "D": 150.0, "B": 28.0},
+    "6218": {"d": 90.0, "D": 160.0, "B": 30.0},
+    "6219": {"d": 95.0, "D": 170.0, "B": 32.0},
 }
 
 STANDARD_LENGTHS = [6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0]
@@ -158,6 +202,53 @@ SCREW_TABLES = {
 NUT_TABLES = {"din934": NUTS_DIN_934, "din985": NUTS_DIN_985}
 
 # Holgura extra (mm) sobre el diámetro o el ancho entre caras para alojamientos impresos.
+# Hombros de la serie 62xx (Shigley, 8.ª ed., tabla 11-2): r, radio del entalle; ds, hombro del eje;
+# dH, hombro del alojamiento.
+BEARING_SHOULDERS = {
+    "6200": {"r": 0.6, "ds": 12.5, "dH": 27.0},
+    "6201": {"r": 0.6, "ds": 14.5, "dH": 28.0},
+    "6202": {"r": 0.6, "ds": 17.5, "dH": 31.0},
+    "6203": {"r": 0.6, "ds": 19.5, "dH": 34.0},
+    "6204": {"r": 1, "ds": 25.0, "dH": 41.0},
+    "6205": {"r": 1, "ds": 30.0, "dH": 47.0},
+    "6206": {"r": 1, "ds": 35.0, "dH": 55.0},
+    "6207": {"r": 1, "ds": 41.0, "dH": 65.0},
+    "6208": {"r": 1, "ds": 46.0, "dH": 72.0},
+    "6209": {"r": 1, "ds": 52.0, "dH": 77.0},
+    "6210": {"r": 1, "ds": 56.0, "dH": 82.0},
+    "6211": {"r": 1.5, "ds": 63.0, "dH": 90.0},
+    "6212": {"r": 1.5, "ds": 70.0, "dH": 99.0},
+    "6213": {"r": 1.5, "ds": 74.0, "dH": 109.0},
+    "6214": {"r": 1.5, "ds": 79.0, "dH": 114.0},
+    "6215": {"r": 1.5, "ds": 86.0, "dH": 119.0},
+    "6216": {"r": 2, "ds": 93.0, "dH": 127.0},
+    "6217": {"r": 2, "ds": 99.0, "dH": 136.0},
+    "6218": {"r": 2, "ds": 104.0, "dH": 146.0},
+    "6219": {"r": 2, "ds": 110.0, "dH": 156.0},
+}
+
+# Tolerancias para rodamientos ABEC-1 (Machinery's Handbook 27, tablas 14, 15 y 17, pp. 2287-2290): por
+# tramos de Ø (más de, hasta e incluido), desviación (mín, máx) en mm respecto al Ø nominal.
+HOUSING_TOLERANCES = (
+    (18, 30, {"G7": (0.007, 0.028), "H7": (0.0, 0.021), "J6": (-0.005, 0.008), "K6": (-0.011, 0.002), "M6": (-0.017, -0.004)}),
+    (30, 50, {"G7": (0.009, 0.034), "H7": (0.0, 0.025), "J6": (-0.006, 0.010), "K6": (-0.013, 0.003), "M6": (-0.020, -0.004)}),
+    (50, 80, {"G7": (0.010, 0.040), "H7": (0.0, 0.030), "J6": (-0.006, 0.013), "K6": (-0.015, 0.004), "M6": (-0.024, -0.005)}),
+    (80, 120, {"G7": (0.012, 0.047), "H7": (0.0, 0.035), "J6": (-0.006, 0.016), "K6": (-0.018, 0.004), "M6": (-0.028, -0.006)}),
+    (120, 180, {"G7": (0.014, 0.054), "H7": (0.0, 0.040), "J6": (-0.007, 0.018), "K6": (-0.021, 0.004), "M6": (-0.033, -0.008)}),
+    (180, 250, {"G7": (0.015, 0.061), "H7": (0.0, 0.046), "J6": (-0.007, 0.022), "K6": (-0.024, 0.005), "M6": (-0.037, -0.008)}),
+)
+# h6: eje fijo y aro interior que desliza; j5 (hasta Ø18) y k5: eje giratorio con carga normal.
+SHAFT_TOLERANCES = (
+    (6, 10, {"h6": (-0.009, 0.0), "j5": (-0.002, 0.004)}),
+    (10, 18, {"h6": (-0.011, 0.0), "j5": (-0.003, 0.005)}),
+    (18, 30, {"h6": (-0.013, 0.0), "k5": (0.002, 0.011)}),
+    (30, 50, {"h6": (-0.016, 0.0), "k5": (0.002, 0.013)}),
+    (50, 80, {"h6": (-0.019, 0.0), "k5": (0.002, 0.015)}),
+    (80, 120, {"h6": (-0.022, 0.0), "k5": (0.003, 0.018)}),
+)
+# Holgura de un alojamiento impreso en 3D: no es de ninguna norma, hay que probarla (como create_bearing_node).
+SEAT_PRINT_ALLOWANCE = {"fine": 0.2, "medium": 0.35, "coarse": 0.5}
+
 # Ranuras para anillos de retención métricos ANSI B27.7-1977 (Machinery's Handbook 27, tablas 1 y 2,
 # pp. 1685-1686). Por Ø del eje o del agujero: D, Ø libre del anillo; t, su grueso; G, Ø de la ranura;
 # W, su ancho; d, su profundidad (de referencia: manda G); Z, margen mínimo hasta el borde.
@@ -342,7 +433,7 @@ def available_sizes(category: str, standard: str = "") -> list[str]:
         return list(WASHERS_DIN_125)
     if category == "insert":
         return list(HEAT_SET_INSERTS)
-    if category == "bearing":
+    if category in ("bearing", "bearing_seat"):
         return list(BEARINGS_ISO)
     if category == "profile":
         return ["2020", "2040"]
@@ -705,8 +796,57 @@ def create_oring_groove_node(
     return _ring_mask(name, outer, inner, d["gland"] + 1.0, -d["gland"], u_fn)
 
 
+def _tolerance(table: tuple, diameter: float, symbol: str) -> Optional[tuple[float, float]]:
+    """Desviación (mín, máx) de la tabla para ese Ø y esa clase, o None si la tabla no lo cubre."""
+    return next((limits[symbol] for low, high, limits in table if low < diameter <= high and symbol in limits), None)
+
+
+def bearing_seat(model: str, seat: str = "medium") -> dict:
+    """Ø del alojamiento: ``seat`` es una holgura de impresión 3D (fine, medium, coarse) o una clase
+    de tolerancia (G7, H7, J6, K6, M6). La máscara usa el Ø medio de la tolerancia. Fuera de la tabla
+    es un error: nunca se toma la tolerancia de otro tramo."""
+    spec = _lookup(BEARINGS_ISO, model, tr("Rodamiento"))
+    big = spec["D"]
+    if seat in SEAT_PRINT_ALLOWANCE:
+        extra = SEAT_PRINT_ALLOWANCE[seat]
+        low = high = round(big + extra, 3)
+    else:
+        limits = _tolerance(HOUSING_TOLERANCES, big, seat)
+        if limits is None:
+            raise ValueError(tr("La tabla de tolerancias del alojamiento empieza en Ø18 mm: el rodamiento {model} "
+                                "tiene Ø{d} mm").format(model=model, d=format_number(big)))
+        low, high = round(big + limits[0], 3), round(big + limits[1], 3)
+    shoulder = BEARING_SHOULDERS.get(model)
+    return {"low": low, "high": high, "bore": round((low + high) / 2, 4),
+            # Sin dato de la tabla, la media de d y D: queda entre los dos aros, sin rozar el interior.
+            "through": shoulder["dH"] if shoulder else round((spec["d"] + big) / 2, 3), "shoulder": shoulder}
+
+
+def create_bearing_seat_node(
+    model: str = "608",
+    seat: str = "medium",
+    wall: float = 0.0,
+    unique_fn: Optional[Callable[[str], str]] = None,
+) -> Node:
+    """Máscara del asiento de un rodamiento, con la cara de la pieza en z = 0: baja el ancho del
+    rodamiento y sube 1 mm para que la resta quede limpia. Con ``wall`` añade el paso libre que
+    atraviesa una pared de ese grueso y deja apoyado solo el aro exterior."""
+    u_fn = unique_fn or (lambda s: s)
+    data = bearing_seat(model, seat)
+    b = BEARINGS_ISO[model]["B"]
+    group = make_node("group", u_fn(tr("Asiento rodamiento {model}").format(model=model)))
+    pocket = _cylinder(tr("Cajeado rodamiento"), b + 1.0, data["bore"] / 2.0, u_fn)
+    pocket.params["$fn"] = GROOVE_FN
+    group.children.append(_at(-b, pocket))
+    if wall > 0:
+        hole = _cylinder(tr("Paso libre"), wall + 2.0, data["through"] / 2.0, u_fn)
+        hole.params["$fn"] = GROOVE_FN
+        group.children.append(_at(-(b + wall + 1.0), hole))
+    return group
+
+
 def describe(category: str, standard: str, size: str, length: float, fit: str,
-             diameter: float = 20.0, seal: str = "static") -> list[str]:
+             diameter: float = 20.0, seal: str = "static", seat: str = "medium") -> list[str]:
     """Líneas de texto con las medidas que usará la pieza (las mismas que los constructores).
 
     La primera línea es el título; el diálogo la muestra en negrita.
@@ -787,4 +927,31 @@ def describe(category: str, standard: str, size: str, length: float, fit: str,
                 a=fmt(diameter), r=fmt(outer), w=fmt(d["width"])), tail]
         return [title, tr("En una cara plana, junta estática: Ø {o} a Ø {i} mm · ancho {w} mm").format(
             o=fmt(outer), i=fmt(inner), w=fmt(d["width"])), tail]
+    if category == "bearing_seat":
+        spec = _lookup(BEARINGS_ISO, size, tr("Rodamiento"))
+        d = bearing_seat(size, seat)
+        title = tr("Asiento de rodamiento {model}: d {d} · D {big} · B {b} mm").format(
+            model=size, d=fmt(spec["d"]), big=fmt(spec["D"]), b=fmt(spec["B"]))
+        if seat in SEAT_PRINT_ALLOWANCE:
+            housing = tr("Alojamiento impreso: Ø{bore} × {b} mm (holgura orientativa: prueba una pieza)").format(
+                bore=fmt(d["bore"]), b=fmt(spec["B"]))
+        else:
+            housing = tr("Alojamiento Ø{big} {cls}: de Ø{low} a Ø{high} mm × {b} mm").format(
+                big=fmt(spec["D"]), cls=seat, low=f"{d['low']:.3f}", high=f"{d['high']:.3f}", b=fmt(spec["B"]))
+        fixed = _tolerance(SHAFT_TOLERANCES, spec["d"], "h6")
+        if fixed is None:
+            shaft = tr("Eje: la tabla de tolerancias empieza en más de Ø6 mm")
+        else:
+            cls = "j5" if spec["d"] <= 18 else "k5"
+            turning = _tolerance(SHAFT_TOLERANCES, spec["d"], cls)
+            shaft = tr("Eje fijo h6: de Ø{a} a Ø{b} mm · eje giratorio {cls}: de Ø{c} a Ø{e} mm").format(
+                a=f"{spec['d'] + fixed[0]:.3f}", b=f"{spec['d'] + fixed[1]:.3f}", cls=cls,
+                c=f"{spec['d'] + turning[0]:.3f}", e=f"{spec['d'] + turning[1]:.3f}")
+        if d["shoulder"]:
+            s = d["shoulder"]
+            shoulder = tr("Hombros: eje Ø{ds} · alojamiento Ø{dh} · radio del entalle {r} mm").format(
+                ds=fmt(s["ds"]), dh=fmt(s["dH"]), r=fmt(s["r"]))
+        else:
+            shoulder = tr("Sin hombros en la tabla: el paso libre usa Ø{t} mm, la media de d y D").format(t=fmt(d["through"]))
+        return [title, housing, shaft, shoulder]
     raise ValueError(f"Categoría desconocida: {category}")

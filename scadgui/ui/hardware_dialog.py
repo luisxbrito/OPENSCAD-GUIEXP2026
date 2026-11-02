@@ -12,7 +12,7 @@ from ..hardware import BEARINGS_ISO, STANDARD_LENGTHS, available_sizes, describe
 from ..i18n import tr
 from .style import themed
 
-GROOVES = ("ring_groove", "oring_groove")   # solo existen como máscara de resta
+GROOVES = ("ring_groove", "oring_groove", "bearing_seat")   # solo existen como máscara de resta
 
 CATEGORIES = [
     ("screw_allen", "Tornillo Allen cilíndrico (ISO 4762 / DIN 912)", "screw", "iso4762"),
@@ -24,6 +24,7 @@ CATEGORIES = [
     ("heat_set", "Inserto Roscado de Latón (Impresión 3D FDM)", "insert", "heat_set"),
     ("washer", "Arandela Plana (DIN 125 / ISO 7089)", "washer", "din125"),
     ("bearing", "Rodamiento Radial de Bolas (ISO 15 / DIN 625)", "bearing", "bearing"),
+    ("bearing_seat", "Asiento de rodamiento (hueco y ajuste)", "bearing_seat", "seat"),
     ("profile", "Perfil de Aluminio 2020 / 2040", "profile", "profile"),
     ("ring_shaft", "Ranura de anillo de retención en eje (3AM1, ANSI B27.7)", "ring_groove", "3am1"),
     ("ring_bore", "Ranura de anillo de retención en agujero (3BM1, ANSI B27.7)", "ring_groove", "3bm1"),
@@ -89,6 +90,28 @@ class HardwareDialog(QDialog):
         self.combo_seal.currentIndexChanged.connect(self._update_info)
         self.label_seal = QLabel(tr("Tipo de junta:"))
         dim_lay.addRow(self.label_seal, self.combo_seal)
+
+        self.combo_seat = QComboBox()
+        for text, value in ((tr("Impreso en 3D, ajuste medio (+0.35 mm)"), "medium"),
+                            (tr("Impreso en 3D, apretado (+0.2 mm)"), "fine"),
+                            (tr("Impreso en 3D, holgado (+0.5 mm)"), "coarse"),
+                            (tr("Mecanizado H7: el aro exterior desliza"), "H7"),
+                            (tr("Mecanizado G7: desliza, con calor por el eje"), "G7"),
+                            (tr("Mecanizado J6: transición, apretado o suelto"), "J6"),
+                            (tr("Mecanizado K6: el aro exterior no necesita deslizar"), "K6"),
+                            (tr("Mecanizado M6: apriete"), "M6")):
+            self.combo_seat.addItem(text, value)
+        self.combo_seat.currentIndexChanged.connect(self._update_info)
+        self.label_seat = QLabel(tr("Ajuste del alojamiento:"))
+        dim_lay.addRow(self.label_seat, self.combo_seat)
+
+        self.spin_wall = QDoubleSpinBox()
+        self.spin_wall.setRange(0.0, 1000.0)
+        self.spin_wall.setDecimals(2)
+        self.spin_wall.setValue(0.0)
+        self.spin_wall.setSuffix(" mm")
+        self.label_wall = QLabel(tr("Pared que atraviesa el paso libre (0: ciego):"))
+        dim_lay.addRow(self.label_wall, self.spin_wall)
 
         layout.addWidget(dim_group)
 
@@ -162,7 +185,7 @@ class HardwareDialog(QDialog):
             m_idx = self.combo_size.findData(self.default_metric)
             if m_idx >= 0:
                 self.combo_size.setCurrentIndex(m_idx)
-        elif cat == "bearing":
+        elif cat in ("bearing", "bearing_seat"):
             for b_id, b_info in BEARINGS_ISO.items():
                 self.combo_size.addItem(f"{b_id} (Ø{b_info['d']}xØ{b_info['D']}x{b_info['B']} mm)", b_id)
         elif cat == "profile":
@@ -196,6 +219,9 @@ class HardwareDialog(QDialog):
                                          std, tr("Ø exterior de la ranura:")))
         self.label_seal.setVisible(is_oring and std != "face")
         self.combo_seal.setVisible(is_oring and std != "face")
+        is_seat = cat == "bearing_seat"
+        for widget in (self.label_seat, self.combo_seat, self.label_wall, self.spin_wall):
+            widget.setVisible(is_seat)
 
         # El modo negativo solo aplica a tornillos, tuercas, insertos y rodamientos; las ranuras
         # no tienen otro.
@@ -229,7 +255,8 @@ class HardwareDialog(QDialog):
 
         try:
             lines = describe(cat, std, size, length, fit, self.spin_diameter.value(),
-                             str(self.combo_seal.currentData() or "static"))
+                             str(self.combo_seal.currentData() or "static"),
+                             str(self.combo_seat.currentData() or "medium"))
         except (ValueError, KeyError):
             lines = []
         txt = "<br>".join([f"<b>{html.escape(lines[0])}</b>", *map(html.escape, lines[1:])]) if lines else ""
@@ -256,4 +283,6 @@ class HardwareDialog(QDialog):
             "subtract": subtract,
             "diameter": self.spin_diameter.value(),
             "seal": str(self.combo_seal.currentData() or "static"),
+            "seat": str(self.combo_seat.currentData() or "medium"),
+            "wall": self.spin_wall.value(),
         }

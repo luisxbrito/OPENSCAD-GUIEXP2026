@@ -294,6 +294,30 @@ def test_ranuras_de_anillo_y_oring_quitan_lo_que_toca():
     assert abs(got - want) < want * 1e-3, (got, want)
 
 
+def test_asiento_de_rodamiento_quita_lo_que_toca():
+    """El asiento baja el ancho del rodamiento desde la cara, y el paso libre atraviesa la pared."""
+    from scadgui import hardware as hw
+    n = hw.GROOVE_FN
+
+    def area(d):
+        return n * 0.5 * (d / 2) ** 2 * math.sin(2 * math.pi / n)
+
+    def cut(node, thick):
+        doc = Document()
+        doc.children.append(node)
+        mask = generate(doc, header=False).text
+        base = f"translate([0, 0, {-thick}]) cylinder(h = {thick}, d = 200, $fn = 96);"
+        return volume_of(base) - volume_of(f"difference() {{ {base} {mask} }}")
+
+    d = hw.bearing_seat("6204", "H7")
+    got = cut(hw.create_bearing_seat_node("6204", "H7"), 30)
+    want = area(d["bore"]) * 14
+    assert abs(got - want) < want * 1e-3, (got, want)
+    got = cut(hw.create_bearing_seat_node("6204", "H7", 5), 19)       # asiento + pared de 5 mm
+    want = area(d["bore"]) * 14 + area(41) * 5
+    assert abs(got - want) < want * 1e-3, (got, want)
+
+
 def test_estriado_volumen_y_encaje():
     """La pieza de OpenSCAD pesa lo mismo que la vista aproximada, en todas las columnas de la tabla;
     el eje y el cubo encajan sin chocar y girar el eje medio paso los haría chocar."""

@@ -526,6 +526,48 @@ def test_polea_desde_la_cinta():
     assert "module pulley(" in w.code.text.toPlainText()
 
 
+def test_asiento_de_rodamiento_en_el_dialogo():
+    """El diálogo da la ficha, avisa fuera de tabla y la máscara se resta de la pieza seleccionada."""
+    from scadgui.model import Document
+    from scadgui.ui import hardware_dialog as hd
+    dlg = hd.HardwareDialog(has_selection=True)
+    index = next(i for i in range(dlg.combo_type.count()) if dlg.combo_type.itemData(i)[0] == "bearing_seat")
+    dlg.combo_type.setCurrentIndex(index)
+    assert not dlg.rb_solid.isEnabled() and not dlg.combo_seat.isHidden() and not dlg.spin_wall.isHidden()
+    assert dlg.spin_diameter.isHidden() and dlg.combo_seal.isHidden()
+    assert "22.35" in dlg.lbl_info.text()                  # 608 impreso, ajuste medio
+    dlg.combo_seat.setCurrentIndex(dlg.combo_seat.findData("H7"))
+    assert "22.021" in dlg.lbl_info.text()
+    dlg.combo_size.setCurrentIndex(dlg.combo_size.findData("624"))    # Ø13 no tiene tolerancia en la tabla
+    assert "bearing" not in dlg.lbl_info.text().lower() and "624" not in dlg.lbl_info.text()
+    dlg.combo_type.setCurrentIndex(0)
+    assert dlg.combo_seat.isHidden() and dlg.spin_wall.isHidden()
+
+    w = window()
+    w.set_document(Document())
+    w.ribbon.buttons["cube"].click()
+    app.processEvents()
+
+    def fake_exec(d):
+        d.combo_type.setCurrentIndex(index)
+        d.combo_size.setCurrentIndex(d.combo_size.findData("6204"))
+        d.combo_seat.setCurrentIndex(d.combo_seat.findData("H7"))
+        d.spin_wall.setValue(5)
+        return True
+
+    real, hd.HardwareDialog.exec = hd.HardwareDialog.exec, fake_exec
+    try:
+        w.open_hardware_dialog()
+    finally:
+        hd.HardwareDialog.exec = real
+    app.processEvents()
+    root = w.doc.children[0]
+    assert root.kind == "difference" and root.children[1].kind == "group"
+    code = w.code.text.toPlainText()
+    assert "r = 23.506" in code or "r = 23.507" in code
+    assert "r = 20.5" in code
+
+
 def test_ranuras_en_el_dialogo_de_piezas_normalizadas():
     """Las ranuras solo existen como máscara, restan de la selección y piden lo que les hace falta."""
     from scadgui.ui.hardware_dialog import HardwareDialog

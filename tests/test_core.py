@@ -1060,6 +1060,47 @@ def test_modulos_propios_con_comentarios_en_ingles():
         assert code in text and "lo escribe" not in text, name
 
 
+def test_asiento_de_rodamiento():
+    """Series, tolerancias de las tablas 15 y 17 del Handbook, hombros de Shigley y máscara."""
+    from scadgui import hardware as hw
+    assert hw.BEARINGS_ISO["6204"] == {"d": 20.0, "D": 47.0, "B": 14.0}
+    assert hw.BEARINGS_ISO["6219"] == {"d": 95.0, "D": 170.0, "B": 32.0}
+    assert hw.BEARINGS_ISO["6005"]["D"] == 47 and hw.BEARINGS_ISO["6305"]["D"] == 62
+    assert hw.BEARING_SHOULDERS["6204"] == {"r": 1, "ds": 25.0, "dH": 41.0}
+    for model, s in hw.BEARING_SHOULDERS.items():       # cada hombro cae entre el eje y el exterior
+        spec = hw.BEARINGS_ISO[model]
+        assert spec["d"] < s["ds"] < s["dH"] < spec["D"], model
+    d = hw.bearing_seat("6204", "H7")                    # Ø47: tramo 30-50
+    assert (d["low"], d["high"], d["bore"]) == (47.0, 47.025, 47.0125) and d["through"] == 41
+    assert hw.bearing_seat("6204", "M6")["high"] == 46.996
+    assert hw.bearing_seat("608", "G7")["low"] == 22.007   # Ø22: tramo 18-30
+    assert hw.bearing_seat("6010", "K6")["high"] == 80.004   # Ø80 todavía es del tramo 50-80
+    p = hw.bearing_seat("608")                           # impreso, ajuste medio
+    assert p["low"] == p["high"] == p["bore"] == 22.35 and p["through"] == 15   # media de 8 y 22
+    try:
+        hw.bearing_seat("624", "H7")                     # Ø13: la tabla empieza en 18
+        raise AssertionError("una tolerancia fuera de la tabla no se sustituye")
+    except ValueError as exc:
+        assert "624" in str(exc)
+    assert hw.bearing_seat("624")["bore"] == 13.35       # impreso, sí
+    blind = hw.create_bearing_seat_node("6204", "H7")
+    assert blind.kind == "group" and len(blind.children) == 1
+    pocket = blind.children[0]
+    assert pocket.params["v"] == [0.0, 0.0, -14.0] and pocket.children[0].params["h"] == 15
+    assert pocket.children[0].params["$fn"] == hw.GROOVE_FN
+    through = hw.create_bearing_seat_node("6204", "H7", 5)
+    hole = through.children[1]
+    assert hole.params["v"] == [0.0, 0.0, -20.0] and hole.children[0].params["r"] == 20.5
+    assert hole.children[0].params["h"] == 7
+    lines = hw.describe("bearing_seat", "seat", "6204", 0, "medium", seat="H7")
+    assert "6204" in lines[0] and "47.025" in lines[1]
+    assert "19.987" in lines[2] and "k5" in lines[2] and "20.011" in lines[2]
+    assert "41" in lines[3]
+    assert "j5" in hw.describe("bearing_seat", "seat", "608", 0, "medium")[2]      # Ø8 ≤ 18
+    assert "6 mm" in hw.describe("bearing_seat", "seat", "624", 0, "medium")[2]    # Ø4: fuera de la tabla
+    assert "15" in hw.describe("bearing_seat", "seat", "608", 0, "medium")[3]
+
+
 def test_ranuras_de_anillo_de_retencion():
     """ANSI B27.7 (Handbook, tablas 1 y 2): medidas, coherencia de toda la tabla y máscara de resta."""
     from scadgui import hardware as hw

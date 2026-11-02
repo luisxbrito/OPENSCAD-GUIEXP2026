@@ -356,6 +356,18 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     que lleva la ranura: la holgura no entra. Se usa la mitad del intervalo de la tabla. El ancho es
     el de sin anillos de apoyo. OJO: la ranura en cara plana NO está en el Handbook: usa los mismos
     ancho y profundidad estática, como aproximación.
+- Asiento de rodamiento (`create_bearing_seat_node`, `bearing_seat`; mismo diálogo): es una ayuda para
+  dimensionar: la ficha da el Ø del alojamiento, las clases del eje y los hombros, y la máscara corta
+  el Ø medio, con la cara de la pieza en z = 0. Un cilindro de 96 lados no puede sostener una
+  tolerancia de centésimas: lo que vale para mecanizar es la ficha. Fuentes:
+  - Tolerancias: Machinery's Handbook 27, tablas 14, 15 y 17, pp. 2287-2290 (ABEC-1). El alojamiento
+    empieza en más de Ø18 y el eje en más de Ø6: fuera de ahí, `ValueError` o aviso (regla 12). La tabla
+    17 sale desordenada con `pdftotext`; solo se tomaron las clases cuyos valores coinciden con ISO 286.
+    OJO: la elección j5/k5 del eje giratorio viene de la tabla 14, también desordenada; revisarla.
+  - Serie 62xx y sus hombros: Shigley, 8.ª ed., tabla 11-2.
+  - Series 60xx y 63xx: NO están en los manuales del proyecto (ISO 15, de memoria): comprobar en un catálogo.
+  - Sin hombro en la tabla, el paso libre usa la media de d y D (aproximación propia). La holgura de
+    impresión (+0.2, +0.35, +0.5) tampoco es de ninguna norma.
 - Contraste del tema oscuro: `tests/test_tema.py` mide letra/fondo en cada regla. Un color que en
   claro es letra (DARK lo aclara) y alguna regla usa de fondo va en `DARK_BACKGROUND`.
 - Cinta: `Ribbon.GROUPS` reparte los botones de cada pestaña en grupos con título (marcados con

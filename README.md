@@ -79,6 +79,10 @@ Italian and Portuguese (*Edit › Preferences*).
   as a solid or as the matching clearance hole (ISO 273). Only the sizes listed in each
   standard are offered. The parts have no thread and the profile slots are straight (no
   T shape): they are meant for fit-checking and drawings.
+- **Bearing seats.** A sizing aid in the same dialog, for 60xx, 62xx, 63xx and small bearings: it lists the
+  housing limits for the chosen fit (G7, H7, J6, K6, M6, or a rough allowance for 3D printing), the shaft
+  limits and, for 62xx, the shoulder diameters and fillet radius. The mask cuts the mean diameter, with an
+  optional clearance hole through the wall. A mesh cannot hold these tolerances: machine to the listed values.
 - **Grooves.** The same dialog cuts retaining ring grooves (metric ANSI B27.7, series 3AM1 for shafts and
   3BM1 for bores) and O-ring grooves by cross-section (1.78 to 6.99 mm), on a shaft, in a bore or on a flat
   face. They are masks: with a part selected they are subtracted from it, and you then move them along
