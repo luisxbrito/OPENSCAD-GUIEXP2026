@@ -730,6 +730,23 @@ def pulley(p) -> Optional[Tris]:
     return np.concatenate(parts)
 
 
+def v_pulley(p, ctx) -> Optional[Tris]:
+    """Polea trapecial para correa en V (vista aproximada: sin el agujero, que lo hace
+    OpenSCAD). Pieza axisimétrica: se gira el perfil con revolve()."""
+    from . import gears
+    section = p.get("section", "A")
+    d, g = _num(p.get("datum_d", 80)), _num(p.get("grooves", 1))
+    if section not in gears.V_BELT_SECTIONS or None in (d, g) or d <= 0 or g < 1:
+        return None
+    ng = int(g)
+    prof = gears.v_pulley_profile(section, d, ng)
+    width = gears.v_pulley_dims(section, d, ng)["face_width"]
+    if p.get("center") is True:
+        prof = prof.copy()
+        prof[:, 1] -= width / 2
+    return revolve(prof, ctx)
+
+
 def rack(p) -> Optional[Tris]:
     """Cremallera, recta o helicoidal (el dentado inclinado sale sesgando el prisma)."""
     from . import gears
@@ -1134,6 +1151,8 @@ def solid(node, ctx) -> dict:
         mesh = bevel_gear(p)
     elif k == "pulley":
         mesh = pulley(p)
+    elif k == "v_pulley":
+        mesh = v_pulley(p, ctx)
     elif k == "cylinder_edges":
         mesh = cylinder_edges(p, ctx)
     elif k in ("square", "circle", "polygon"):

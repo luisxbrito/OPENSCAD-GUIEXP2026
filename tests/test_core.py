@@ -32,7 +32,7 @@ def roundtrip(text):
 
 
 def test_catalogo_completo():
-    assert len(SPECS) == 40  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 5 de engranajes
+    assert len(SPECS) == 41  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 6 de engranajes
     for key, _, _ in CATEGORIES:
         assert specs_in(key), key
     for name in SPECS:
@@ -1242,6 +1242,35 @@ def test_polea_dentada_codigo_y_vuelta():
     again = parse(text)
     assert generate(again).text == text              # ida y vuelta
     assert [n.kind for n in again.children] == ["pulley"]
+
+def test_polea_trapecial_medidas_del_handbook():
+    """Comprueba ángulo y boca de ranura contra la tabla 9 del Handbook (sección A)."""
+    from scadgui import gears
+    d = gears.v_pulley_dims("A", 80, 3)            # Ø 80 <= 137.16 in -> tramo de 34°
+    assert d["groove_angle"] == 34.0
+    assert abs(d["groove_width"] - 12.5476) < 1e-6  # tabla 9: bg = 0.494 in = 12.5476 mm
+    assert abs(d["groove_depth"] - 11.684) < 1e-6   # tabla 9: hg mín = 0.460 in = 11.684 mm
+    assert abs(d["face_width"] - (15.875 * 2 + 2 * 9.525)) < 1e-6   # Sg*(ranuras-1) + 2*Se
+    d2 = gears.v_pulley_dims("A", 300, 3)           # por encima del tramo -> 38°
+    assert d2["groove_angle"] == 38.0
+    assert d["bottom_half"] > 0                     # fondo plano, no en punta
+    # Con un Ø por debajo del mínimo recomendado el aviso debe saltar.
+    assert gears.v_pulley_warnings("A", 50, 1)
+
+
+def test_polea_trapecial_codigo_y_vuelta():
+    doc = Document()
+    pu = doc.add("v_pulley")
+    for key, value in (("section", "B"), ("datum_d", 150), ("grooves", 2), ("bore", 15),
+                       ("center", True)):
+        doc.set_param(pu.id, key, value)
+    text = generate(doc).text
+    assert text.count("module v_pulley(") == 1
+    assert 'section = "B"' in text and "datum_d = 150" in text
+    again = parse(text)
+    assert generate(again).text == text              # ida y vuelta
+    assert [n.kind for n in again.children] == ["v_pulley"]
+
 
 if __name__ == "__main__":
     failures = 0

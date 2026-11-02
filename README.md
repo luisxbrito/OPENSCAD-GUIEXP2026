@@ -128,8 +128,8 @@ scadgui/
   drawing.py             technical drawing sheet generator
   operations.py          help texts and quick presets for each operation
   library.py, edges.py   cube_edges / cylinder_edges / spur_gear / helical_gear / bevel_gear /
-                         rack / pulley modules and the edge rounding logic
-  gears.py               involute gear, bevel, rack and timing-pulley maths (same formulas as those modules)
+                         rack / pulley / v_pulley modules and the edge rounding logic
+  gears.py               involute gear, bevel, rack, timing-pulley and V-belt pulley maths (same formulas as those modules)
   code_assist.py         code templates and parameter hints for the editor
   i18n.py, locales/      translations (one file per language)
   ui/                    PySide6 windows and dialogs

@@ -312,6 +312,17 @@ _add(Spec("pulley", "Polea dentada", "solid", False, (
    "MXL/XL/L/H/XH. Ø primitivo = dientes·paso/π; el hueco es el negativo del diente de la "
    "correa. No necesita pareja: el centro entre dos poleas lo pone la longitud de la correa."))
 
+_add(Spec("v_pulley", "Polea trapecial", "solid", False, (
+    Param("section", "choice", "A", label="Sección", options=("A", "B", "C", "D")),
+    Param("datum_d", "num", 80, label="Ø primitivo (datum)", minimum=10, step=5),
+    Param("grooves", "int", 1, label="Ranuras", minimum=1, maximum=20),
+    Param("bore", "num", 10, optional=True, label="Agujero (Ø)", minimum=0),
+    Param("center", "bool", False, label="Centrado"),
+), keyword="module", hint="Polea para correa en V, secciones trapeciales clásicas ANSI/RMA "
+   "A/B/C/D (las variantes de muesca moldeada AX/BX/CX/DX usan la misma ranura que su letra). "
+   "El ancho de cara sale solo de las ranuras: separación·(ranuras−1) + 2·margen. El ángulo y "
+   "ancho de la ranura cambian con el Ø primitivo, por tramos de la tabla."))
+
 # --- Importar ---------------------------------------------------------------
 _add(Spec("import", "Importar", "imp", False, (
     Param("file", "file", "", label="Archivo"),
@@ -399,6 +410,8 @@ ICONS = {
     "pulley": ("M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20z M12 6a6 6 0 1 0 0 12a6 6 0 1 0 0-12z"
                " M12 2v3 M12 19v3 M2 12h3 M19 12h3 M5.3 5.3l2.2 2.2 M16.5 16.5l2.2 2.2"
                " M5.3 18.7l2.2-2.2 M16.5 7.5l2.2-2.2"),
+    "v_pulley": ("M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20z"
+                 " M9 2.5l3 3l3-3 M9 21.5l3-3l3 3 M2.5 9l3 3l-3 3 M21.5 9l-3 3l3 3"),
     "rack": ("M2 14H2.7L3.5 7h2l0.8 7h1.4L8.5 7h2l0.8 7h1.4L13.5 7h2l0.8 7h1.4L18.5 7h2l0.8 7H22"
              "V19H2Z"),
     "cube_edges": "M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5 M12 12v9 M12 12L4 7.5 M17 4.2a4 4 0 0 1 3 3.3",

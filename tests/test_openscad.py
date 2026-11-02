@@ -233,6 +233,26 @@ def test_polea_dentada_con_pestanas():
         assert abs(volume_of(generate(doc).text) - mine) < 1, flange
 
 
+def test_polea_trapecial_volumen_y_agujero():
+    """La polea trapecial sale con el volumen de la vista aproximada (mismas fórmulas en Python
+    y OpenSCAD, vía rotate_extrude) y el agujero del eje la atraviesa entera."""
+    from scadgui import geometry
+    ctx = {"fn": 0, "fa": 12, "fs": 2}
+    for section, datum_d, grooves, bore in (("A", 80, 1, 8), ("B", 150, 2, 12), ("C", 250, 3, 15)):
+        doc = Document()
+        pu = doc.add("v_pulley")
+        for key, value in (("section", section), ("datum_d", datum_d), ("grooves", grooves)):
+            doc.set_param(pu.id, key, value)
+        mine = abs(signed_volume(geometry.v_pulley(pu.params, ctx)))
+        assert abs(volume_of(generate(doc).text) - mine) < 1, (section, datum_d, grooves)
+        doc.set_param(pu.id, "bore", bore)
+        from scadgui import gears
+        width = gears.v_pulley_dims(section, datum_d, grooves)["face_width"]
+        n = geometry.fragments(bore / 2, ctx)          # $fn=0 -> fórmula de fragments con $fa/$fs
+        hole = n * 0.5 * (bore / 2) ** 2 * math.sin(2 * math.pi / n) * width
+        assert abs(volume_of(generate(doc).text) - (mine - hole)) < 1, (section, datum_d, grooves, bore)
+
+
 if __name__ == "__main__":
     if not EXE:
         print("OpenSCAD no encontrado: se omiten estas pruebas (define OPENSCAD para indicar dónde está)")

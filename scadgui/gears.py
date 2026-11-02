@@ -533,3 +533,82 @@ def pulley_warnings(section: str, teeth: int, bore: float = 0.0) -> list[tuple[s
         out.append((N_("El agujero ({b} mm) casi llega al fondo del hueco ({f:.1f} mm): deja algo "
                     "de material alrededor."), {"b": f"{bore:g}", "f": d["root_d"]}))
     return out
+
+
+# --- Poleas trapeciales (correas en V) --------------------------------------
+# Secciones clásicas ANSI/RMA IP-20 (Machinery's Handbook 27, tabla 9, "Classical V-Belt Sheave
+# and Groove Dimensions ANSI/RMA IP-20, 1988"). Las variantes de muesca moldeada AX/BX/CX/DX
+# comparten exactamente la misma ranura que su letra base, así que no se modelan aparte (la letra
+# "Z" del sistema ISO no está en esta tabla, no se ofrece). El ángulo de la ranura (α) y su ancho
+# en la boca (bg) cambian por tramos según el Ø primitivo/datum; hg (profundidad), Sg (separación
+# entre ranuras) y Se (margen hasta el borde) son fijos por sección. No se modela el redondeo del
+# fondo (RB de la tabla): la ranura queda con fondo plano, igual que la cremallera y la polea
+# dentada no llevan tampoco sus propios redondeos.
+V_BELT_SECTIONS = {
+    # sección: (hg, Se, Sg, Ø datum mínimo recomendado, [(hasta Ø datum, ángulo, bg), ...]) en mm.
+    "A": (11.684, 9.525, 15.875, 76.2,
+          [(137.16, 34.0, 12.5476), (math.inf, 38.0, 12.8016)]),
+    "B": (13.97, 12.7, 19.05, 137.16,
+          [(177.8, 34.0, 16.1798), (math.inf, 38.0, 16.51)]),
+    "C": (19.05, 17.4752, 25.4, 228.6,
+          [(202.946, 34.0, 22.3266), (304.8, 36.0, 22.5298), (math.inf, 38.0, 22.733)]),
+    "D": (25.908, 22.225, 36.5252, 330.2,
+          [(329.946, 34.0, 31.9886), (431.8, 36.0, 32.2834), (math.inf, 38.0, 32.5782)]),
+}
+
+
+def v_pulley_dims(section: str, datum_d: float, grooves: int) -> dict:
+    """Medidas de la polea trapecial (mm)."""
+    hg, se, sg, min_d, tiers = V_BELT_SECTIONS.get(section, V_BELT_SECTIONS["A"])
+    d = max(1.0, float(datum_d))
+    angle, bg = tiers[-1][1], tiers[-1][2]
+    for limit, a, b in tiers:
+        if d <= limit:
+            angle, bg = a, b
+            break
+    ng = max(1, int(round(grooves)))
+    width = sg * (ng - 1) + 2 * se
+    t = math.tan(math.radians(angle / 2))
+    bottom_half = bg / 2 - hg * t
+    return {
+        "section": section, "datum_d": d, "grooves": ng, "groove_angle": angle,
+        "groove_width": bg, "groove_depth": hg, "groove_spacing": sg, "edge_distance": se,
+        "face_width": width, "bottom_half": bottom_half, "min_datum": min_d,
+        "outer_d": d, "root_d": d - 2 * hg,
+    }
+
+
+def v_pulley_profile(section: str, datum_d: float, grooves: int) -> np.ndarray:
+    """Perfil (radio, altura) de medio corte, para girar alrededor de Z (rotate_extrude): un
+    disco liso de Ø primitivo con tantas ranuras en V como ``grooves``."""
+    d = v_pulley_dims(section, datum_d, grooves)
+    r_top = d["outer_d"] / 2
+    r_bot = r_top - d["groove_depth"]
+    half = d["groove_width"] / 2
+    bottom_half = d["bottom_half"]
+    t = math.tan(math.radians(d["groove_angle"] / 2))
+    pts = [(r_top, 0.0)]
+    for k in range(d["grooves"]):
+        z = d["edge_distance"] + k * d["groove_spacing"]
+        if bottom_half > 0:
+            pts += [(r_top, z - half), (r_bot, z - bottom_half),
+                    (r_bot, z + bottom_half), (r_top, z + half)]
+        else:
+            pts += [(r_top, z - half), (r_top - half / t, z), (r_top, z + half)]
+    pts += [(r_top, d["face_width"]), (0.0, d["face_width"]), (0.0, 0.0)]
+    return np.array(pts, dtype=np.float64)
+
+
+def v_pulley_warnings(section: str, datum_d: float, grooves: int,
+                       bore: float = 0.0) -> list[tuple[str, dict]]:
+    """Problemas de diseño de la polea trapecial: (texto en español, valores para format)."""
+    out = []
+    d = v_pulley_dims(section, datum_d, grooves)
+    if d["datum_d"] < d["min_datum"]:
+        out.append((N_("Con Ø {d:g} mm la correa se dobla más de lo recomendado para la sección "
+                    "{s}: lo mínimo son {m:g} mm."),
+                    {"d": f"{d['datum_d']:g}", "s": section, "m": round(d["min_datum"], 1)}))
+    if d["root_d"] <= 0 or (bore and bore >= d["root_d"] - 2.0):
+        out.append((N_("El agujero ({b} mm) casi llega al fondo de la ranura (Ø {f:.1f} mm): deja "
+                    "algo de material alrededor."), {"b": f"{bore:g}", "f": max(0.0, d["root_d"])}))
+    return out

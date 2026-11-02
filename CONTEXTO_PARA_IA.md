@@ -292,6 +292,23 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     (abajo, arriba o los dos) y restando luego el agujero del eje por toda la pieza, incluidas
     las pestañas. Con pestañas, el centrado (`center`) centra el TOTAL (pestañas + dentado), no
     solo el dentado.
+  - Polea trapecial (`v_pulley`), correa en V: secciones clásicas ANSI/RMA IP-20 A/B/C/D
+    (Machinery's Handbook 27, tabla 9 «Classical V-Belt Sheave and Groove Dimensions ANSI/RMA
+    IP-20, 1988»; leída de la imagen de la página, no del texto extraído, porque `pdftotext`
+    desordena esta tabla). Las variantes de muesca moldeada AX/BX/CX/DX comparten exactamente la
+    misma ranura que su letra base, así que NO se modelan aparte; tampoco se ofrece la letra "Z"
+    del sistema ISO, que esta tabla no trae. El ángulo de la ranura (α) y su ancho en la boca
+    (`bg`) cambian por tramos según el Ø primitivo/datum elegido; la profundidad (`hg`), la
+    separación entre ranuras (`Sg`) y el margen al borde (`Se`) son fijos por sección. El ancho
+    de cara NO es un parámetro propio (a diferencia de `pulley`): sale solo de
+    `Sg·(ranuras−1) + 2·Se`, la fórmula que trae la propia tabla. No se modela el redondeo del
+    fondo de la ranura (`RB` de la tabla): queda con fondo plano, igual que la cremallera y la
+    polea dentada tampoco llevan los suyos. A diferencia de todas las demás piezas mecánicas de
+    este archivo (que son prismas con un contorno por capa), esta es una pieza DE REVOLUCIÓN: el
+    perfil (radio, altura) se gira una sola vez alrededor de Z, como `rotate_extrude()`, usando
+    el `geometry.revolve(poly, ctx)` ya existente (pensado para `rotate_extrude`, reutilizado
+    aquí). Por eso su mesh-builder recibe `ctx` (como `cube_edges`/`cylinder_edges`), a diferencia
+    de `pulley`/`spur_gear`/etc.
 - Contraste del tema oscuro: `tests/test_tema.py` mide letra/fondo en cada regla. Un color que en
   claro es letra (DARK lo aclara) y alguna regla usa de fondo va en `DARK_BACKGROUND`.
 - Cinta: `Ribbon.GROUPS` reparte los botones de cada pestaña en grupos con título (marcados con

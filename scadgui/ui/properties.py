@@ -219,6 +219,8 @@ class PropertyPanel(QScrollArea):
             self._gear_info(node)
         if node.kind == "pulley":
             self._pulley_info(node)
+        if node.kind == "v_pulley":
+            self._v_pulley_info(node)
         if spec and spec.hint:
             self._hint(tr(spec.hint))
         if spec and spec.container and not node.children:
@@ -355,6 +357,29 @@ class PropertyPanel(QScrollArea):
             self._hint(tr("Pestaña ({side}): Ø {fd:.2f} mm").format(
                 side=flange_label, fd=round(d["outer_d"] + 2 * fh, 3)))
         for text, values in gears.pulley_warnings(section, int(z), bore):
+            self._hint(tr(text).format(**values), "warnText")
+
+    def _v_pulley_info(self, node: Node) -> None:
+        """Medidas calculadas y avisos de diseño de la polea trapecial."""
+        from .. import gears
+        p = node.params
+        section = p.get("section", "A")
+        dd = p.get("datum_d", 80)
+        ng = p.get("grooves", 1)
+        if (section not in gears.V_BELT_SECTIONS or not isinstance(dd, (int, float))
+                or isinstance(dd, bool) or not isinstance(ng, (int, float)) or isinstance(ng, bool)):
+            return                                   # con expresiones no se puede calcular aquí
+        bore = p.get("bore", 0)
+        bore = bore if isinstance(bore, (int, float)) and not isinstance(bore, bool) else 0
+        d = gears.v_pulley_dims(section, dd, int(ng))
+        self._hint(tr("Ángulo de ranura {a:g}° · boca {bg:.3f} mm · profundidad {hg:.3f} mm · "
+                      "Ø de fondo {r:.2f} mm").format(a=d["groove_angle"], bg=d["groove_width"],
+                                                       hg=d["groove_depth"],
+                                                       r=round(d["root_d"], 3)))
+        self._hint(tr("Ancho de cara {w:.2f} mm ({n} ranuras · separación {sg:.3f} mm · margen "
+                      "{se:.3f} mm)").format(w=round(d["face_width"], 3), n=d["grooves"],
+                                              sg=d["groove_spacing"], se=d["edge_distance"]))
+        for text, values in gears.v_pulley_warnings(section, dd, int(ng), bore):
             self._hint(tr(text).format(**values), "warnText")
 
     def _operation_helper_form(self, node: Node) -> None:

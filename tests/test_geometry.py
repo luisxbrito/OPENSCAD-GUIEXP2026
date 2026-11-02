@@ -755,6 +755,33 @@ def test_polea_dentada_con_pestanas():
     assert np.isclose(tris2[..., 2].min(), -5) and np.isclose(tris2[..., 2].max(), 5)
     assert geo.signed_volume(tris2) > geo.signed_volume(tris)   # dos pestañas pesan más que una
 
+def test_polea_trapecial_perfil_y_ancho():
+    """El perfil (radio, altura) parte del Ø primitivo, cae a cada ranura y el ancho de cara
+    sale solo de separación/margen entre ranuras, no de un parámetro propio."""
+    from scadgui import gears
+    d = gears.v_pulley_dims("A", 80, 3)
+    prof = gears.v_pulley_profile("A", 80, 3)
+    assert np.isclose(prof[:, 0].max(), d["outer_d"] / 2)
+    assert np.isclose(prof[:, 0].min(), 0.0)                      # cierra en el eje
+    assert np.isclose(prof[:, 1].max(), d["face_width"])
+    assert np.isclose(prof[:, 1].min(), 0.0)
+    r_bot = d["outer_d"] / 2 - d["groove_depth"]
+    assert np.any(np.isclose(prof[:, 0], r_bot, atol=1e-6))       # llega al fondo de la ranura
+
+
+def test_polea_trapecial_en_la_vista_aproximada():
+    from scadgui.parser import parse
+    from scadgui import geometry as geo, gears
+    doc = parse('v_pulley(section = "B", datum_d = 150, grooves = 2, center = true);')
+    tris = next(iter(geo.build_ghosts(doc).values()))
+    d = gears.v_pulley_dims("B", 150, 2)
+    half = d["face_width"] / 2
+    assert np.isclose(tris[..., 2].min(), -half, atol=1e-6) and np.isclose(tris[..., 2].max(), half, atol=1e-6)
+    r = np.linalg.norm(tris[..., :2], axis=-1)
+    assert np.isclose(r.max(), d["outer_d"] / 2, atol=0.05)
+    assert geo.signed_volume(tris) > 0
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

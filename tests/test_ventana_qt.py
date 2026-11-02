@@ -517,6 +517,22 @@ def test_polea_desde_la_cinta():
     assert "module pulley(" in w.code.text.toPlainText()
 
 
+def test_polea_trapecial_desde_la_cinta():
+    """Botón v_pulley de la cinta; el panel calcula sus medidas (sección A por defecto)."""
+    from PySide6.QtWidgets import QLabel
+    from scadgui.model import Document
+    w = window()
+    w.set_document(Document())
+    w.ribbon.buttons["v_pulley"].click()
+    app.processEvents()
+    pu = w.doc.children[0]
+    assert pu.kind == "v_pulley" and w.selected_ids() == [pu.id]
+    texts = [l.text() for l in w.props.findChildren(QLabel)]
+    assert any(t.startswith("Ángulo de ranura 34° · boca 12.548 mm") for t in texts), texts
+    assert any("Ancho de cara 19.05 mm" in t for t in texts), texts
+    assert "module v_pulley(" in w.code.text.toPlainText()
+
+
 def test_helicoidal_y_cremallera_desde_la_cinta():
     """Botones helical_gear y rack de la cinta; el panel calcula sus datos y crea la pareja."""
     from PySide6.QtWidgets import QLabel, QPushButton

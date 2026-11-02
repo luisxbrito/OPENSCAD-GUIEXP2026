@@ -304,8 +304,45 @@ PULLEY = '''module pulley(section = "XL", teeth = 20, width = 6, bore = 0, flang
   }
 }'''
 
+V_PULLEY = '''module v_pulley(section = "A", datum_d = 80, grooves = 1, bore = 0, center = false) {
+  // Polea trapecial para correa en V (lo escribe OpenSCAD GUI Mejorada).
+  // Secciones clasicas ANSI/RMA IP-20 (Machinery's Handbook 27, tabla 9): angulo de la ranura
+  // (ang) y su ancho en la boca (bg) por tramos de diametro primitivo/datum; hg (profundidad),
+  // Sg (separacion entre ranuras) y Se (margen al borde) son fijos por seccion. El ancho de
+  // cara sale solo de las ranuras: Sg*(ranuras - 1) + 2*Se. Pieza axisimetrica (sin el redondeo
+  // RB del fondo de la tabla, igual que la cremallera y la polea dentada no llevan los suyos):
+  // se gira un perfil una sola vez con rotate_extrude.
+  hg = section == "A" ? 11.684 : section == "B" ? 13.97 : section == "C" ? 19.05 : 25.908;
+  se = section == "A" ? 9.525 : section == "B" ? 12.7 : section == "C" ? 17.4752 : 22.225;
+  sg = section == "A" ? 15.875 : section == "B" ? 19.05 : section == "C" ? 25.4 : 36.5252;
+  tier = section == "A" ? (datum_d <= 137.16 ? [34, 12.5476] : [38, 12.8016]) :
+         section == "B" ? (datum_d <= 177.8 ? [34, 16.1798] : [38, 16.51]) :
+         section == "C" ? (datum_d <= 202.946 ? [34, 22.3266] :
+                            datum_d <= 304.8 ? [36, 22.5298] : [38, 22.733]) :
+                           (datum_d <= 329.946 ? [34, 31.9886] :
+                            datum_d <= 431.8 ? [36, 32.2834] : [38, 32.5782]);
+  ang = tier[0]; bg = tier[1];
+  ng = max(1, round(grooves));
+  width = sg * (ng - 1) + 2 * se;
+  t = tan(ang / 2);
+  bot = bg / 2 - hg * t;
+  r_top = datum_d / 2;
+  r_bot = r_top - hg;
+  profile = concat(
+    [[r_top, 0]],
+    [for (k = [0 : ng - 1]) let(zc = se + k * sg) each
+       (bot > 0 ? [[r_top, zc - bg / 2], [r_bot, zc - bot], [r_bot, zc + bot], [r_top, zc + bg / 2]]
+                : [[r_top, zc - bg / 2], [r_top - (bg / 2) / t, zc], [r_top, zc + bg / 2]])],
+    [[r_top, width], [0, width], [0, 0]]);
+  translate([0, 0, center ? -width / 2 : 0]) difference() {
+    rotate_extrude() polygon(profile);
+    if (bore > 0) translate([0, 0, -1]) cylinder(h = width + 2, d = bore);
+  }
+}'''
+
 LIBRARY = {"cube_edges": CUBE_EDGES, "cylinder_edges": CYLINDER_EDGES, "spur_gear": SPUR_GEAR,
-           "helical_gear": HELICAL_GEAR, "rack": RACK, "bevel_gear": BEVEL_GEAR, "pulley": PULLEY}
+           "helical_gear": HELICAL_GEAR, "rack": RACK, "bevel_gear": BEVEL_GEAR, "pulley": PULLEY,
+           "v_pulley": V_PULLEY}
 
 # Versiones anteriores que ya pueden estar en archivos guardados. Al abrir el archivo se
 # reconocen como nuestras y se sustituyen por la versión actual (no se conservan como código
