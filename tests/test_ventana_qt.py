@@ -554,6 +554,18 @@ def test_helicoidal_y_cremallera_desde_la_cinta():
     pair = w.doc.find(w.selected_ids()[0])                           # …la pareja es un helicoidal
     assert pair.kind == "helical_gear" and pair.params["helix_angle"] == 20
 
+    w.set_document(Document())                                       # y el cónico, girado sin mover
+    w.ribbon.buttons["bevel_gear"].click()
+    app.processEvents()
+    texts = [l.text() for l in w.props.findChildren(QLabel)]
+    assert any(t.startswith("Ø primitivo 20 mm") and "cono primitivo 45.00°" in t for t in texts), texts
+    add = next(b for b in w.props.findChildren(QPushButton) if b.text() == tr("Añadir engranaje que engrane"))
+    add.click()
+    app.processEvents()
+    assert [n.kind for n in w.doc.children] == ["bevel_gear", "rotate"]
+    assert w.doc.children[1].params["a"] == [0, 90, 0]
+    assert "module bevel_gear(" in w.code.text.toPlainText()
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

@@ -244,6 +244,18 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     gira en sentido HORARIO con twist positivo, así que la hélice a derechas lleva twist negativo
     (comprobado contra OpenSCAD real). La pareja va de MANO CONTRARIA, a m·(z1+z2)/(2·cos ψ);
     con la misma mano chocan, y hay pruebas que lo verifican en los dos sentidos.
+  - Cónico (`bevel_gear`): Handbook p. 2087, "milled bevel gears". El ángulo del cono depende de
+    los dientes de LAS DOS ruedas (tan α = sen Σ/(NG/NP + cos Σ)), por eso la pieza pide los de
+    la pareja. El diente sale del engranaje virtual de Tredgold (recto, N/cos α dientes): un
+    punto que en el virtual está a ρ del centro se lleva al cono α + atan((ρ−rv)/C) y su ángulo
+    alrededor del eje se divide por cos α. Luego el perfil se BARRE HACIA EL VÉRTICE
+    (`linear_extrude(scale=)`), lo que da los conos de cabeza, primitivo y pie exactos.
+    La cara trasera es PLANA, en el plano donde el cono de cabeza llega al Ø exterior (la "vertex
+    distance" J del Handbook): así el Ø exterior de la pieza es el D + 2·m·cos α de las tablas.
+    El vértice va en el ORIGEN, así que la pareja es la misma pieza girada el ángulo entre ejes,
+    sin trasladar. OJO: una versión anterior cerraba la cara trasera en abanico sobre el cono
+    posterior; eso alargaba la pieza en punta hasta C/cos α y, además, CGAL no sabía intersecar
+    dos de esos poliedros. El barrido simple arregla las dos cosas.
   - Cremallera: el «dentado básico» del sistema, de flancos rectos. Línea primitiva en y = 0,
     dientes hacia +Y, cada diente centrado en su paso (los huecos caen en los múltiplos del paso).
     Con un ángulo de presión grande el hueco acaba en V y el diente en punta: los dos casos están

@@ -30,6 +30,14 @@ Italian and Portuguese (*Edit › Preferences*).
     it warns when that overlap drops below 1, because then the tooth does not wrap a whole pitch
     and the gear runs like a spur one. The mating gear is made with the **opposite hand** (two
     gears of the same hand do not mesh) and placed at m·(z1 + z2)/(2·cos ψ).
+  - **Bevel gear** (module, teeth, teeth of the mate, shaft angle, face width): a straight bevel
+    gear for shafts that cross, from the Handbook's milled-bevel formulas. Its cone angle depends
+    on both tooth counts, so the mate's has to be given. The tooth comes from Tredgold's virtual
+    spur gear (N/cos α teeth) and the profile is swept from the cone apex, which puts the face,
+    pitch and root cones exactly where the tables say and gives the standard outside diameter
+    D + 2·m·cos α. The apex sits at the origin and the gear faces +Z, so **the mate is the same
+    part turned by the shaft angle** — nothing to move. The panel shows the cone angles, the cone
+    distance, the virtual teeth and the maximum face width (C/3 or 8·m).
   - **Rack** (module, teeth, thickness, base, pressure angle, backlash): the basic tooth form of
     the module system, with straight flanks. Its pitch line sits at y = 0 and the teeth point
     towards +Y, so the gear put on it has its centre one pitch radius above. Tick **helix angle**
@@ -119,9 +127,9 @@ scadgui/
   sketches.py            2D profile builders
   drawing.py             technical drawing sheet generator
   operations.py          help texts and quick presets for each operation
-  library.py, edges.py   cube_edges / cylinder_edges / spur_gear / helical_gear / rack modules
-                         and the edge rounding logic
-  gears.py               involute gear and rack maths (same formulas as those modules)
+  library.py, edges.py   cube_edges / cylinder_edges / spur_gear / helical_gear / bevel_gear /
+                         rack modules and the edge rounding logic
+  gears.py               involute gear, bevel and rack maths (same formulas as those modules)
   code_assist.py         code templates and parameter hints for the editor
   i18n.py, locales/      translations (one file per language)
   ui/                    PySide6 windows and dialogs

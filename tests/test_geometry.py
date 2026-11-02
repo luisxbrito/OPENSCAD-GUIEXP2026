@@ -599,6 +599,93 @@ def test_pareja_helicoidal_engrana_en_todo_el_grueso():
     assert interferes(1, 20, 40, 30, 20, 0.1, same_hand=True)
 
 
+def _bevel_solid(mod, z, zm, sigma, face, backlash):
+    """Devuelve (puntos de su superficie, función «¿está dentro?») de un cónico con el vértice en
+    el origen. El cónico es el perfil de la cara trasera barrido hacia el vértice, así que un
+    punto está dentro si cae entre las dos caras y, llevado a la trasera, entra en el perfil."""
+    from scadgui import gears
+    d = gears.bevel_dims(mod, z, zm, sigma, 20, face)
+    poly = gears.bevel_polygon(mod, z, zm, sigma, 20, backlash)
+    zo = d["outer_z"]
+    zi = zo - face * math.cos(math.radians(d["gamma"]))
+
+    def inside(p):
+        with np.errstate(divide="ignore", invalid="ignore"):
+            flat = np.nan_to_num(p[:, :2] * (zo / p[:, 2])[:, None], posinf=1e9, neginf=-1e9)
+        return (p[:, 2] >= zi) & (p[:, 2] <= zo) & _inside(flat, poly)
+    ring = np.column_stack([poly, np.full(len(poly), zo)])
+    surface = np.vstack([ring * t for t in (1, zi / zo, *(np.linspace(zi / zo, 1, 7)))])
+    return surface, inside
+
+
+def _spin(a, axis="z"):
+    c, s = math.cos(a), math.sin(a)
+    return (np.array([[c, -s, 0.0], [s, c, 0], [0, 0, 1]]) if axis == "z" else
+            np.array([[c, 0, s], [0, 1.0, 0], [-s, 0, c]]))
+
+
+def test_conico_medidas_del_handbook():
+    """Machinery's Handbook 27, «Rules and Formulas for Calculating Dimensions of Milled Bevel
+    Gears», p. 2087-2088."""
+    from scadgui import gears
+    d = gears.bevel_dims(2, 20, 20, 90, 20, 8)
+    assert np.isclose(d["gamma"], 45) and np.isclose(d["mate_gamma"], 45)   # tan α = NP/NG
+    assert np.isclose(d["cone"], 40 / (2 * math.sin(math.radians(45))))     # C = D / (2 sen α)
+    assert np.isclose(d["tip_d"], 40 + 2 * 2 * math.cos(math.radians(45)))  # O = D + 2·S·cos α
+    assert np.isclose(d["addendum_angle"], math.degrees(math.atan(2 / d["cone"])))
+    assert np.isclose(d["dedendum_angle"], math.degrees(math.atan(2.5 / d["cone"])))
+    assert np.isclose(d["virtual_teeth"], 20 / math.cos(math.radians(45)))  # N' = N / cos α
+    assert np.isclose(d["max_face"], min(d["cone"] / 3, 8 * 2))             # C/3 u 8·m
+    assert np.isclose(d["outer_z"], d["tip_d"] / 2 / math.tan(math.radians(d["face_angle"])))
+    # Para 15 y 30 dientes a 90°, tan α = 15/30
+    assert np.isclose(gears.bevel_dims(1, 15, 30)["gamma"], math.degrees(math.atan(0.5)))
+    # En las tres relaciones, el perfil llega justo al Ø exterior del Handbook y a los dos conos
+    for z, zm in ((20, 20), (15, 30), (30, 15)):
+        d = gears.bevel_dims(2, z, zm, 90, 20, 8)
+        r = np.hypot(*gears.bevel_polygon(2, z, zm).T)
+        assert np.isclose(2 * r.max(), d["tip_d"]), (z, zm)
+        assert np.isclose(math.degrees(math.atan(r.max() / d["outer_z"])), d["face_angle"])
+        assert np.isclose(math.degrees(math.atan(r.min() / d["outer_z"])), d["root_angle"])
+
+
+def test_pareja_de_conicos_engrana_al_girar():
+    """Los dos cónicos comparten el vértice y el segundo va girado el ángulo entre ejes. Girando
+    la pareja un diente, ningún punto de la superficie de uno entra en el otro. Si se invierte el
+    sentido, si la fase se corre medio paso o si la holgura es negativa, sí chocan."""
+    from scadgui import gears
+
+    def interferes(mod, z1, z2, sigma, face, backlash, sign=-1, phase=0.0):
+        s1, in1 = _bevel_solid(mod, z1, z2, sigma, face, backlash)
+        s2, in2 = _bevel_solid(mod, z2, z1, sigma, face, backlash)
+        delta = math.radians(gears.mesh_rotation(z2) + phase)
+        for k in range(13):
+            t = k / 12 * 2 * math.pi / z1
+            one = _spin(t)
+            two = _spin(math.radians(sigma), "y") @ _spin(delta + sign * t * z1 / z2)
+            if in2(s1 @ one.T @ two).any() or in1(s2 @ two.T @ one).any():
+                return True
+        return False
+    for args in ((2, 20, 20, 90, 8), (1, 15, 30, 90, 6), (2, 12, 36, 90, 7),
+                 (1, 20, 20, 60, 6), (1, 18, 25, 120, 5)):
+        assert not interferes(*args, 0.1), args
+    assert not interferes(2, 20, 20, 90, 8, 0.0)                   # sin holgura, se tocan sin más
+    assert interferes(2, 20, 20, 90, 8, 0.1, sign=1)               # girando al revés
+    assert interferes(2, 20, 20, 90, 8, 0.1, phase=9.0)            # medio paso fuera de fase
+    assert interferes(2, 20, 20, 90, 8, -0.4)                      # con holgura negativa
+
+
+def test_conico_en_la_vista_aproximada():
+    from scadgui.parser import parse
+    from scadgui import geometry as geo, gears
+    doc = parse("bevel_gear(mod = 2, teeth = 20, mate_teeth = 20, face_width = 8);")
+    tris = next(iter(geo.build_ghosts(doc).values()))
+    d = gears.bevel_dims(2, 20, 20, 90, 20, 8)
+    assert geo.signed_volume(tris) > 0
+    assert np.isclose(np.hypot(tris[..., 0], tris[..., 1]).max(), d["tip_d"] / 2)
+    assert np.isclose(tris[..., 2].max(), d["outer_z"])            # cara trasera plana
+    assert np.isclose(tris[..., 2].min(), d["outer_z"] - 8 * math.cos(math.radians(45)))
+
+
 def test_cremallera_y_helicoidal_en_la_vista_aproximada():
     from scadgui.parser import parse
     from scadgui import geometry as geo

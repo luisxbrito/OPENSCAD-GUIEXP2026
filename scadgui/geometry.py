@@ -605,16 +605,19 @@ def _edge_value(p) -> tuple[Optional[float], bool]:
     return (ch, True) if ch > 0 else (ro, False)
 
 
-def prism(poly: np.ndarray, h: float, z0: float = 0.0, shift: float = 0.0) -> Tris:
+def prism(poly: np.ndarray, h: float, z0: float = 0.0, shift: float = 0.0,
+          scale: float = 1.0) -> Tris:
     """Polígono simple extruido a la altura h (caras hacia fuera).
 
     Con shift la cara de arriba va corrida esa distancia en X, o sea que el prisma sale sesgado
     (como un ``multmatrix`` de sesgo sobre el extruido). Al correrse todos los puntos lo mismo,
-    las caras laterales siguen siendo planas y da igual por qué diagonal se partan."""
+    las caras laterales siguen siendo planas y da igual por qué diagonal se partan. Con scale la
+    cara de arriba sale a esa escala, como ``linear_extrude(scale = …)``; si la escala sale de
+    barrer desde un vértice del eje, las caras también son planas."""
     if _area(poly) < 0:
         poly = poly[::-1]
     lo = np.column_stack([poly, np.full(len(poly), z0)])
-    hi = np.column_stack([poly + [shift, 0], np.full(len(poly), z0 + h)])
+    hi = np.column_stack([poly * scale + [shift, 0], np.full(len(poly), z0 + h)])
     parts = [_quads(lo, hi)]
     tri = triangulate(poly)
     if tri:
@@ -674,6 +677,29 @@ def helical_gear(p) -> Optional[Tris]:
         turn = -turn
     return twisted_prism(poly, t, -t / 2 if p.get("center") is True else 0.0, turn,
                          max(8, int(math.ceil(abs(turn) / 2))))
+
+
+def bevel_gear(p) -> Optional[Tris]:
+    """Engranaje cónico recto (vista aproximada: sin el agujero, que lo hace OpenSCAD).
+
+    Es el perfil de la cara trasera barrido hacia el vértice, que está en el origen: la cara
+    delantera es el mismo perfil a escala. Como cada punto y su copia quedan alineados con el
+    vértice, las caras laterales son planas y la malla sale igual que la de OpenSCAD."""
+    from . import gears
+    mod, z = _num(p.get("mod", 1)), _num(p.get("teeth", 20))
+    zm, sigma = _num(p.get("mate_teeth", 20)), _num(p.get("shaft_angle", 90))
+    face, pa = _num(p.get("face_width", 4)), _num(p.get("pressure_angle", 20))
+    if None in (mod, z, zm, sigma, face, pa) or mod <= 0 or z < 3 or zm < 3 or not 1 < sigma < 179:
+        return None
+    d = gears.bevel_dims(mod, int(z), int(zm), sigma, pa, face)
+    if d["face_angle"] >= 89.5 or d["root_angle"] <= 0.5 or d["outer_z"] <= 0:
+        return None
+    outer_z = d["outer_z"]
+    cos_g = math.cos(math.radians(d["gamma"]))
+    inner_z = outer_z - min(max(0.01, face), outer_z / cos_g * 0.95) * cos_g
+    poly = gears.bevel_polygon(mod, int(z), int(zm), sigma, pa, _num(p.get("backlash", 0), 0.0) or 0.0)
+    k = inner_z / outer_z
+    return prism(poly * k, outer_z - inner_z, inner_z, scale=1 / k)
 
 
 def rack(p) -> Optional[Tris]:
@@ -1076,6 +1102,8 @@ def solid(node, ctx) -> dict:
         mesh = helical_gear(p)
     elif k == "rack":
         mesh = rack(p)
+    elif k == "bevel_gear":
+        mesh = bevel_gear(p)
     elif k == "cylinder_edges":
         mesh = cylinder_edges(p, ctx)
     elif k in ("square", "circle", "polygon"):

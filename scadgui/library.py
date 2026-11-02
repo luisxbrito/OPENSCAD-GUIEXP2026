@@ -209,8 +209,55 @@ RACK = '''module rack(mod = 1, teeth = 10, thickness = 5, base = 5, pressure_ang
       linear_extrude(thickness) polygon(pts);
 }'''
 
+BEVEL_GEAR = '''module bevel_gear(mod = 1, teeth = 20, mate_teeth = 20, shaft_angle = 90, face_width = 4, pressure_angle = 20, backlash = 0, bore = 0) {
+  // Engranaje cónico recto (lo escribe OpenSCAD GUI Mejorada).
+  // Machinery's Handbook 27, "Rules and Formulas for Calculating Dimensions of Milled Bevel
+  // Gears", p. 2087. El vértice del cono queda en el ORIGEN y la rueda mira hacia +Z, así que
+  // su pareja es la misma pieza girada el ángulo entre ejes: no hay que moverla.
+  // El diente sale del engranaje virtual de Tredgold (uno recto del mismo módulo con
+  // teeth/cos(cono) dientes) y el perfil se barre hacia el vértice, con lo que los conos de
+  // cabeza, primitivo y pie salen exactos.
+  z = max(3, round(teeth));
+  zm = max(3, round(mate_teeth));
+  g = atan2(sin(shaft_angle), zm / z + cos(shaft_angle));   // ángulo del cono primitivo
+  C = mod * z / (2 * sin(g));                               // distancia de cono exterior
+  ha = atan(mod / C);                                       // ángulo de cabeza
+  hf = atan(1.25 * mod / C);                                // ángulo de pie
+  // La cara trasera se tornea plana, en el plano donde el cono de cabeza llega al diámetro
+  // exterior D + 2*mod*cos(g): es la "vertex distance" J del Handbook.
+  zo = (mod * z / 2 + mod * cos(g)) / tan(g + ha);
+  F = min(max(0.01, face_width), zo / cos(g) * 0.95);       // ancho de cara, sobre el primitivo
+  zi = zo - F * cos(g);
+  rv = mod * (z / cos(g)) / 2;                              // radio primitivo del virtual
+  rbv = rv * cos(pressure_angle);
+  rf = max(rv - 1.25 * mod, mod * 0.1);
+  r0 = max(rbv, rf);
+  function inv(a) = tan(a) - a * PI / 180;
+  // Medio grueso del diente ALREDEDOR DEL EJE: el del virtual, dividido por cos(cono).
+  function half(p) = max(0, ((PI * mod / 2 - backlash / 2) / (2 * rv) + inv(pressure_angle)
+                             - inv(acos(min(1, rbv / p)))) * 180 / PI) / cos(g);
+  // Un punto que en el virtual está a p del centro queda sobre el cono g + atan((p - rv)/C).
+  function rad(p) = zo * tan(g + atan((p - rv) / C));
+  n = 8;
+  flank = [for (k = [0 : n]) r0 + (rv + mod - r0) * k / n];
+  root = rf < r0 - 1e-6;
+  pts = [for (i = [0 : z - 1]) let(c = i * 360 / z) each concat(
+           root ? [[rad(rf) * cos(c - half(r0)), rad(rf) * sin(c - half(r0))]] : [],
+           [for (p = flank) [rad(p) * cos(c - half(p)), rad(p) * sin(c - half(p))]],
+           [for (k = [n : -1 : 0]) let(p = flank[k])
+              [rad(p) * cos(c + half(p)), rad(p) * sin(c + half(p))]],
+           root ? [[rad(rf) * cos(c + half(r0)), rad(rf) * sin(c + half(r0))]] : [],
+           [[rad(rf) * cos(c + 180 / z), rad(rf) * sin(c + 180 / z)]])];
+  difference() {
+    // Barrido hacia el vértice: el perfil de la cara delantera es el de la trasera a escala.
+    translate([0, 0, zi])
+      linear_extrude(zo - zi, scale = zo / zi) polygon([for (q = pts) q * zi / zo]);
+    if (bore > 0) translate([0, 0, -1]) cylinder(h = zo + 2, d = bore);
+  }
+}'''
+
 LIBRARY = {"cube_edges": CUBE_EDGES, "cylinder_edges": CYLINDER_EDGES, "spur_gear": SPUR_GEAR,
-           "helical_gear": HELICAL_GEAR, "rack": RACK}
+           "helical_gear": HELICAL_GEAR, "rack": RACK, "bevel_gear": BEVEL_GEAR}
 
 # Versiones anteriores que ya pueden estar en archivos guardados. Al abrir el archivo se
 # reconocen como nuestras y se sustituyen por la versión actual (no se conservan como código

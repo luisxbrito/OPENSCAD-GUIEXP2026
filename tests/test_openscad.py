@@ -161,6 +161,30 @@ def test_helicoidal_como_en_la_vista_aproximada():
     assert gears.helical_center_distance(1, 20, 40, 20) > 0
 
 
+def test_conico_su_pareja_y_las_operaciones_normales():
+    """El cónico sale con el volumen calculado, su pareja no lo toca, y aguanta las operaciones
+    de siempre: buje soldado, agujero del eje y aligeramientos, sin avisos de CGAL."""
+    from scadgui import geometry
+    doc = Document()
+    g = doc.add("bevel_gear")
+    for key, value in (("mod", 2), ("teeth", 20), ("mate_teeth", 20), ("face_width", 8)):
+        doc.set_param(g.id, key, value)
+    mine = abs(signed_volume(geometry.bevel_gear(g.params)))
+    assert abs(volume_of("$fn = 48;\n" + generate(doc).text) - mine) < 1
+    doc.add_meshing_gear(g.id)                       # la pareja, girada 90°: no se tocan
+    pair = generate(doc).text
+    body = pair.split("module ", 1)
+    assert volume_of("intersection() {\n" + body[0] + "}\nmodule " + body[1]) == 0
+    assert abs(volume_of(pair) - 2 * mine) < 2       # y juntas pesan lo que las dos por separado
+    doc.children.pop()                               # fuera la pareja
+    doc.set_param(g.id, "bore", 8)
+    body = generate(doc).text.split("module ", 1)
+    render("$fn = 48;\ndifference() { union() { " + body[0] +
+           " translate([0, 0, 26]) cylinder(h = 14, d = 18); }\n"
+           "  for (i = [0:3]) rotate([0, 0, 90 * i]) translate([12, 0, 20]) cylinder(h = 30, d = 5);\n"
+           "}\nmodule " + body[1])
+
+
 def test_cremallera_y_su_engranaje():
     """La cremallera sale con el volumen calculado y el engranaje que se le pone encima no la toca.
     Lo mismo con el dentado inclinado y su helicoidal."""

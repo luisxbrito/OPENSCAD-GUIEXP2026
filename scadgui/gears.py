@@ -90,29 +90,36 @@ def mesh_rotation(teeth: int) -> float:
 
 
 def _involute_polygon(z: int, r: float, rb: float, ra: float, rf: float, alpha: float,
-                     s_half: float) -> np.ndarray:
+                     s_half: float, at=None, widen: float = 1.0) -> np.ndarray:
     """Contorno de evolvente (N × 2), antihorario, con un diente centrado en +X.
 
     r: radio primitivo; rb: de base; ra: exterior; rf: de raíz; alpha: ángulo de presión en el
     círculo primitivo (radianes); s_half: medio grueso del diente ahí, en radianes.
+
+    Para el cónico, el perfil se calcula con el engranaje virtual de Tredgold y luego se lleva al
+    plano exterior: ``at`` cambia cada radio por el que le toca ahí y ``widen`` multiplica los
+    ángulos (ver ``bevel_polygon``).
     """
     r0 = max(rb, rf)
+    place = at or (lambda R: R)
 
     def half(R: float) -> float:
-        return max(0.0, s_half + _inv(alpha) - _inv(math.acos(min(1.0, rb / R))))
+        return max(0.0, s_half + _inv(alpha) - _inv(math.acos(min(1.0, rb / R)))) * widen
 
     flank = [r0 + (ra - r0) * k / FLANK_STEPS for k in range(FLANK_STEPS + 1)]
     pts = []
     for i in range(z):
         c = 2 * math.pi * i / z
+        qf = place(rf)
         if rf < r0 - 1e-6:
-            pts.append((rf * math.cos(c - half(r0)), rf * math.sin(c - half(r0))))
-        pts += [(R * math.cos(c - half(R)), R * math.sin(c - half(R))) for R in flank]
-        pts += [(R * math.cos(c + half(R)), R * math.sin(c + half(R))) for R in reversed(flank)]
+            pts.append((qf * math.cos(c - half(r0)), qf * math.sin(c - half(r0))))
+        pts += [(place(R) * math.cos(c - half(R)), place(R) * math.sin(c - half(R))) for R in flank]
+        pts += [(place(R) * math.cos(c + half(R)), place(R) * math.sin(c + half(R)))
+                for R in reversed(flank)]
         if rf < r0 - 1e-6:
-            pts.append((rf * math.cos(c + half(r0)), rf * math.sin(c + half(r0))))
+            pts.append((qf * math.cos(c + half(r0)), qf * math.sin(c + half(r0))))
         mid = c + math.pi / z                              # fondo del hueco entre dientes
-        pts.append((rf * math.cos(mid), rf * math.sin(mid)))
+        pts.append((qf * math.cos(mid), qf * math.sin(mid)))
     return np.array(pts, dtype=np.float64)
 
 
@@ -349,6 +356,107 @@ def helical_warnings(mod: float, teeth: int, helix_angle: float, pressure_angle:
     if bore and bore >= d["root_d"] - 2 * mod:
         out.append((N_("El agujero ({b} mm) casi llega al fondo de los dientes ({f:.1f} mm): deja al menos "
                     "dos módulos de material."), {"b": f"{bore:g}", "f": d["root_d"]}))
+    if backlash < 0 or backlash > mod * math.pi / 4:
+        out.append((N_("La holgura ({j} mm) no es razonable para el módulo {m}: suele ser de 0 a 0.2 mm "
+                    "(para impresión 3D, 0.1–0.3 mm)."), {"j": f"{backlash:g}", "m": f"{mod:g}"}))
+    return out
+
+
+# --- Engranaje cónico recto -------------------------------------------------
+
+def bevel_dims(mod: float, teeth: int, mate_teeth: int, shaft_angle: float = 90.0,
+               pressure_angle: float = 20.0, face_width: float = 0.0) -> dict:
+    """Medidas del cónico (mm y grados). Machinery's Handbook 27, «Rules and Formulas for
+    Calculating Dimensions of Milled Bevel Gears», p. 2087-2088."""
+    z = max(3, int(round(teeth)))
+    zm = max(3, int(round(mate_teeth)))
+    sigma = math.radians(shaft_angle)
+    gamma = math.atan2(math.sin(sigma), zm / z + math.cos(sigma))   # ángulo del cono primitivo
+    d = mod * z
+    cone = d / (2 * max(1e-9, math.sin(gamma)))                     # distancia de cono exterior
+    theta = math.atan(mod / cone)                                   # ángulo de cabeza
+    phi = math.atan(1.25 * mod / cone)                              # ángulo de pie
+    cos_g = math.cos(gamma)
+    return {
+        "teeth": z,
+        "mate_teeth": zm,
+        "gamma": math.degrees(gamma),
+        "mate_gamma": shaft_angle - math.degrees(gamma),
+        "cone": cone,
+        "pitch_d": d,
+        "tip_d": d + 2 * mod * cos_g,                               # O = D + 2·S·cos α
+        "addendum_angle": math.degrees(theta),
+        "dedendum_angle": math.degrees(phi),
+        "face_angle": math.degrees(gamma + theta),                  # cono de cabeza
+        "root_angle": math.degrees(gamma - phi),                    # cono de pie
+        "virtual_teeth": z / max(1e-9, cos_g),                      # N' = N / cos α (Tredgold)
+        "min_teeth": min_teeth(pressure_angle) * cos_g,
+        "max_face": min(cone / 3, 8 * mod),                         # C/3 u 8·m, el menor
+        # El blanco se tornea como un tronco de cono con la cara trasera plana, en el plano donde
+        # el cono de cabeza llega al diámetro exterior: es la «vertex distance» J del Handbook,
+        # J = (O/2)·cot(cono de cabeza). La delantera queda una cara más acá, medida sobre el
+        # cono primitivo.
+        "outer_z": (d / 2 + mod * cos_g) / math.tan(gamma + theta),
+        "inner_z": (d / 2 + mod * cos_g) / math.tan(gamma + theta) - max(0.0, face_width) * cos_g,
+        "circular_pitch": math.pi * mod,
+    }
+
+
+def bevel_polygon(mod: float, teeth: int, mate_teeth: int, shaft_angle: float = 90.0,
+                  pressure_angle: float = 20.0, backlash: float = 0.0) -> np.ndarray:
+    """Perfil del cónico (N × 2) en el plano exterior, perpendicular al eje, con el vértice del
+    cono en el origen y un diente centrado en +X.
+
+    El diente se saca del engranaje virtual de Tredgold (recto, del mismo módulo y con N/cos α
+    dientes, el que se obtiene al desarrollar el cono posterior sobre un plano):
+
+    * un punto que en el virtual está a ρ del centro queda a h = ρ − rv del cono primitivo,
+      medidos perpendiculares a él, o sea sobre el cono de ángulo α + atan(h/C); su radio en la
+      cara trasera es zo·tan(ese ángulo);
+    * los ángulos alrededor del eje salen de dividir por cos α los del desarrollo (así el paso
+      del virtual, 2π/N', se convierte en el de verdad, 2π/N).
+
+    Como la cara trasera está justo en el plano del círculo de cabeza, la cabeza queda en
+    D + 2·m·cos α, que es el diámetro exterior del Handbook. Barrer el perfil hacia el vértice da
+    los conos de cabeza, primitivo y pie exactos.
+    """
+    z = max(3, int(round(teeth)))
+    d = bevel_dims(mod, teeth, mate_teeth, shaft_angle, pressure_angle)
+    gamma, cone, outer_z = math.radians(d["gamma"]), d["cone"], d["outer_z"]
+    alpha = math.radians(pressure_angle)
+    rv = mod * d["virtual_teeth"] / 2                               # radio primitivo del virtual
+    rbv = rv * math.cos(alpha)
+    rf = max(rv - 1.25 * mod, mod * 0.1)
+    return _involute_polygon(z, rv, rbv, rv + mod, rf, alpha,
+                             (math.pi * mod / 2 - backlash / 2) / (2 * rv),
+                             at=lambda p: outer_z * math.tan(gamma + math.atan((p - rv) / cone)),
+                             widen=1 / math.cos(gamma))
+
+
+def bevel_warnings(mod: float, teeth: int, mate_teeth: int, shaft_angle: float = 90.0,
+                   pressure_angle: float = 20.0, backlash: float = 0.0, bore: float = 0.0,
+                   face_width: float = 0.0) -> list[tuple[str, dict]]:
+    """Problemas de diseño del cónico: (texto en español, valores para format)."""
+    out = []
+    d = bevel_dims(mod, teeth, mate_teeth, shaft_angle, pressure_angle, face_width)
+    if d["face_angle"] >= 88:
+        out.append((N_("Con estos dientes y {s}° entre ejes el cono queda casi plano ({g:.1f}°) y el "
+                    "diente no cabe: usa menos ángulo entre ejes o más dientes en esta rueda."),
+                    {"s": f"{shaft_angle:g}", "g": d["gamma"]}))
+    if face_width > d["max_face"]:
+        out.append((N_("La cara ({f} mm) pasa del máximo {n:.1f} mm (un tercio de la distancia de cono "
+                    "o ocho módulos): hacia el vértice el diente se queda sin sitio."),
+                    {"f": f"{face_width:g}", "n": d["max_face"]}))
+    if d["teeth"] < d["min_teeth"]:
+        out.append((N_("Con {z} dientes y {a}° de presión el pie del diente queda socavado: el "
+                    "cónico talla como un recto de {v:.1f} dientes y hacen falta {n:.0f}."),
+                    {"z": d["teeth"], "a": f"{pressure_angle:g}", "v": d["virtual_teeth"],
+                     "n": math.ceil(d["min_teeth"])}))
+    if bore and bore >= 2 * d["inner_z"] * math.tan(math.radians(d["root_angle"])) - 2 * mod:
+        out.append((N_("El agujero ({b} mm) no cabe por el extremo estrecho, donde el fondo del diente "
+                    "mide {f:.1f} mm: deja al menos dos módulos de material."),
+                    {"b": f"{bore:g}",
+                     "f": 2 * d["inner_z"] * math.tan(math.radians(d["root_angle"]))}))
     if backlash < 0 or backlash > mod * math.pi / 4:
         out.append((N_("La holgura ({j} mm) no es razonable para el módulo {m}: suele ser de 0 a 0.2 mm "
                     "(para impresión 3D, 0.1–0.3 mm)."), {"j": f"{backlash:g}", "m": f"{mod:g}"}))

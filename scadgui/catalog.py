@@ -265,6 +265,20 @@ _add(Spec("helical_gear", "Engranaje helicoidal", "solid", False, (
 ), keyword="module", hint="Engranaje helicoidal de evolvente. El módulo y el ángulo de presión son los "
    "normales (perpendiculares al diente); Ø primitivo = m·z/cos ψ. Dos iguales de mano contraria "
    "engranan con sus centros a m·(z1 + z2)/(2·cos ψ)."))
+_add(Spec("bevel_gear", "Engranaje cónico", "solid", False, (
+    Param("mod", "num", 1, label="Módulo (m)", minimum=0.05, step=0.25),
+    Param("teeth", "int", 20, label="Dientes (z)", minimum=3, maximum=400),
+    # El cono de cada rueda depende de las dos: un cónico solo no existe, se diseña por parejas.
+    Param("mate_teeth", "int", 20, label="Dientes de la pareja", minimum=3, maximum=400),
+    Param("shaft_angle", "num", 90, label="Ángulo entre ejes (°)", minimum=20, maximum=160, step=5),
+    Param("face_width", "num", 4, label="Ancho de cara", minimum=0.01, step=0.5),
+    Param("pressure_angle", "num", 20, label="Ángulo de presión (°)", minimum=10, maximum=35, step=0.5),
+    Param("backlash", "num", 0.1, label="Holgura (mm)", minimum=0, step=0.05),
+    Param("bore", "num", 5, optional=True, label="Agujero (Ø)", minimum=0),
+    FN,
+), keyword="module", hint="Engranaje cónico recto para ejes que se cortan. El vértice del cono queda en "
+   "el origen y la rueda mira hacia +Z, así que la pareja es la misma pieza girada el ángulo entre ejes, "
+   "sin moverla. Su cono depende de los dientes de las dos, por eso hay que decir los de la otra."))
 _add(Spec("rack", "Cremallera", "solid", False, (
     Param("mod", "num", 1, label="Módulo (m)", minimum=0.05, step=0.25),
     Param("teeth", "int", 10, label="Dientes (z)", minimum=1, maximum=400),
@@ -365,6 +379,8 @@ ICONS = {
     "helical_gear": ("M4.5 6c0-1.21 3.36-2.2 7.5-2.2s7.5 0.99 7.5 2.2v11c0 1.21-3.36 2.2-7.5 2.2"
                      "s-7.5-0.99-7.5-2.2z M4.5 6c0 1.21 3.36 2.2 7.5 2.2s7.5-0.99 7.5-2.2"
                      " M5.5 7.1l5 12.1 M9 8l5 11.1 M12.5 8.2l5 10.3"),
+    "bevel_gear": ("M7 18L4 10l2-2.6l2 2.6l2-2.6l2 2.6l2-2.6l2 2.6l2-2.6l2 2.6L17 18Z"
+                   " M12 18v3"),
     "rack": ("M2 14H2.7L3.5 7h2l0.8 7h1.4L8.5 7h2l0.8 7h1.4L13.5 7h2l0.8 7h1.4L18.5 7h2l0.8 7H22"
              "V19H2Z"),
     "cube_edges": "M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5 M12 12v9 M12 12L4 7.5 M17 4.2a4 4 0 0 1 3 3.3",

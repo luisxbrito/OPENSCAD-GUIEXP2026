@@ -215,7 +215,7 @@ class PropertyPanel(QScrollArea):
             fix = QPushButton(tr("Corregir (misma forma)"))
             fix.clicked.connect(lambda: self.fixRadii.emit(node.id))
             self._lay.addWidget(fix)
-        if node.kind in ("spur_gear", "helical_gear", "rack"):
+        if node.kind in ("spur_gear", "helical_gear", "rack", "bevel_gear"):
             self._gear_info(node)
         if spec and spec.hint:
             self._hint(tr(spec.hint))
@@ -262,6 +262,28 @@ class PropertyPanel(QScrollArea):
                      "mano si el dentado va inclinado), ya colocado sobre la cremallera y girado "
                      "para que los dientes encajen.")
             start = 20
+        elif node.kind == "bevel_gear":
+            zm, sigma = val("mate_teeth", 20), val("shaft_angle", 90)
+            face = val("face_width", 4)
+            if None in (zm, sigma, face):
+                return
+            d = gears.bevel_dims(mod, int(z), int(zm), sigma, pa, face)
+            self._hint(tr("Ø primitivo {d:g} mm · Ø exterior {da:g} mm · cono primitivo {g:.2f}° · "
+                          "distancia de cono {c:.2f} mm").format(d=round(d["pitch_d"], 3),
+                                                                 da=round(d["tip_d"], 3),
+                                                                 g=d["gamma"], c=d["cone"]))
+            self._hint(tr("Cono de cabeza {fa:.2f}° · cono de pie {ra:.2f}° · dientes virtuales "
+                          "{v:.1f} · cara máxima {mf:.1f} mm").format(fa=d["face_angle"],
+                                                                      ra=d["root_angle"],
+                                                                      v=d["virtual_teeth"],
+                                                                      mf=d["max_face"]))
+            problems = gears.bevel_warnings(mod, int(z), int(zm), sigma, pa, num("backlash"),
+                                            num("bore"), face)
+            label = tr("Añadir engranaje que engrane")
+            tip = tr("Crea el otro cónico de la pareja, girado el ángulo entre ejes y en fase. Los "
+                     "dos comparten el vértice del cono, que está en el origen, así que no hay nada "
+                     "que mover.")
+            start = int(zm)
         elif node.kind == "helical_gear":
             psi, thick = val("helix_angle", 20), val("thickness", 10)
             if None in (psi, thick):

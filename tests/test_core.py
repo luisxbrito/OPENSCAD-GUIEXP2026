@@ -32,7 +32,7 @@ def roundtrip(text):
 
 
 def test_catalogo_completo():
-    assert len(SPECS) == 38  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 3 de engranajes
+    assert len(SPECS) == 39  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 4 de engranajes
     for key, _, _ in CATEGORIES:
         assert specs_in(key), key
     for name in SPECS:
@@ -1155,6 +1155,25 @@ def test_helicoidal_y_su_pareja_de_mano_contraria():
     assert "left_hand = true" in text
     again = parse(text)
     assert generate(again).text == text                              # ida y vuelta
+
+
+def test_conico_y_su_pareja_girada_el_angulo_entre_ejes():
+    """La pareja de un cónico se crea girada, sin mover: los dos comparten el vértice del cono."""
+    doc = Document()
+    g = doc.add("bevel_gear")
+    for key, value in (("mod", 2), ("teeth", 15), ("mate_teeth", 30), ("face_width", 8)):
+        doc.set_param(g.id, key, value)
+    new = doc.add_meshing_gear(g.id)                                 # sin decir dientes: los de la pareja
+    assert new.params["teeth"] == 30 and new.params["mate_teeth"] == 15
+    turn = doc.children[1]
+    assert turn.kind == "rotate" and turn.params["a"] == [0, 90, 0]   # inclinada, no movida
+    assert turn.children[0].params["a"] == [0, 0, 6]                  # 30 dientes: medio paso
+    assert all(n.kind != "translate" for n in doc.children)
+    text = generate(doc).text
+    assert text.count("module bevel_gear(") == 1
+    again = parse(text)
+    assert generate(again).text == text                               # ida y vuelta
+    assert [n.kind for n in again.children] == ["bevel_gear", "rotate"]
 
 
 def test_cremallera_con_su_engranaje():

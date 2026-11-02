@@ -307,18 +307,38 @@ class Document:
         * helicoidal: otro de la misma hélice pero de mano contraria, a m·(z1 + z2)/(2·cos ψ);
         * cremallera: el engranaje del mismo módulo que le corresponde (recto, o helicoidal de
           LA MISMA MANO si el dentado va inclinado), con su centro a su radio primitivo de altura
-          y en el centro de un hueco.
+          y en el centro de un hueco;
+        * cónico: el otro cónico de la pareja, girado el ángulo entre ejes. Los dos comparten el
+          vértice del cono, que está en el origen, así que no hay nada que mover.
 
         En todos los casos va girado para que los dientes encajen. Devuelve el engranaje nuevo."""
         from . import gears
         gear = self.find(gear_id)
-        if not isinstance(gear, Node) or gear.kind not in ("spur_gear", "helical_gear", "rack"):
+        if not isinstance(gear, Node) or gear.kind not in ("spur_gear", "helical_gear", "rack",
+                                                            "bevel_gear"):
             raise ValueError(tr("Selecciona un engranaje o una cremallera."))
         mod, z1 = gear.params.get("mod", 1), gear.params.get("teeth", 20)
         psi = gear.params.get("helix_angle", 0) if gear.kind == "helical_gear" else 0
         if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (mod, z1, psi)):
             raise ValueError(tr("El módulo y los dientes deben ser números para calcular la pareja."))
-        z2 = int(teeth or (20 if gear.kind == "rack" else z1))
+        z2 = int(teeth or (20 if gear.kind == "rack" else
+                           gear.params.get("mate_teeth", z1) if gear.kind == "bevel_gear" else z1))
+        if gear.kind == "bevel_gear":
+            sigma = gear.params.get("shaft_angle", 90)
+            if not isinstance(sigma, (int, float)) or isinstance(sigma, bool):
+                raise ValueError(tr("El módulo y los dientes deben ser números para calcular la pareja."))
+            new = Node(kind="bevel_gear", params=copy.deepcopy(gear.params),
+                       name=self.unique_name("bevel_gear"))
+            new.params["teeth"], new.params["mate_teeth"] = z2, int(z1)
+            inner: Node = new
+            rot = gears.mesh_rotation(z2)
+            if round(rot, 6):
+                inner = Node(kind="rotate", params={"a": [0, 0, round(rot, 6)]}, children=[new])
+            # Comparten el vértice: basta con inclinar la pareja el ángulo entre ejes.
+            wrapper = Node(kind="rotate", params={"a": [0, round(sigma, 6), 0]}, children=[inner])
+            siblings, _parent = self.parent_list(gear_id)
+            siblings.insert(siblings.index(gear) + 1, wrapper)
+            return new
         if gear.kind == "rack":
             rack_psi = gear.params.get("helix_angle", 0)
             if not isinstance(rack_psi, (int, float)) or isinstance(rack_psi, bool):
