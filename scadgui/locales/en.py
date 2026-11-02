@@ -987,4 +987,10 @@ STRINGS: dict[str, str] = {
     'Polea para correa dentada (síncrona), secciones ANSI/RMA clásicas MXL/XL/L/H/XH. Ø primitivo = dientes·paso/π; el hueco es el negativo del diente de la correa. No necesita pareja: el centro entre dos poleas lo pone la longitud de la correa.': 'Pulley for a synchronous (timing) belt, classic ANSI/RMA sections MXL/XL/L/H/XH. Pitch Ø = teeth·pitch/π; the groove is the negative of the belt tooth. No mate needed: the centre distance between two pulleys comes from the belt length.',
     'Sección': 'Section',
     'Ángulo de diente {a:g}° · grueso en la línea primitiva {b:.3f} mm · diferencial de línea primitiva {pld:.3f} mm': 'Tooth angle {a:g}° · pitch-line tooth width {b:.3f} mm · pitch line differential {pld:.3f} mm',
+    'Pestaña ({side}): Ø {fd:.2f} mm': 'Flange ({side}): Ø {fd:.2f} mm',
+    'Pestañas': 'Flange',
+    'Vuelo de la pestaña': 'Flange overhang',
+    'a ambos lados': 'on both sides',
+    'inferior': 'bottom',
+    'superior': 'top',
 }

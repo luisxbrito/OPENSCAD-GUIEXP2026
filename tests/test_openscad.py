@@ -219,6 +219,20 @@ def test_polea_dentada_volumen_y_agujero():
         assert abs(volume_of(generate(doc).text) - (mine - hole)) < 1, (section, teeth, bore)
 
 
+def test_polea_dentada_con_pestanas():
+    """Las pestañas (collares que sobresalen del Ø exterior) pesan lo mismo en OpenSCAD que en
+    la malla de la vista aproximada, a un lado, al otro y a los dos."""
+    from scadgui import geometry
+    for flange in ("superior", "inferior", "ambas"):
+        doc = Document()
+        pu = doc.add("pulley")
+        for key, value in (("section", "XL"), ("teeth", 20), ("width", 6),
+                           ("flange", flange), ("flange_height", 2)):
+            doc.set_param(pu.id, key, value)
+        mine = abs(signed_volume(geometry.pulley(pu.params)))
+        assert abs(volume_of(generate(doc).text) - mine) < 1, flange
+
+
 if __name__ == "__main__":
     if not EXE:
         print("OpenSCAD no encontrado: se omiten estas pruebas (define OPENSCAD para indicar dónde está)")

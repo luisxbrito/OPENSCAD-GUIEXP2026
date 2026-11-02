@@ -302,6 +302,11 @@ _add(Spec("pulley", "Polea dentada", "solid", False, (
     Param("teeth", "int", 20, label="Dientes (z)", minimum=3, maximum=400),
     Param("width", "num", 6, label="Ancho (correa)", minimum=0.01),
     Param("bore", "num", 5, optional=True, label="Agujero (Ø)", minimum=0),
+    # Sin pestañas la correa se puede salir por el eje; con ellas, un collar sobresale del Ø
+    # exterior a un lado, al otro o a los dos. Opcionales: con "ninguna" no hace falta decir más.
+    Param("flange", "choice", "ninguna", optional=True, label="Pestañas",
+          options=("ninguna", "superior", "inferior", "ambas")),
+    Param("flange_height", "num", 1.5, optional=True, label="Vuelo de la pestaña", minimum=0.1, step=0.5),
     Param("center", "bool", False, label="Centrado"),
 ), keyword="module", hint="Polea para correa dentada (síncrona), secciones ANSI/RMA clásicas "
    "MXL/XL/L/H/XH. Ø primitivo = dientes·paso/π; el hueco es el negativo del diente de la "

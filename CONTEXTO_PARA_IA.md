@@ -286,6 +286,12 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     lomo entre huecos). De flancos rectos, sin los redondeos ra/rr de la tabla (igual que la
     cremallera tampoco los lleva). No hay botón «Añadir pareja»: el centro entre dos poleas lo
     pone la longitud de la correa, que esta pieza no calcula.
+    Pestañas (`flange`/`flange_height`, opcionales): sin ellas la correa se puede salir por el
+    eje. Son un collar cilíndrico simple (sin chaflán) que sobresale `flange_height` del Ø
+    exterior, a un lado, al otro o a los dos; se tallan sumando esa altura al bloque extruido
+    (abajo, arriba o los dos) y restando luego el agujero del eje por toda la pieza, incluidas
+    las pestañas. Con pestañas, el centrado (`center`) centra el TOTAL (pestañas + dentado), no
+    solo el dentado.
 - Contraste del tema oscuro: `tests/test_tema.py` mide letra/fondo en cada regla. Un color que en
   claro es letra (DARK lo aclara) y alguna regla usa de fondo va en `DARK_BACKGROUND`.
 - Cinta: `Ribbon.GROUPS` reparte los botones de cada pestaña en grupos con título (marcados con

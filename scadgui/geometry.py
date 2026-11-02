@@ -709,8 +709,25 @@ def pulley(p) -> Optional[Tris]:
     z, w = _num(p.get("teeth", 20)), _num(p.get("width", 6))
     if section not in gears.PULLEY_SECTIONS or None in (z, w) or w <= 0 or z < 3:
         return None
-    poly = gears.pulley_polygon(section, int(z))
-    return prism(poly, w, -w / 2 if p.get("center") is True else 0.0)
+    zz = int(z)
+    flange = p.get("flange", "ninguna")
+    fh = max(0.0, _num(p.get("flange_height", 1.5), 0.0) or 0.0)
+    bot = fh if flange in ("inferior", "ambas") else 0.0
+    top = fh if flange in ("superior", "ambas") else 0.0
+    poly = gears.pulley_polygon(section, zz)
+    d = gears.pulley_dims(section, zz)
+    total = bot + w + top
+    z0 = -total / 2 if p.get("center") is True else 0.0
+    parts = [prism(poly, w, z0 + bot)]
+    if bot > 0 or top > 0:
+        n = max(32, zz * 2)
+        a = np.linspace(0, 2 * math.pi, n, endpoint=False)
+        ring = np.column_stack([np.cos(a), np.sin(a)]) * (d["outer_d"] / 2 + fh)
+        if bot > 0:
+            parts.append(prism(ring, bot, z0))
+        if top > 0:
+            parts.append(prism(ring, top, z0 + bot + w))
+    return np.concatenate(parts)
 
 
 def rack(p) -> Optional[Tris]:

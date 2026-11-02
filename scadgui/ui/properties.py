@@ -346,6 +346,14 @@ class PropertyPanel(QScrollArea):
         self._hint(tr("Ángulo de diente {a:g}° · grueso en la línea primitiva {b:.3f} mm · "
                       "diferencial de línea primitiva {pld:.3f} mm").format(
             a=d["tooth_angle"], b=d["tooth_width"], pld=d["pld"]))
+        flange = p.get("flange", "ninguna")
+        flange_label = {"superior": tr("superior"), "inferior": tr("inferior"),
+                        "ambas": tr("a ambos lados")}.get(flange)
+        if flange_label:
+            fh = p.get("flange_height", 1.5)
+            fh = fh if isinstance(fh, (int, float)) and not isinstance(fh, bool) else 1.5
+            self._hint(tr("Pestaña ({side}): Ø {fd:.2f} mm").format(
+                side=flange_label, fd=round(d["outer_d"] + 2 * fh, 3)))
         for text, values in gears.pulley_warnings(section, int(z), bore):
             self._hint(tr(text).format(**values), "warnText")
 

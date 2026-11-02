@@ -987,4 +987,10 @@ STRINGS: dict[str, str] = {
     'Polea para correa dentada (síncrona), secciones ANSI/RMA clásicas MXL/XL/L/H/XH. Ø primitivo = dientes·paso/π; el hueco es el negativo del diente de la correa. No necesita pareja: el centro entre dos poleas lo pone la longitud de la correa.': 'Scheibe für einen Zahnriemen (Synchronriemen), klassische ANSI/RMA-Profile MXL/XL/L/H/XH. Teilkreis-Ø = Zähne·Teilung/π; die Nut ist das Negativ des Riemenzahns. Kein Gegenstück nötig: der Achsabstand zweier Scheiben ergibt sich aus der Riemenlänge.',
     'Sección': 'Profil',
     'Ángulo de diente {a:g}° · grueso en la línea primitiva {b:.3f} mm · diferencial de línea primitiva {pld:.3f} mm': 'Zahnwinkel {a:g}° · Zahnbreite auf der Teillinie {b:.3f} mm · Teillinien-Differential {pld:.3f} mm',
+    'Pestaña ({side}): Ø {fd:.2f} mm': 'Bund ({side}): Ø {fd:.2f} mm',
+    'Pestañas': 'Bund',
+    'Vuelo de la pestaña': 'Überstand des Bunds',
+    'a ambos lados': 'auf beiden Seiten',
+    'inferior': 'unten',
+    'superior': 'oben',
 }

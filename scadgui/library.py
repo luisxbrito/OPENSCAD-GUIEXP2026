@@ -256,13 +256,16 @@ BEVEL_GEAR = '''module bevel_gear(mod = 1, teeth = 20, mate_teeth = 20, shaft_an
   }
 }'''
 
-PULLEY = '''module pulley(section = "XL", teeth = 20, width = 6, bore = 0, center = false) {
+PULLEY = '''module pulley(section = "XL", teeth = 20, width = 6, bore = 0, flange = "ninguna",
+               flange_height = 1.5, center = false) {
   // Polea dentada para correa síncrona (lo escribe OpenSCAD GUI Mejorada).
   // Secciones trapeciales clásicas ANSI/RMA IP-24 (Machinery's Handbook 27, tablas 40 y 44):
   // paso, ángulo de diente, altura (ht) y grueso en la línea primitiva (bt), y cuánto la
   // circunferencia primitiva PD = z*paso/PI queda por encima de la exterior (Ø ext = PD - 2*PLD).
   // El hueco es el negativo del diente de la correa, de flancos rectos (sin los redondeos ra/rr
   // de la tabla, igual que la cremallera tampoco los lleva).
+  // Las pestañas (flange) son simples collares cilíndricos que sobresalen flange_height del Ø
+  // exterior, a un lado, al otro o a los dos: sin ellas la correa puede salirse por el eje.
   data = section == "MXL" ? [2.032, 40, 0.508, 1.143, 0.254] :
          section == "XL" ? [5.08, 50, 1.27, 2.5654, 0.254] :
          section == "L" ? [9.525, 40, 1.905, 4.6482, 0.381] :
@@ -286,9 +289,18 @@ PULLEY = '''module pulley(section = "XL", teeth = 20, width = 6, bore = 0, cente
            [r_root * cos(c - bot_a), r_root * sin(c - bot_a)],
            [r_root * cos(c + bot_a), r_root * sin(c + bot_a)],
            [r_out * cos(c + top_a), r_out * sin(c + top_a)]]];
-  translate([0, 0, center ? -width / 2 : 0]) difference() {
-    linear_extrude(width) polygon(pts);
-    if (bore > 0) translate([0, 0, -1]) cylinder(h = width + 2, d = bore, $fn = max(32, z * 2));
+  fn_c = max(32, z * 2);
+  bot = (flange == "inferior" || flange == "ambas") ? max(0, flange_height) : 0;
+  top = (flange == "superior" || flange == "ambas") ? max(0, flange_height) : 0;
+  total = bot + width + top;
+  fd = outer_d + 2 * max(0, flange_height);
+  translate([0, 0, center ? -total / 2 : 0]) difference() {
+    union() {
+      translate([0, 0, bot]) linear_extrude(width) polygon(pts);
+      if (bot > 0) cylinder(h = bot, d = fd, $fn = fn_c);
+      if (top > 0) translate([0, 0, bot + width]) cylinder(h = top, d = fd, $fn = fn_c);
+    }
+    if (bore > 0) translate([0, 0, -1]) cylinder(h = total + 2, d = bore, $fn = fn_c);
   }
 }'''
 

@@ -736,6 +736,25 @@ def test_polea_dentada_en_la_vista_aproximada():
     assert np.isclose(tris[..., 2].min(), -4) and np.isclose(tris[..., 2].max(), 4)
     assert geo.signed_volume(tris) > 0
 
+
+def test_polea_dentada_con_pestanas():
+    """Con pestaña a un lado la pieza se alarga ese vuelo; con las dos, por los dos lados, y el
+    collar sobresale del Ø exterior (se nota en el radio máximo de la malla)."""
+    from scadgui.parser import parse
+    from scadgui import geometry as geo, gears
+    d = gears.pulley_dims("XL", 20)
+    doc = parse('pulley(section = "XL", teeth = 20, width = 6, flange = "superior", '
+                'flange_height = 2, center = true);')
+    tris = next(iter(geo.build_ghosts(doc).values()))
+    assert np.isclose(tris[..., 2].min(), -4) and np.isclose(tris[..., 2].max(), 4)   # (6+2)/2
+    r = np.linalg.norm(tris[..., :2], axis=-1)
+    assert np.isclose(r.max(), d["outer_d"] / 2 + 2, atol=0.05)
+    doc2 = parse('pulley(section = "XL", teeth = 20, width = 6, flange = "ambas", '
+                 'flange_height = 2, center = true);')
+    tris2 = next(iter(geo.build_ghosts(doc2).values()))
+    assert np.isclose(tris2[..., 2].min(), -5) and np.isclose(tris2[..., 2].max(), 5)
+    assert geo.signed_volume(tris2) > geo.signed_volume(tris)   # dos pestañas pesan más que una
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

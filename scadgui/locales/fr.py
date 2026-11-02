@@ -987,4 +987,10 @@ STRINGS: dict[str, str] = {
     'Polea para correa dentada (síncrona), secciones ANSI/RMA clásicas MXL/XL/L/H/XH. Ø primitivo = dientes·paso/π; el hueco es el negativo del diente de la correa. No necesita pareja: el centro entre dos poleas lo pone la longitud de la correa.': 'Poulie pour courroie crantée (synchrone), sections classiques ANSI/RMA MXL/XL/L/H/XH. Ø primitif = dents·pas/π ; le creux est le négatif de la dent de la courroie. Pas besoin de partenaire : l\'entraxe entre deux poulies vient de la longueur de la courroie.',
     'Sección': 'Section',
     'Ángulo de diente {a:g}° · grueso en la línea primitiva {b:.3f} mm · diferencial de línea primitiva {pld:.3f} mm': 'Angle de dent {a:g}° · épaisseur de dent à la ligne primitive {b:.3f} mm · différentiel de ligne primitive {pld:.3f} mm',
+    'Pestaña ({side}): Ø {fd:.2f} mm': 'Rebord ({side}) : Ø {fd:.2f} mm',
+    'Pestañas': 'Rebord',
+    'Vuelo de la pestaña': 'Saillie du rebord',
+    'a ambos lados': 'des deux côtés',
+    'inferior': 'inférieur',
+    'superior': 'supérieur',
 }

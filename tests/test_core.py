@@ -1233,13 +1233,12 @@ def test_polea_dentada_medidas_del_handbook():
 def test_polea_dentada_codigo_y_vuelta():
     doc = Document()
     pu = doc.add("pulley")
-    for key, value in (("section", "GT2"), ("teeth", 20), ("width", 6), ("bore", 5)):
-        if key == "section":
-            value = "XL"                            # GT2 no está en esta sección clásica
+    for key, value in (("section", "XL"), ("teeth", 20), ("width", 6), ("bore", 5),
+                       ("flange", "ambas"), ("flange_height", 2)):
         doc.set_param(pu.id, key, value)
     text = generate(doc).text
     assert text.count("module pulley(") == 1
-    assert 'section = "XL"' in text
+    assert 'section = "XL"' in text and 'flange = "ambas"' in text
     again = parse(text)
     assert generate(again).text == text              # ida y vuelta
     assert [n.kind for n in again.children] == ["pulley"]
