@@ -256,8 +256,44 @@ BEVEL_GEAR = '''module bevel_gear(mod = 1, teeth = 20, mate_teeth = 20, shaft_an
   }
 }'''
 
+PULLEY = '''module pulley(section = "XL", teeth = 20, width = 6, bore = 0, center = false) {
+  // Polea dentada para correa síncrona (lo escribe OpenSCAD GUI Mejorada).
+  // Secciones trapeciales clásicas ANSI/RMA IP-24 (Machinery's Handbook 27, tablas 40 y 44):
+  // paso, ángulo de diente, altura (ht) y grueso en la línea primitiva (bt), y cuánto la
+  // circunferencia primitiva PD = z*paso/PI queda por encima de la exterior (Ø ext = PD - 2*PLD).
+  // El hueco es el negativo del diente de la correa, de flancos rectos (sin los redondeos ra/rr
+  // de la tabla, igual que la cremallera tampoco los lleva).
+  data = section == "MXL" ? [2.032, 40, 0.508, 1.143, 0.254] :
+         section == "XL" ? [5.08, 50, 1.27, 2.5654, 0.254] :
+         section == "L" ? [9.525, 40, 1.905, 4.6482, 0.381] :
+         section == "H" ? [12.7, 40, 2.286, 6.1214, 0.6858] :
+         [22.225, 40, 6.35, 12.573, 1.397];                 // XH
+  p = data[0]; ang = data[1]; ht = data[2]; bt = data[3]; pld = data[4];
+  z = max(3, round(teeth));
+  pitch_d = z * p / PI;
+  outer_d = pitch_d - 2 * pld;
+  root_d = outer_d - 2 * ht;
+  t = tan(ang / 2);
+  tip_half = max(0, bt / 2 - (ht + pld) * t);      // medio grueso del hueco en el fondo
+  top_half = max(0, bt / 2 - pld * t);             // medio grueso del hueco en la boca
+  r_out = outer_d / 2;
+  r_root = max(0.1, root_d / 2);
+  half_step = 180 / z;
+  top_a = min(top_half / r_out * 180 / PI, half_step - 0.01);
+  bot_a = min(tip_half / r_root * 180 / PI, half_step - 0.01);
+  pts = [for (i = [0 : z - 1]) let(c = i * 360 / z) each [
+           [r_out * cos(c - top_a), r_out * sin(c - top_a)],
+           [r_root * cos(c - bot_a), r_root * sin(c - bot_a)],
+           [r_root * cos(c + bot_a), r_root * sin(c + bot_a)],
+           [r_out * cos(c + top_a), r_out * sin(c + top_a)]]];
+  translate([0, 0, center ? -width / 2 : 0]) difference() {
+    linear_extrude(width) polygon(pts);
+    if (bore > 0) translate([0, 0, -1]) cylinder(h = width + 2, d = bore, $fn = max(32, z * 2));
+  }
+}'''
+
 LIBRARY = {"cube_edges": CUBE_EDGES, "cylinder_edges": CYLINDER_EDGES, "spur_gear": SPUR_GEAR,
-           "helical_gear": HELICAL_GEAR, "rack": RACK, "bevel_gear": BEVEL_GEAR}
+           "helical_gear": HELICAL_GEAR, "rack": RACK, "bevel_gear": BEVEL_GEAR, "pulley": PULLEY}
 
 # Versiones anteriores que ya pueden estar en archivos guardados. Al abrir el archivo se
 # reconocen como nuestras y se sustituyen por la versión actual (no se conservan como código

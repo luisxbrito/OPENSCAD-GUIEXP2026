@@ -978,4 +978,13 @@ STRINGS: dict[str, str] = {
     'Útil para recortar una pieza dentro de un volumen límite, o para lentes y perfiles redondeados (cubo ∩ esfera).': 'Useful to trim a part to a bounding volume, or for lenses and rounded shapes (cube ∩ sphere).',
     '⇅ Intercambiar Base y Resta': '⇅ Swap Base and Subtraction',
     '− Eliminar': '− Delete',
+    'Ancho (correa)': 'Width (belt)',
+    'Con {z} dientes el fondo del hueco queda a filo para la sección {s}: usa más dientes.': 'With {z} teeth the bottom of the groove comes to a knife edge for section {s}: use more teeth.',
+    'Con {z} dientes la correa se dobla mucho en cada vuelta; se recomiendan 10 o más.': 'With {z} teeth the belt bends sharply on every turn; 10 or more are recommended.',
+    'El agujero ({b} mm) casi llega al fondo del hueco ({f:.1f} mm): deja algo de material alrededor.': 'The bore ({b} mm) almost reaches the bottom of the groove ({f:.1f} mm): leave some material around it.',
+    'Paso {p:.3f} mm · Ø primitivo {d:.2f} mm · Ø exterior {o:.2f} mm · Ø de fondo {r:.2f} mm': 'Pitch {p:.3f} mm · Pitch Ø {d:.2f} mm · Outside Ø {o:.2f} mm · Root Ø {r:.2f} mm',
+    'Polea dentada': 'Timing pulley',
+    'Polea para correa dentada (síncrona), secciones ANSI/RMA clásicas MXL/XL/L/H/XH. Ø primitivo = dientes·paso/π; el hueco es el negativo del diente de la correa. No necesita pareja: el centro entre dos poleas lo pone la longitud de la correa.': 'Pulley for a synchronous (timing) belt, classic ANSI/RMA sections MXL/XL/L/H/XH. Pitch Ø = teeth·pitch/π; the groove is the negative of the belt tooth. No mate needed: the centre distance between two pulleys comes from the belt length.',
+    'Sección': 'Section',
+    'Ángulo de diente {a:g}° · grueso en la línea primitiva {b:.3f} mm · diferencial de línea primitiva {pld:.3f} mm': 'Tooth angle {a:g}° · pitch-line tooth width {b:.3f} mm · pitch line differential {pld:.3f} mm',
 }

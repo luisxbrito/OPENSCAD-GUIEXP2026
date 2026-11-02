@@ -978,4 +978,13 @@ STRINGS: dict[str, str] = {
     'Útil para recortar una pieza dentro de un volumen límite, o para lentes y perfiles redondeados (cubo ∩ esfera).': 'Nützlich, um ein Teil auf ein Grenzvolumen zuzuschneiden, oder für Linsen und runde Formen (Würfel ∩ Kugel).',
     '⇅ Intercambiar Base y Resta': '⇅ Basis und Abzug tauschen',
     '− Eliminar': '− Löschen',
+    'Ancho (correa)': 'Breite (Riemen)',
+    'Con {z} dientes el fondo del hueco queda a filo para la sección {s}: usa más dientes.': 'Mit {z} Zähnen läuft der Nutgrund für Profil {s} auf eine Messerkante zu: mehr Zähne verwenden.',
+    'Con {z} dientes la correa se dobla mucho en cada vuelta; se recomiendan 10 o más.': 'Mit {z} Zähnen biegt sich der Riemen bei jeder Umdrehung stark; 10 oder mehr werden empfohlen.',
+    'El agujero ({b} mm) casi llega al fondo del hueco ({f:.1f} mm): deja algo de material alrededor.': 'Die Bohrung ({b} mm) reicht fast bis zum Nutgrund ({f:.1f} mm): etwas Material darum lassen.',
+    'Paso {p:.3f} mm · Ø primitivo {d:.2f} mm · Ø exterior {o:.2f} mm · Ø de fondo {r:.2f} mm': 'Teilung {p:.3f} mm · Teilkreis-Ø {d:.2f} mm · Außen-Ø {o:.2f} mm · Grund-Ø {r:.2f} mm',
+    'Polea dentada': 'Zahnriemenscheibe',
+    'Polea para correa dentada (síncrona), secciones ANSI/RMA clásicas MXL/XL/L/H/XH. Ø primitivo = dientes·paso/π; el hueco es el negativo del diente de la correa. No necesita pareja: el centro entre dos poleas lo pone la longitud de la correa.': 'Scheibe für einen Zahnriemen (Synchronriemen), klassische ANSI/RMA-Profile MXL/XL/L/H/XH. Teilkreis-Ø = Zähne·Teilung/π; die Nut ist das Negativ des Riemenzahns. Kein Gegenstück nötig: der Achsabstand zweier Scheiben ergibt sich aus der Riemenlänge.',
+    'Sección': 'Profil',
+    'Ángulo de diente {a:g}° · grueso en la línea primitiva {b:.3f} mm · diferencial de línea primitiva {pld:.3f} mm': 'Zahnwinkel {a:g}° · Zahnbreite auf der Teillinie {b:.3f} mm · Teillinien-Differential {pld:.3f} mm',
 }

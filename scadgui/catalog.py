@@ -297,6 +297,16 @@ _add(Spec("rack", "Cremallera", "solid", False, (
    "engrana con su centro a su radio primitivo de altura. Con ángulo de hélice el dentado se inclina y "
    "engrana con un helicoidal de la misma mano; entonces los extremos quedan al sesgo del dentado."))
 
+_add(Spec("pulley", "Polea dentada", "solid", False, (
+    Param("section", "choice", "XL", label="Sección", options=("MXL", "XL", "L", "H", "XH")),
+    Param("teeth", "int", 20, label="Dientes (z)", minimum=3, maximum=400),
+    Param("width", "num", 6, label="Ancho (correa)", minimum=0.01),
+    Param("bore", "num", 5, optional=True, label="Agujero (Ø)", minimum=0),
+    Param("center", "bool", False, label="Centrado"),
+), keyword="module", hint="Polea para correa dentada (síncrona), secciones ANSI/RMA clásicas "
+   "MXL/XL/L/H/XH. Ø primitivo = dientes·paso/π; el hueco es el negativo del diente de la "
+   "correa. No necesita pareja: el centro entre dos poleas lo pone la longitud de la correa."))
+
 # --- Importar ---------------------------------------------------------------
 _add(Spec("import", "Importar", "imp", False, (
     Param("file", "file", "", label="Archivo"),
@@ -381,6 +391,9 @@ ICONS = {
                      " M5.5 7.1l5 12.1 M9 8l5 11.1 M12.5 8.2l5 10.3"),
     "bevel_gear": ("M7 18L4 10l2-2.6l2 2.6l2-2.6l2 2.6l2-2.6l2 2.6l2-2.6l2 2.6L17 18Z"
                    " M12 18v3"),
+    "pulley": ("M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20z M12 6a6 6 0 1 0 0 12a6 6 0 1 0 0-12z"
+               " M12 2v3 M12 19v3 M2 12h3 M19 12h3 M5.3 5.3l2.2 2.2 M16.5 16.5l2.2 2.2"
+               " M5.3 18.7l2.2-2.2 M16.5 7.5l2.2-2.2"),
     "rack": ("M2 14H2.7L3.5 7h2l0.8 7h1.4L8.5 7h2l0.8 7h1.4L13.5 7h2l0.8 7h1.4L18.5 7h2l0.8 7H22"
              "V19H2Z"),
     "cube_edges": "M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5 M12 12v9 M12 12L4 7.5 M17 4.2a4 4 0 0 1 3 3.3",

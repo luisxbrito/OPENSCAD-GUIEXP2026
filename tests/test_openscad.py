@@ -202,6 +202,23 @@ def test_cremallera_y_su_engranaje():
         assert volume_of("intersection() {\n" + body[0] + "}\nmodule " + body[1]) == 0, extra
 
 
+def test_polea_dentada_volumen_y_agujero():
+    """La polea sale con el volumen de la vista aproximada (mismas fórmulas en Python y
+    OpenSCAD) y el agujero del eje la atraviesa entera."""
+    from scadgui import geometry
+    for section, teeth, width, bore in (("MXL", 24, 6, 3), ("XL", 20, 6, 5), ("H", 12, 10, 8)):
+        doc = Document()
+        pu = doc.add("pulley")
+        for key, value in (("section", section), ("teeth", teeth), ("width", width)):
+            doc.set_param(pu.id, key, value)
+        mine = abs(signed_volume(geometry.pulley(pu.params)))
+        assert abs(volume_of(generate(doc).text) - mine) < 1, (section, teeth)
+        doc.set_param(pu.id, "bore", bore)
+        n = max(32, teeth * 2)                        # el mismo $fn que pone el módulo
+        hole = n * 0.5 * (bore / 2) ** 2 * math.sin(2 * math.pi / n) * width
+        assert abs(volume_of(generate(doc).text) - (mine - hole)) < 1, (section, teeth, bore)
+
+
 if __name__ == "__main__":
     if not EXE:
         print("OpenSCAD no encontrado: se omiten estas pruebas (define OPENSCAD para indicar dónde está)")

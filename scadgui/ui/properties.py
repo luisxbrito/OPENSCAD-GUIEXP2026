@@ -217,6 +217,8 @@ class PropertyPanel(QScrollArea):
             self._lay.addWidget(fix)
         if node.kind in ("spur_gear", "helical_gear", "rack", "bevel_gear"):
             self._gear_info(node)
+        if node.kind == "pulley":
+            self._pulley_info(node)
         if spec and spec.hint:
             self._hint(tr(spec.hint))
         if spec and spec.container and not node.children:
@@ -326,6 +328,26 @@ class PropertyPanel(QScrollArea):
         lay.addWidget(QLabel(tr("dientes:")))
         lay.addWidget(teeth)
         self._lay.addWidget(row)
+
+    def _pulley_info(self, node: Node) -> None:
+        """Medidas calculadas y avisos de diseño de la polea dentada."""
+        from .. import gears
+        p = node.params
+        section = p.get("section", "XL")
+        z = p.get("teeth", 20)
+        if section not in gears.PULLEY_SECTIONS or not isinstance(z, (int, float)) or isinstance(z, bool):
+            return                                   # con expresiones no se puede calcular aquí
+        bore = p.get("bore", 0)
+        bore = bore if isinstance(bore, (int, float)) and not isinstance(bore, bool) else 0
+        d = gears.pulley_dims(section, int(z))
+        self._hint(tr("Paso {p:.3f} mm · Ø primitivo {d:.2f} mm · Ø exterior {o:.2f} mm · Ø de "
+                      "fondo {r:.2f} mm").format(p=d["pitch"], d=round(d["pitch_d"], 3),
+                                                  o=round(d["outer_d"], 3), r=round(d["root_d"], 3)))
+        self._hint(tr("Ángulo de diente {a:g}° · grueso en la línea primitiva {b:.3f} mm · "
+                      "diferencial de línea primitiva {pld:.3f} mm").format(
+            a=d["tooth_angle"], b=d["tooth_width"], pld=d["pld"]))
+        for text, values in gears.pulley_warnings(section, int(z), bore):
+            self._hint(tr(text).format(**values), "warnText")
 
     def _operation_helper_form(self, node: Node) -> None:
         """Añade el widget helper interactivo si la operación tiene guía o presets disponibles."""

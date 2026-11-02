@@ -32,7 +32,7 @@ def roundtrip(text):
 
 
 def test_catalogo_completo():
-    assert len(SPECS) == 39  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 4 de engranajes
+    assert len(SPECS) == 40  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 5 de engranajes
     for key, _, _ in CATEGORIES:
         assert specs_in(key), key
     for name in SPECS:
@@ -1215,6 +1215,34 @@ def test_cremallera_helicoidal_pide_un_helicoidal_de_la_misma_mano():
     text = generate(doc).text
     assert text.count("module rack(") == 1 and text.count("module helical_gear(") == 1
     assert generate(parse(text)).text == text                        # ida y vuelta
+
+
+def test_polea_dentada_medidas_del_handbook():
+    """Comprueba Ø primitivo y Ø exterior contra la tabla 44 del Handbook (XL, N=20)."""
+    import math
+    from scadgui import gears
+    d = gears.pulley_dims("XL", 20)
+    assert abs(d["pitch_d"] - 20 * 5.08 / math.pi) < 1e-6
+    assert abs(d["pitch_d"] - 32.334) < 0.05      # tabla 44: 1.273 in = 32.334 mm
+    assert abs(d["outer_d"] - 31.826) < 0.05      # tabla 44: 1.253 in = 31.826 mm
+    assert d["tip_half"] > 0                       # el hueco no acaba en punta
+    # Con muy pocos dientes el aviso de borde a filo debe saltar.
+    assert gears.pulley_warnings("XH", 3)
+
+
+def test_polea_dentada_codigo_y_vuelta():
+    doc = Document()
+    pu = doc.add("pulley")
+    for key, value in (("section", "GT2"), ("teeth", 20), ("width", 6), ("bore", 5)):
+        if key == "section":
+            value = "XL"                            # GT2 no está en esta sección clásica
+        doc.set_param(pu.id, key, value)
+    text = generate(doc).text
+    assert text.count("module pulley(") == 1
+    assert 'section = "XL"' in text
+    again = parse(text)
+    assert generate(again).text == text              # ida y vuelta
+    assert [n.kind for n in again.children] == ["pulley"]
 
 if __name__ == "__main__":
     failures = 0

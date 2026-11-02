@@ -978,4 +978,13 @@ STRINGS: dict[str, str] = {
     'Útil para recortar una pieza dentro de un volumen límite, o para lentes y perfiles redondeados (cubo ∩ esfera).': 'Útil para recortar uma peça dentro de um volume limite, ou para lentes e formas arredondadas (cubo ∩ esfera).',
     '⇅ Intercambiar Base y Resta': '⇅ Alternar Base e Subtração',
     '− Eliminar': '− Excluir',
+    'Ancho (correa)': 'Largura (correia)',
+    'Con {z} dientes el fondo del hueco queda a filo para la sección {s}: usa más dientes.': 'Com {z} dentes o fundo do rasgo fica em fio de faca para a seção {s}: use mais dentes.',
+    'Con {z} dientes la correa se dobla mucho en cada vuelta; se recomiendan 10 o más.': 'Com {z} dentes a correia dobra muito em cada volta; recomendam-se 10 ou mais.',
+    'El agujero ({b} mm) casi llega al fondo del hueco ({f:.1f} mm): deja algo de material alrededor.': 'O furo ({b} mm) quase chega ao fundo do rasgo ({f:.1f} mm): deixe algum material em volta.',
+    'Paso {p:.3f} mm · Ø primitivo {d:.2f} mm · Ø exterior {o:.2f} mm · Ø de fondo {r:.2f} mm': 'Passo {p:.3f} mm · Ø primitivo {d:.2f} mm · Ø externo {o:.2f} mm · Ø de fundo {r:.2f} mm',
+    'Polea dentada': 'Polia dentada',
+    'Polea para correa dentada (síncrona), secciones ANSI/RMA clásicas MXL/XL/L/H/XH. Ø primitivo = dientes·paso/π; el hueco es el negativo del diente de la correa. No necesita pareja: el centro entre dos poleas lo pone la longitud de la correa.': 'Polia para correia dentada (síncrona), seções clássicas ANSI/RMA MXL/XL/L/H/XH. Ø primitivo = dentes·passo/π; o rasgo é o negativo do dente da correia. Não precisa de par: a distância entre centros de duas polias vem do comprimento da correia.',
+    'Sección': 'Seção',
+    'Ángulo de diente {a:g}° · grueso en la línea primitiva {b:.3f} mm · diferencial de línea primitiva {pld:.3f} mm': 'Ângulo do dente {a:g}° · espessura do dente na linha primitiva {b:.3f} mm · diferencial de linha primitiva {pld:.3f} mm',
 }

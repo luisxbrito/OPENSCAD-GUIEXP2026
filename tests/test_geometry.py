@@ -714,6 +714,28 @@ def test_cremallera_y_helicoidal_en_la_vista_aproximada():
     want = gears.helix_twist(1, 20, 20, 10) % 18
     assert min(abs(turned - want), 18 - abs(turned - want)) < 0.01, (turned, want)
 
+
+def test_polea_dentada_diametros_y_hueco():
+    """El hueco es el negativo del diente, de flancos rectos: el fondo no se solapa con el de
+    al lado y la boca no pasa del lomo entre huecos."""
+    from scadgui import gears
+    poly = gears.pulley_polygon("XL", 20)
+    r = np.linalg.norm(poly, axis=1)
+    d = gears.pulley_dims("XL", 20)
+    assert np.isclose(r.max(), d["outer_d"] / 2)
+    assert np.isclose(r.min(), d["root_d"] / 2)
+    mirrored = poly * [1, -1]                                            # hueco centrado en +X
+    assert all(np.min(np.linalg.norm(poly - q, axis=1)) < 1e-9 for q in mirrored)
+
+
+def test_polea_dentada_en_la_vista_aproximada():
+    from scadgui.parser import parse
+    from scadgui import geometry as geo
+    doc = parse('pulley(section = "H", teeth = 16, width = 8, center = true);')
+    tris = next(iter(geo.build_ghosts(doc).values()))
+    assert np.isclose(tris[..., 2].min(), -4) and np.isclose(tris[..., 2].max(), 4)
+    assert geo.signed_volume(tris) > 0
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

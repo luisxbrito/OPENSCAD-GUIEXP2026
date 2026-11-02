@@ -461,3 +461,75 @@ def bevel_warnings(mod: float, teeth: int, mate_teeth: int, shaft_angle: float =
         out.append((N_("La holgura ({j} mm) no es razonable para el módulo {m}: suele ser de 0 a 0.2 mm "
                     "(para impresión 3D, 0.1–0.3 mm)."), {"j": f"{backlash:g}", "m": f"{mod:g}"}))
     return out
+
+
+# --- Poleas dentadas (correas síncronas) ------------------------------------
+# Secciones trapeciales clásicas ANSI/RMA IP-24 (Machinery's Handbook 27, "Synchronous Belt
+# Nominal Tooth and Section Dimensions", tabla 40, y "... Standard Pulley Diameters", tabla 44).
+# El hueco de la polea es el negativo del diente de la correa: paso p, ángulo de diente, altura
+# ht y grueso bt (medido en la línea primitiva). La circunferencia primitiva PD = z·p/π queda por
+# encima de la exterior (la de los lomos entre huecos): Ø exterior = PD − 2·PLD. Los flancos son
+# rectos (como en la cremallera): no se modelan los redondeos ra/rr de la tabla, igual que la
+# cremallera tampoco los lleva.
+PULLEY_SECTIONS = {
+    # sección: (paso, ángulo de diente, ht, bt, PLD), todo en mm.
+    "MXL": (2.032, 40.0, 0.508, 1.143, 0.254),
+    "XL": (5.08, 50.0, 1.27, 2.5654, 0.254),
+    "L": (9.525, 40.0, 1.905, 4.6482, 0.381),
+    "H": (12.7, 40.0, 2.286, 6.1214, 0.6858),
+    "XH": (22.225, 40.0, 6.35, 12.573, 1.397),
+}
+
+
+def pulley_dims(section: str, teeth: int) -> dict:
+    """Medidas de la polea (mm)."""
+    p, angle, ht, bt, pld = PULLEY_SECTIONS.get(section, PULLEY_SECTIONS["XL"])
+    z = max(3, int(round(teeth)))
+    pitch_d = z * p / math.pi
+    outer_d = pitch_d - 2 * pld
+    root_d = outer_d - 2 * ht
+    t = math.tan(math.radians(angle / 2))
+    tip_half = bt / 2 - (ht + pld) * t      # medio grueso del hueco en el fondo
+    opening_half = bt / 2 - pld * t         # medio grueso del hueco en la boca (Ø exterior)
+    return {
+        "teeth": z, "section": section, "pitch": p, "tooth_angle": angle, "tooth_height": ht,
+        "tooth_width": bt, "pld": pld, "pitch_d": pitch_d, "outer_d": outer_d, "root_d": root_d,
+        "tip_half": tip_half, "opening_half": opening_half, "circular_pitch": p,
+    }
+
+
+def pulley_polygon(section: str, teeth: int) -> np.ndarray:
+    """Contorno de la polea (N × 2), antihorario: un cilindro de Ø exterior con z huecos
+    trapeciales tallados, uno de ellos centrado en +X."""
+    d = pulley_dims(section, teeth)
+    z = d["teeth"]
+    r_out = d["outer_d"] / 2
+    r_root = max(0.1, d["root_d"] / 2)
+    half_step = math.pi / z
+    top_a = min(max(0.0, d["opening_half"]) / max(1e-6, r_out), half_step - 1e-6)
+    bot_a = min(max(0.0, d["tip_half"]) / r_root, half_step - 1e-6)
+    pts = []
+    for i in range(z):
+        c = 2 * math.pi * i / z
+        pts.append((r_out * math.cos(c - top_a), r_out * math.sin(c - top_a)))
+        pts.append((r_root * math.cos(c - bot_a), r_root * math.sin(c - bot_a)))
+        pts.append((r_root * math.cos(c + bot_a), r_root * math.sin(c + bot_a)))
+        pts.append((r_out * math.cos(c + top_a), r_out * math.sin(c + top_a)))
+    return np.array(pts, dtype=np.float64)
+
+
+def pulley_warnings(section: str, teeth: int, bore: float = 0.0) -> list[tuple[str, dict]]:
+    """Problemas de diseño de la polea: (texto en español, valores para format)."""
+    out = []
+    d = pulley_dims(section, teeth)
+    z = d["teeth"]
+    if d["tip_half"] <= 0.05:
+        out.append((N_("Con {z} dientes el fondo del hueco queda a filo para la sección {s}: usa "
+                    "más dientes."), {"z": z, "s": section}))
+    if z < 10:
+        out.append((N_("Con {z} dientes la correa se dobla mucho en cada vuelta; se recomiendan "
+                    "10 o más."), {"z": z}))
+    if bore and bore >= d["root_d"] - 1.0:
+        out.append((N_("El agujero ({b} mm) casi llega al fondo del hueco ({f:.1f} mm): deja algo "
+                    "de material alrededor."), {"b": f"{bore:g}", "f": d["root_d"]}))
+    return out

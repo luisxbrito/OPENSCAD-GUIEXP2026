@@ -978,4 +978,13 @@ STRINGS: dict[str, str] = {
     'Útil para recortar una pieza dentro de un volumen límite, o para lentes y perfiles redondeados (cubo ∩ esfera).': 'Utile pour rogner une pièce dans un volume limite, ou pour des lentilles et formes arrondies (cube ∩ sphère).',
     '⇅ Intercambiar Base y Resta': '⇅ Échanger Base et Soustraction',
     '− Eliminar': '− Supprimer',
+    'Ancho (correa)': 'Largeur (courroie)',
+    'Con {z} dientes el fondo del hueco queda a filo para la sección {s}: usa más dientes.': 'Avec {z} dents, le fond du creux devient un fil de couteau pour la section {s} : utilisez plus de dents.',
+    'Con {z} dientes la correa se dobla mucho en cada vuelta; se recomiendan 10 o más.': 'Avec {z} dents, la courroie se plie fortement à chaque tour ; 10 dents ou plus sont recommandées.',
+    'El agujero ({b} mm) casi llega al fondo del hueco ({f:.1f} mm): deja algo de material alrededor.': 'L\'alésage ({b} mm) atteint presque le fond du creux ({f:.1f} mm) : laissez un peu de matière autour.',
+    'Paso {p:.3f} mm · Ø primitivo {d:.2f} mm · Ø exterior {o:.2f} mm · Ø de fondo {r:.2f} mm': 'Pas {p:.3f} mm · Ø primitif {d:.2f} mm · Ø extérieur {o:.2f} mm · Ø de fond {r:.2f} mm',
+    'Polea dentada': 'Poulie crantée',
+    'Polea para correa dentada (síncrona), secciones ANSI/RMA clásicas MXL/XL/L/H/XH. Ø primitivo = dientes·paso/π; el hueco es el negativo del diente de la correa. No necesita pareja: el centro entre dos poleas lo pone la longitud de la correa.': 'Poulie pour courroie crantée (synchrone), sections classiques ANSI/RMA MXL/XL/L/H/XH. Ø primitif = dents·pas/π ; le creux est le négatif de la dent de la courroie. Pas besoin de partenaire : l\'entraxe entre deux poulies vient de la longueur de la courroie.',
+    'Sección': 'Section',
+    'Ángulo de diente {a:g}° · grueso en la línea primitiva {b:.3f} mm · diferencial de línea primitiva {pld:.3f} mm': 'Angle de dent {a:g}° · épaisseur de dent à la ligne primitive {b:.3f} mm · différentiel de ligne primitive {pld:.3f} mm',
 }

@@ -276,6 +276,16 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     cremallera crea un `spur_gear`. Holgura por defecto 0.1 mm (impresión 3D).
   - Fuentes: Machinery's Handbook 27 («Gears and Gearing», «Helical Gearing» p. 2099, «Basic Rack
     of the 20-Degree and 25-Degree Full-Depth Involute Systems») y AGMA 908-B89 ec. 2 y 4; Casillas.
+  - Polea dentada (`pulley`): no engrana con nada, así que no hay pareja ni verificación de
+    interferencia; solo hay que acertar el perfil del hueco contra la tabla. Secciones clásicas
+    ANSI/RMA IP-24 MXL/XL/L/H/XH (Machinery's Handbook 27, tabla 40 «Nominal Tooth and Section
+    Dimensions» y tabla 44 «Standard Pulley Diameters», comprobadas contra la 44 en los tests).
+    El hueco es el NEGATIVO del diente de la correa: paso, ángulo de diente y grueso en la línea
+    primitiva (bt) salen de la tabla 40; Ø primitivo = dientes·paso/π; Ø exterior = Ø primitivo −
+    2·PLD (el «pitch line differential» de la tabla 44, cuánto la primitiva queda por encima del
+    lomo entre huecos). De flancos rectos, sin los redondeos ra/rr de la tabla (igual que la
+    cremallera tampoco los lleva). No hay botón «Añadir pareja»: el centro entre dos poleas lo
+    pone la longitud de la correa, que esta pieza no calcula.
 - Contraste del tema oscuro: `tests/test_tema.py` mide letra/fondo en cada regla. Un color que en
   claro es letra (DARK lo aclara) y alguna regla usa de fondo va en `DARK_BACKGROUND`.
 - Cinta: `Ribbon.GROUPS` reparte los botones de cada pestaña en grupos con título (marcados con

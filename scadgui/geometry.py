@@ -702,6 +702,17 @@ def bevel_gear(p) -> Optional[Tris]:
     return prism(poly * k, outer_z - inner_z, inner_z, scale=1 / k)
 
 
+def pulley(p) -> Optional[Tris]:
+    """Polea dentada (vista aproximada: sin el agujero, que lo hace OpenSCAD)."""
+    from . import gears
+    section = p.get("section", "XL")
+    z, w = _num(p.get("teeth", 20)), _num(p.get("width", 6))
+    if section not in gears.PULLEY_SECTIONS or None in (z, w) or w <= 0 or z < 3:
+        return None
+    poly = gears.pulley_polygon(section, int(z))
+    return prism(poly, w, -w / 2 if p.get("center") is True else 0.0)
+
+
 def rack(p) -> Optional[Tris]:
     """Cremallera, recta o helicoidal (el dentado inclinado sale sesgando el prisma)."""
     from . import gears
@@ -1104,6 +1115,8 @@ def solid(node, ctx) -> dict:
         mesh = rack(p)
     elif k == "bevel_gear":
         mesh = bevel_gear(p)
+    elif k == "pulley":
+        mesh = pulley(p)
     elif k == "cylinder_edges":
         mesh = cylinder_edges(p, ctx)
     elif k in ("square", "circle", "polygon"):

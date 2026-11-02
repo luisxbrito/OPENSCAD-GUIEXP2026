@@ -978,4 +978,13 @@ STRINGS: dict[str, str] = {
     'Útil para recortar una pieza dentro de un volumen límite, o para lentes y perfiles redondeados (cubo ∩ esfera).': 'Utile per rifilare un pezzo dentro un volume limite, o per lenti e forme arrotondate (cubo ∩ sfera).',
     '⇅ Intercambiar Base y Resta': '⇅ Scambia Base e Sottrazione',
     '− Eliminar': '− Elimina',
+    'Ancho (correa)': 'Larghezza (cinghia)',
+    'Con {z} dientes el fondo del hueco queda a filo para la sección {s}: usa más dientes.': 'Con {z} denti il fondo della cava arriva a filo di coltello per la sezione {s}: usa più denti.',
+    'Con {z} dientes la correa se dobla mucho en cada vuelta; se recomiendan 10 o más.': 'Con {z} denti la cinghia si piega molto a ogni giro; si consigliano 10 denti o più.',
+    'El agujero ({b} mm) casi llega al fondo del hueco ({f:.1f} mm): deja algo de material alrededor.': 'Il foro ({b} mm) arriva quasi al fondo della cava ({f:.1f} mm): lascia un po’ di materiale intorno.',
+    'Paso {p:.3f} mm · Ø primitivo {d:.2f} mm · Ø exterior {o:.2f} mm · Ø de fondo {r:.2f} mm': 'Passo {p:.3f} mm · Ø primitivo {d:.2f} mm · Ø esterno {o:.2f} mm · Ø di fondo {r:.2f} mm',
+    'Polea dentada': 'Puleggia dentata',
+    'Polea para correa dentada (síncrona), secciones ANSI/RMA clásicas MXL/XL/L/H/XH. Ø primitivo = dientes·paso/π; el hueco es el negativo del diente de la correa. No necesita pareja: el centro entre dos poleas lo pone la longitud de la correa.': 'Puleggia per cinghia dentata (sincrona), sezioni classiche ANSI/RMA MXL/XL/L/H/XH. Ø primitivo = denti·passo/π; la cava è il negativo del dente della cinghia. Non serve l\'abbinata: la distanza tra i centri di due pulegge viene dalla lunghezza della cinghia.',
+    'Sección': 'Sezione',
+    'Ángulo de diente {a:g}° · grueso en la línea primitiva {b:.3f} mm · diferencial de línea primitiva {pld:.3f} mm': 'Angolo del dente {a:g}° · spessore del dente sulla linea primitiva {b:.3f} mm · differenziale della linea primitiva {pld:.3f} mm',
 }
