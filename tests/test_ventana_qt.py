@@ -526,6 +526,76 @@ def test_polea_desde_la_cinta():
     assert "module pulley(" in w.code.text.toPlainText()
 
 
+def test_ranuras_en_el_dialogo_de_piezas_normalizadas():
+    """Las ranuras solo existen como máscara, restan de la selección y piden lo que les hace falta."""
+    from scadgui.ui.hardware_dialog import HardwareDialog
+    dlg = HardwareDialog(has_selection=True)
+
+    def choose(cat, std):
+        for i in range(dlg.combo_type.count()):
+            if dlg.combo_type.itemData(i) == (cat, std):
+                dlg.combo_type.setCurrentIndex(i)
+                return
+        raise AssertionError((cat, std))
+
+    choose("ring_groove", "3am1")
+    r = dlg.get_result()
+    assert (r["category"], r["standard"], r["size"], r["mode"]) == ("ring_groove", "3am1", "20", "hole")
+    assert r["subtract"] and not dlg.rb_solid.isEnabled() and not dlg.combo_fit.isEnabled()
+    assert dlg.spin_diameter.isHidden() and "18.85" in dlg.lbl_info.text()
+    choose("oring_groove", "shaft")
+    dlg.spin_diameter.setValue(40)
+    r = dlg.get_result()
+    assert (r["size"], r["diameter"], r["seal"]) == ("2.62", 40, "static")
+    assert not dlg.spin_diameter.isHidden() and not dlg.combo_seal.isHidden() and "Ø40" in dlg.lbl_info.text()
+    choose("oring_groove", "face")
+    assert dlg.combo_seal.isHidden() and not dlg.spin_diameter.isHidden()
+    dlg.spin_diameter.setValue(1)                    # no da para la ranura: sin ficha, sin errores
+    assert "o-ring" not in dlg.lbl_info.text()
+    choose("washer", "din125")                       # las demás piezas vuelven a ser sólidas
+    assert dlg.rb_solid.isEnabled() and dlg.rb_solid.isChecked()
+    choose("screw", "iso4762")
+    dlg.rb_hole.setChecked(True)
+    assert dlg.combo_fit.isEnabled()                 # y conservan su tolerancia
+
+
+def test_ranura_se_resta_de_la_pieza_seleccionada():
+    """Aceptar el diálogo con una pieza seleccionada la mete en un difference con la máscara."""
+    from scadgui.model import Document
+    from scadgui.ui import hardware_dialog as hd
+    w = window()
+
+    def accept_with(cat, std, value=None):
+        def fake_exec(dlg):
+            for i in range(dlg.combo_type.count()):
+                if dlg.combo_type.itemData(i) == (cat, std):
+                    dlg.combo_type.setCurrentIndex(i)
+            if value is not None:
+                dlg.spin_diameter.setValue(value)
+            return True
+        real, hd.HardwareDialog.exec = hd.HardwareDialog.exec, fake_exec
+        try:
+            w.open_hardware_dialog()
+        finally:
+            hd.HardwareDialog.exec = real
+        app.processEvents()
+
+    w.set_document(Document())
+    w.ribbon.buttons["cylinder"].click()
+    app.processEvents()
+    cyl = w.doc.children[0]
+    accept_with("ring_groove", "3am1")
+    root = w.doc.children[0]
+    assert root.kind == "difference" and root.children[0] is cyl
+    assert root.children[1].kind == "difference" and root.children[1].children[1].children[0].params["r"] == 9.425
+    assert w.selected_ids() == [root.children[1].id]
+    w.select_ids([root.id])
+    accept_with("oring_groove", "shaft", 40)         # se añade al mismo difference, no anida otro
+    assert len(root.children) == 3 and w.doc.children == [root]
+    code = w.code.text.toPlainText()
+    assert "r = 17.917" in code and code.count("difference()") == 3
+
+
 def test_estriado_desde_la_cinta_y_pareja_desde_el_panel():
     """Botón spline de la cinta; el panel da las medidas y el botón añade el cubo en el mismo sitio."""
     from PySide6.QtWidgets import QLabel, QPushButton

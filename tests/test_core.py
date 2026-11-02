@@ -1060,6 +1060,75 @@ def test_modulos_propios_con_comentarios_en_ingles():
         assert code in text and "lo escribe" not in text, name
 
 
+def test_ranuras_de_anillo_de_retencion():
+    """ANSI B27.7 (Handbook, tablas 1 y 2): medidas, coherencia de toda la tabla y máscara de resta."""
+    from scadgui import hardware as hw
+    a, b = hw.RETAINING_RINGS_3AM1, hw.RETAINING_RINGS_3BM1
+    assert len(a) == 58 and len(b) == 83
+    assert a["20"] == {"D": 18.35, "t": 1.1, "G": 18.85, "W": 1.2, "d": 0.58, "Z": 1.7}
+    assert a["4"]["G"] == 3.8 and a["100"]["W"] == 2.95
+    assert b["8"]["G"] == 8.4 and b["100"]["G"] == 106.3 and b["250"]["Z"] == 17.1
+    for s, r in a.items():    # la ranura queda dentro del eje; el anillo libre, más estrecho que ella
+        assert abs(float(s) - 2 * r["d"] - r["G"]) < 0.25 and r["D"] < r["G"] and r["t"] < r["W"], s
+    for s, r in b.items():    # en el agujero, al revés
+        assert abs(float(s) + 2 * r["d"] - r["G"]) < 0.25 and r["D"] > r["G"] and r["t"] < r["W"], s
+    assert hw.available_sizes("ring_groove", "3bm1")[0] == "8"
+    try:
+        hw.create_ring_groove_node("3am1", "21.5")
+        raise AssertionError("una medida fuera de la tabla no se sustituye")
+    except ValueError as exc:
+        assert "21.5" in str(exc)
+    mask = hw.create_ring_groove_node("3am1", "20")
+    outer, inner = mask.children[0], mask.children[1].children[0]
+    assert mask.kind == "difference" and outer.params["r"] == 11 and inner.params["r"] == 9.425
+    assert outer.params["h"] == 1.2 and outer.params["$fn"] == hw.GROOVE_FN
+    mask = hw.create_ring_groove_node("3bm1", "20")
+    assert mask.children[0].params["r"] == 10.575 and mask.children[1].children[0].params["r"] == 9
+    lines = hw.describe("ring_groove", "3am1", "20", 0, "medium")
+    assert "3AM1-20" in lines[0] and "18.85" in lines[1] and "1.7" in lines[2]
+
+
+def test_ranuras_de_oring():
+    """Handbook, «O-Rings», tablas 1 y 2: profundidad y ancho según la sección y el tipo de junta."""
+    from scadgui import hardware as hw
+    d = hw.oring_groove("2.62")
+    assert d["w"] == 2.616 and d["gland"] == round(0.082 * 25.4, 3) and d["width"] == round(0.141 * 25.4, 3)
+    assert d["squeeze"] == 20
+    assert hw.oring_groove("2.62", "moving")["gland"] == round(0.089 * 25.4, 3)
+    for size in hw.available_sizes("oring_groove"):
+        for seal in ("static", "moving"):
+            f = hw.oring_groove(size, seal)
+            assert f["gland"] < f["w"] < f["width"], (size, seal)     # se aplasta y le sobra ancho
+    try:
+        hw.oring_groove("4")
+        raise AssertionError("una sección fuera de la tabla no se sustituye")
+    except ValueError:
+        pass
+    f = hw.oring_groove("2.62")["gland"]
+    w = hw.oring_groove("2.62")["width"]
+    mask = hw.create_oring_groove_node("shaft", "2.62", 30)        # eje que entra en un agujero de Ø30
+    assert mask.children[0].params["r"] == 16 and mask.children[1].children[0].params["r"] == round(15 - f, 3)
+    assert mask.children[0].params["h"] == w
+    mask = hw.create_oring_groove_node("bore", "2.62", 30)         # agujero por el que pasa un eje de Ø30
+    assert mask.children[0].params["r"] == round(15 + f, 3) and mask.children[1].children[0].params["r"] == 14
+    mask = hw.create_oring_groove_node("face", "2.62", 30, "moving")   # en cara plana, siempre estática
+    assert mask.kind == "translate" and mask.params["v"] == [0.0, 0.0, -f]
+    ring = mask.children[0]
+    assert ring.children[0].params["r"] == 15 and ring.children[1].children[0].params["r"] == round(15 - w, 3)
+    assert ring.children[0].params["h"] == round(f + 1, 3)
+    try:
+        hw.create_oring_groove_node("shaft", "6.99", 5)
+        raise AssertionError("un Ø que no da para la ranura es un error")
+    except ValueError as exc:
+        assert "6.99" in str(exc)
+    lines = hw.describe("oring_groove", "shaft", "2.62", 0, "medium", 30)
+    assert "Ø30" in lines[1] and "20 %" in lines[2]
+    doc = Document()
+    doc.children.append(hw.create_oring_groove_node("bore", "2.62", 30, unique_fn=doc.unique_name))
+    again = parse(generate(doc).text)
+    assert [n.kind for n in again.children] == ["difference"]      # se abre como piezas, no como código
+
+
 def test_estriado_medidas_de_la_tabla_13():
     """ANSI B92.2M (Handbook, tabla 13): las cuatro columnas, la holgura y los coeficientes del módulo."""
     import math

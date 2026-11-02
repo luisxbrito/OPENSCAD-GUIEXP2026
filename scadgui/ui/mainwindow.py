@@ -1062,8 +1062,8 @@ class MainWindow(QMainWindow):
 
     def open_hardware_dialog(self) -> None:
         from ..hardware import (create_bearing_node, create_heat_set_node,
-                                create_nut_node, create_profile_node,
-                                create_screw_node, create_washer_node)
+                                create_nut_node, create_oring_groove_node, create_profile_node,
+                                create_ring_groove_node, create_screw_node, create_washer_node)
         from .hardware_dialog import HardwareDialog
 
         sel = self.selected_ids()
@@ -1087,6 +1087,9 @@ class MainWindow(QMainWindow):
                 "washer": lambda: create_washer_node(size, unique_fn=self.doc.unique_name),
                 "bearing": lambda: create_bearing_node(size, mode=mode, fit=fit, unique_fn=self.doc.unique_name),
                 "profile": lambda: create_profile_node(size, length, unique_fn=self.doc.unique_name),
+                "ring_groove": lambda: create_ring_groove_node(std, size, unique_fn=self.doc.unique_name),
+                "oring_groove": lambda: create_oring_groove_node(std, size, res["diameter"], res["seal"],
+                                                                 unique_fn=self.doc.unique_name),
             }
             if cat not in builders:
                 return

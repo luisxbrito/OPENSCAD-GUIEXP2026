@@ -79,6 +79,11 @@ Italian and Portuguese (*Edit › Preferences*).
   as a solid or as the matching clearance hole (ISO 273). Only the sizes listed in each
   standard are offered. The parts have no thread and the profile slots are straight (no
   T shape): they are meant for fit-checking and drawings.
+- **Grooves.** The same dialog cuts retaining ring grooves (metric ANSI B27.7, series 3AM1 for shafts and
+  3BM1 for bores) and O-ring grooves by cross-section (1.78 to 6.99 mm), on a shaft, in a bore or on a flat
+  face. They are masks: with a part selected they are subtracted from it, and you then move them along
+  the axis. The flat-face groove reuses the static gland depth and width, which the source only gives
+  for shafts and bores.
 - **2D profiles.** A dialog that creates rounded rectangles, slots, regular polygons, stars,
   rings and L profiles from normal OpenSCAD nodes, optionally extruded.
 - **Technical drawing.** An A4/A3 sheet with front, top, left-side and isometric projections

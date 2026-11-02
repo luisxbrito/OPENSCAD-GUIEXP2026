@@ -342,6 +342,20 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     los diámetros de la tabla, pero el fondo sale recto. Tampoco las clases de tolerancia 4-7 ni la tabla 14.
     El cubo se dibuja en la vista aproximada con `geometry.annular_prism`, la primera malla con hueco.
     Las estrías rectas SAE (tablas 18-21) están en pulgadas y no se ofrecen.
+- Ranuras (diálogo de piezas normalizadas, `hardware.py`): solo existen como máscara de resta, sin
+  módulo propio: una corona hecha con `difference` de dos `cylinder`, cada uno con su `$fn` (`GROOVE_FN`),
+  porque un Ø de ranura no puede depender del `$fn` global. Las máscaras arrancan en z = 0 y hay que
+  colocarlas a lo largo del eje; con una pieza seleccionada se restan de ella.
+  - Anillos de retención: series métricas 3AM1 (eje) y 3BM1 (agujero) de ANSI B27.7-1977, Machinery's
+    Handbook 27, tablas 1 y 2, pp. 1685-1686, extraídas con un script del texto del PDF. Manda G (Ø de
+    la ranura); d es solo de referencia (la tabla lo dice), y un test comprueba S ∓ 2d ≈ G en cada fila.
+    No están el anillo como sólido, las tolerancias, los radios de fondo ni la serie E (3CM1).
+  - O-ring: «O-Rings», tablas 1 y 2 del Handbook (en pulgadas, fuente Auburn Manufacturing). La
+    profundidad del alojamiento (gland depth F) va del fondo de la ranura a la superficie contra la
+    que sella, así que el Ø de fondo sale del Ø de esa superficie (A − 2F o B + 2F) y no del de la pieza
+    que lleva la ranura: la holgura no entra. Se usa la mitad del intervalo de la tabla. El ancho es
+    el de sin anillos de apoyo. OJO: la ranura en cara plana NO está en el Handbook: usa los mismos
+    ancho y profundidad estática, como aproximación.
 - Contraste del tema oscuro: `tests/test_tema.py` mide letra/fondo en cada regla. Un color que en
   claro es letra (DARK lo aclara) y alguna regla usa de fondo va en `DARK_BACKGROUND`.
 - Cinta: `Ribbon.GROUPS` reparte los botones de cada pestaña en grupos con título (marcados con

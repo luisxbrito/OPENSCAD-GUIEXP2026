@@ -5,12 +5,14 @@ from __future__ import annotations
 import html
 
 
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel,
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDoubleSpinBox, QFormLayout, QGroupBox, QHBoxLayout, QLabel,
                                QPushButton, QRadioButton, QVBoxLayout)
 
 from ..hardware import BEARINGS_ISO, STANDARD_LENGTHS, available_sizes, describe
 from ..i18n import tr
 from .style import themed
+
+GROOVES = ("ring_groove", "oring_groove")   # solo existen como máscara de resta
 
 CATEGORIES = [
     ("screw_allen", "Tornillo Allen cilíndrico (ISO 4762 / DIN 912)", "screw", "iso4762"),
@@ -23,6 +25,11 @@ CATEGORIES = [
     ("washer", "Arandela Plana (DIN 125 / ISO 7089)", "washer", "din125"),
     ("bearing", "Rodamiento Radial de Bolas (ISO 15 / DIN 625)", "bearing", "bearing"),
     ("profile", "Perfil de Aluminio 2020 / 2040", "profile", "profile"),
+    ("ring_shaft", "Ranura de anillo de retención en eje (3AM1, ANSI B27.7)", "ring_groove", "3am1"),
+    ("ring_bore", "Ranura de anillo de retención en agujero (3BM1, ANSI B27.7)", "ring_groove", "3bm1"),
+    ("oring_shaft", "Ranura de o-ring en eje o pistón", "oring_groove", "shaft"),
+    ("oring_bore", "Ranura de o-ring en agujero", "oring_groove", "bore"),
+    ("oring_face", "Ranura de o-ring en cara plana", "oring_groove", "face"),
 ]
 
 
@@ -66,6 +73,22 @@ class HardwareDialog(QDialog):
         self.combo_len.currentIndexChanged.connect(self._update_info)
         self.label_len = QLabel(tr("Longitud del vástago (L):"))
         dim_lay.addRow(self.label_len, self.combo_len)
+
+        self.spin_diameter = QDoubleSpinBox()
+        self.spin_diameter.setRange(0.5, 2000.0)
+        self.spin_diameter.setDecimals(2)
+        self.spin_diameter.setValue(20.0)
+        self.spin_diameter.setSuffix(" mm")
+        self.spin_diameter.valueChanged.connect(self._update_info)
+        self.label_diameter = QLabel()
+        dim_lay.addRow(self.label_diameter, self.spin_diameter)
+
+        self.combo_seal = QComboBox()
+        self.combo_seal.addItem(tr("Estática (sin movimiento)"), "static")
+        self.combo_seal.addItem(tr("Con movimiento alternativo"), "moving")
+        self.combo_seal.currentIndexChanged.connect(self._update_info)
+        self.label_seal = QLabel(tr("Tipo de junta:"))
+        dim_lay.addRow(self.label_seal, self.combo_seal)
 
         layout.addWidget(dim_group)
 
@@ -145,6 +168,14 @@ class HardwareDialog(QDialog):
         elif cat == "profile":
             self.combo_size.addItem(tr("Perfil 2020 (20×20 mm)"), "2020")
             self.combo_size.addItem(tr("Perfil 2040 (20×40 mm)"), "2040")
+        elif cat == "ring_groove":
+            for size in available_sizes(cat, std):
+                self.combo_size.addItem(f"Ø{size} mm", size)
+            self.combo_size.setCurrentIndex(max(0, self.combo_size.findData("20")))
+        elif cat == "oring_groove":
+            for size in available_sizes(cat, std):
+                self.combo_size.addItem(f"{size} mm", size)
+            self.combo_size.setCurrentIndex(max(0, self.combo_size.findData("2.62")))
 
         self.combo_size.blockSignals(False)
 
@@ -157,16 +188,31 @@ class HardwareDialog(QDialog):
         else:
             self.label_len.setText(tr("Longitud del vástago (L):"))
 
-        # El modo negativo solo aplica a tornillos, tuercas, insertos y rodamientos
-        can_hole = cat in ("screw", "nut", "insert", "bearing")
+        is_oring = cat == "oring_groove"
+        self.label_diameter.setVisible(is_oring)
+        self.spin_diameter.setVisible(is_oring)
+        self.label_diameter.setText({"shaft": tr("Ø del agujero contra el que sella:"),
+                                     "bore": tr("Ø del eje contra el que sella:")}.get(
+                                         std, tr("Ø exterior de la ranura:")))
+        self.label_seal.setVisible(is_oring and std != "face")
+        self.combo_seal.setVisible(is_oring and std != "face")
+
+        # El modo negativo solo aplica a tornillos, tuercas, insertos y rodamientos; las ranuras
+        # no tienen otro.
+        can_hole = cat in ("screw", "nut", "insert", "bearing") or cat in GROOVES
         self.rb_hole.setEnabled(can_hole)
-        if not can_hole and self.rb_hole.isChecked():
+        self.rb_solid.setEnabled(cat not in GROOVES)
+        if cat in GROOVES:
+            self.rb_hole.setChecked(True)
+        elif not can_hole and self.rb_hole.isChecked():
             self.rb_solid.setChecked(True)
+        self._on_mode_toggled(self.rb_solid.isChecked())
 
         self._update_info()
 
     def _on_mode_toggled(self, solid_checked: bool) -> None:
-        self.combo_fit.setEnabled(not solid_checked)
+        cat = (self.combo_type.currentData() or ("screw", "iso4762"))[0]
+        self.combo_fit.setEnabled(not solid_checked and cat not in GROOVES)  # las ranuras son de tabla
         self.chk_subtract.setEnabled(not solid_checked and self.has_selection)
         if not solid_checked and self.has_selection:
             self.chk_subtract.setChecked(True)
@@ -182,7 +228,8 @@ class HardwareDialog(QDialog):
         is_hole = self.rb_hole.isChecked()
 
         try:
-            lines = describe(cat, std, size, length, fit)
+            lines = describe(cat, std, size, length, fit, self.spin_diameter.value(),
+                             str(self.combo_seal.currentData() or "static"))
         except (ValueError, KeyError):
             lines = []
         txt = "<br>".join([f"<b>{html.escape(lines[0])}</b>", *map(html.escape, lines[1:])]) if lines else ""
@@ -207,4 +254,6 @@ class HardwareDialog(QDialog):
             "mode": mode,
             "fit": fit,
             "subtract": subtract,
+            "diameter": self.spin_diameter.value(),
+            "seal": str(self.combo_seal.currentData() or "static"),
         }

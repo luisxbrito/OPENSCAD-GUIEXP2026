@@ -6,6 +6,7 @@ Sigue las especificaciones normalizadas internacionales:
 - Tuercas y arandelas: DIN 934, DIN 985, DIN 125, e insertos térmicos de latón (tipo Ruthex/CNC Kitchen).
 - Rodamientos radiales de bolas: ISO 15 / DIN 625 (608, 623, 624, 625, 626, 688, 6900).
 - Perfiles de aluminio extruido 2020 y 2040 (ranura de 6 mm simplificada, sin el ala interior en T).
+- Ranuras para anillos de retención métricos (ANSI B27.7, series 3AM1 y 3BM1) y para o-ring (AS568).
 
 Las piezas son modelos para encaje y visualización: sin rosca, con la geometría exterior
 de la norma. Los diámetros de taladro siguen ISO 273.
@@ -157,6 +158,174 @@ SCREW_TABLES = {
 NUT_TABLES = {"din934": NUTS_DIN_934, "din985": NUTS_DIN_985}
 
 # Holgura extra (mm) sobre el diámetro o el ancho entre caras para alojamientos impresos.
+# Ranuras para anillos de retención métricos ANSI B27.7-1977 (Machinery's Handbook 27, tablas 1 y 2,
+# pp. 1685-1686). Por Ø del eje o del agujero: D, Ø libre del anillo; t, su grueso; G, Ø de la ranura;
+# W, su ancho; d, su profundidad (de referencia: manda G); Z, margen mínimo hasta el borde.
+# Serie 3AM1, exterior (para eje)
+RETAINING_RINGS_3AM1 = {
+    "4": {"D": 3.6, "t": 0.25, "G": 3.8, "W": 0.32, "d": 0.1, "Z": 0.3},
+    "5": {"D": 4.55, "t": 0.4, "G": 4.75, "W": 0.5, "d": 0.13, "Z": 0.4},
+    "6": {"D": 5.45, "t": 0.4, "G": 5.7, "W": 0.5, "d": 0.15, "Z": 0.5},
+    "7": {"D": 6.35, "t": 0.6, "G": 6.6, "W": 0.7, "d": 0.2, "Z": 0.6},
+    "8": {"D": 7.15, "t": 0.6, "G": 7.5, "W": 0.7, "d": 0.25, "Z": 0.8},
+    "9": {"D": 8.15, "t": 0.6, "G": 8.45, "W": 0.7, "d": 0.28, "Z": 0.8},
+    "10": {"D": 9, "t": 0.6, "G": 9.4, "W": 0.7, "d": 0.3, "Z": 0.9},
+    "11": {"D": 10, "t": 0.6, "G": 10.35, "W": 0.7, "d": 0.33, "Z": 1},
+    "12": {"D": 10.85, "t": 0.6, "G": 11.35, "W": 0.7, "d": 0.33, "Z": 1},
+    "13": {"D": 11.9, "t": 0.9, "G": 12.3, "W": 1, "d": 0.35, "Z": 1},
+    "14": {"D": 12.9, "t": 0.9, "G": 13.25, "W": 1, "d": 0.38, "Z": 1.2},
+    "15": {"D": 13.8, "t": 0.9, "G": 14.15, "W": 1, "d": 0.43, "Z": 1.3},
+    "16": {"D": 14.7, "t": 0.9, "G": 15.1, "W": 1, "d": 0.45, "Z": 1.4},
+    "17": {"D": 15.75, "t": 0.9, "G": 16.1, "W": 1, "d": 0.45, "Z": 1.4},
+    "18": {"D": 16.65, "t": 1.1, "G": 17, "W": 1.2, "d": 0.5, "Z": 1.5},
+    "19": {"D": 17.6, "t": 1.1, "G": 17.95, "W": 1.2, "d": 0.53, "Z": 1.6},
+    "20": {"D": 18.35, "t": 1.1, "G": 18.85, "W": 1.2, "d": 0.58, "Z": 1.7},
+    "21": {"D": 19.4, "t": 1.1, "G": 19.8, "W": 1.2, "d": 0.6, "Z": 1.8},
+    "22": {"D": 20.3, "t": 1.1, "G": 20.7, "W": 1.2, "d": 0.65, "Z": 1.9},
+    "23": {"D": 21.25, "t": 1.1, "G": 21.65, "W": 1.2, "d": 0.67, "Z": 2},
+    "24": {"D": 22.2, "t": 1.1, "G": 22.6, "W": 1.2, "d": 0.7, "Z": 2.1},
+    "25": {"D": 23.1, "t": 1.1, "G": 23.5, "W": 1.2, "d": 0.75, "Z": 2.3},
+    "26": {"D": 24.05, "t": 1.1, "G": 24.5, "W": 1.2, "d": 0.75, "Z": 2.3},
+    "27": {"D": 24.95, "t": 1.3, "G": 25.45, "W": 1.4, "d": 0.78, "Z": 2.3},
+    "28": {"D": 25.8, "t": 1.3, "G": 26.4, "W": 1.4, "d": 0.8, "Z": 2.4},
+    "30": {"D": 27.9, "t": 1.3, "G": 28.35, "W": 1.4, "d": 0.83, "Z": 2.5},
+    "32": {"D": 29.6, "t": 1.3, "G": 30.2, "W": 1.4, "d": 0.9, "Z": 2.7},
+    "34": {"D": 31.4, "t": 1.3, "G": 32, "W": 1.4, "d": 1, "Z": 3},
+    "35": {"D": 32.3, "t": 1.3, "G": 32.9, "W": 1.4, "d": 1.05, "Z": 3.1},
+    "36": {"D": 33.25, "t": 1.3, "G": 33.85, "W": 1.4, "d": 1.06, "Z": 3.2},
+    "38": {"D": 35.2, "t": 1.3, "G": 35.8, "W": 1.4, "d": 1.1, "Z": 3.3},
+    "40": {"D": 36.75, "t": 1.6, "G": 37.7, "W": 1.75, "d": 1.15, "Z": 3.4},
+    "42": {"D": 38.8, "t": 1.6, "G": 39.6, "W": 1.75, "d": 1.2, "Z": 3.6},
+    "43": {"D": 39.65, "t": 1.6, "G": 40.5, "W": 1.75, "d": 1.25, "Z": 3.8},
+    "45": {"D": 41.6, "t": 1.6, "G": 42.4, "W": 1.75, "d": 1.3, "Z": 3.9},
+    "46": {"D": 42.55, "t": 1.6, "G": 43.3, "W": 1.75, "d": 1.35, "Z": 4},
+    "48": {"D": 44.4, "t": 1.6, "G": 45.2, "W": 1.75, "d": 1.4, "Z": 4.2},
+    "50": {"D": 46.2, "t": 1.6, "G": 47.2, "W": 1.75, "d": 1.4, "Z": 4.2},
+    "52": {"D": 48.4, "t": 2, "G": 49.1, "W": 2.15, "d": 1.45, "Z": 4.3},
+    "54": {"D": 49.9, "t": 2, "G": 51, "W": 2.15, "d": 1.5, "Z": 4.5},
+    "55": {"D": 50.6, "t": 2, "G": 51.8, "W": 2.15, "d": 1.6, "Z": 4.8},
+    "57": {"D": 52.9, "t": 2, "G": 53.8, "W": 2.15, "d": 1.6, "Z": 4.8},
+    "58": {"D": 53.6, "t": 2, "G": 54.7, "W": 2.15, "d": 1.65, "Z": 4.9},
+    "60": {"D": 55.8, "t": 2, "G": 56.7, "W": 2.15, "d": 1.65, "Z": 4.9},
+    "62": {"D": 57.3, "t": 2, "G": 58.6, "W": 2.15, "d": 1.7, "Z": 5.1},
+    "65": {"D": 60.4, "t": 2, "G": 61.6, "W": 2.15, "d": 1.7, "Z": 5.1},
+    "68": {"D": 63.1, "t": 2, "G": 64.5, "W": 2.15, "d": 1.75, "Z": 5.3},
+    "70": {"D": 64.6, "t": 2.4, "G": 66.4, "W": 2.55, "d": 1.8, "Z": 5.4},
+    "72": {"D": 66.6, "t": 2.4, "G": 68.3, "W": 2.55, "d": 1.85, "Z": 5.5},
+    "75": {"D": 69, "t": 2.4, "G": 71.2, "W": 2.55, "d": 1.9, "Z": 5.7},
+    "78": {"D": 72, "t": 2.4, "G": 74, "W": 2.55, "d": 2, "Z": 6},
+    "80": {"D": 74.2, "t": 2.4, "G": 75.9, "W": 2.55, "d": 2.05, "Z": 6.1},
+    "82": {"D": 76.4, "t": 2.4, "G": 77.8, "W": 2.55, "d": 2.1, "Z": 6.3},
+    "85": {"D": 78.6, "t": 2.4, "G": 80.6, "W": 2.55, "d": 2.2, "Z": 6.6},
+    "88": {"D": 81.4, "t": 2.8, "G": 83.5, "W": 2.95, "d": 2.25, "Z": 6.7},
+    "90": {"D": 83.2, "t": 2.8, "G": 85.4, "W": 2.95, "d": 2.3, "Z": 6.9},
+    "95": {"D": 88.1, "t": 2.8, "G": 90.2, "W": 2.95, "d": 2.4, "Z": 7.2},
+    "100": {"D": 92.5, "t": 2.8, "G": 95, "W": 2.95, "d": 2.5, "Z": 7.5},
+}
+
+# Serie 3BM1, interior (para agujero)
+RETAINING_RINGS_3BM1 = {
+    "8": {"D": 8.8, "t": 0.4, "G": 8.4, "W": 0.5, "d": 0.2, "Z": 0.6},
+    "9": {"D": 10, "t": 0.6, "G": 9.45, "W": 0.7, "d": 0.23, "Z": 0.7},
+    "10": {"D": 11.1, "t": 0.6, "G": 10.5, "W": 0.7, "d": 0.25, "Z": 0.8},
+    "11": {"D": 12.2, "t": 0.6, "G": 11.6, "W": 0.7, "d": 0.3, "Z": 0.9},
+    "12": {"D": 13.3, "t": 0.6, "G": 12.65, "W": 0.7, "d": 0.33, "Z": 1},
+    "13": {"D": 14.25, "t": 0.9, "G": 13.7, "W": 1, "d": 0.35, "Z": 1.1},
+    "14": {"D": 15.45, "t": 0.9, "G": 14.8, "W": 1, "d": 0.4, "Z": 1.2},
+    "15": {"D": 16.6, "t": 0.9, "G": 15.85, "W": 1, "d": 0.43, "Z": 1.3},
+    "16": {"D": 17.7, "t": 0.9, "G": 16.9, "W": 1, "d": 0.45, "Z": 1.4},
+    "17": {"D": 18.9, "t": 0.9, "G": 18, "W": 1, "d": 0.5, "Z": 1.5},
+    "18": {"D": 20.05, "t": 0.9, "G": 19.05, "W": 1, "d": 0.53, "Z": 1.6},
+    "19": {"D": 21.1, "t": 0.9, "G": 20.1, "W": 1, "d": 0.55, "Z": 1.7},
+    "20": {"D": 22.25, "t": 0.9, "G": 21.15, "W": 1, "d": 0.57, "Z": 1.7},
+    "21": {"D": 23.3, "t": 0.9, "G": 22.2, "W": 1, "d": 0.6, "Z": 1.8},
+    "22": {"D": 24.4, "t": 1.1, "G": 23.3, "W": 1.2, "d": 0.65, "Z": 1.9},
+    "23": {"D": 25.45, "t": 1.1, "G": 24.35, "W": 1.2, "d": 0.67, "Z": 2},
+    "24": {"D": 26.55, "t": 1.1, "G": 25.4, "W": 1.2, "d": 0.7, "Z": 2.1},
+    "25": {"D": 27.75, "t": 1.1, "G": 26.6, "W": 1.2, "d": 0.8, "Z": 2.4},
+    "26": {"D": 28.85, "t": 1.1, "G": 27.7, "W": 1.2, "d": 0.85, "Z": 2.6},
+    "27": {"D": 29.95, "t": 1.3, "G": 28.8, "W": 1.4, "d": 0.9, "Z": 2.7},
+    "28": {"D": 31.1, "t": 1.3, "G": 29.8, "W": 1.4, "d": 0.9, "Z": 2.7},
+    "30": {"D": 33.4, "t": 1.3, "G": 31.9, "W": 1.4, "d": 0.95, "Z": 2.9},
+    "32": {"D": 35.35, "t": 1.3, "G": 33.9, "W": 1.4, "d": 0.95, "Z": 2.9},
+    "34": {"D": 37.75, "t": 1.3, "G": 36.1, "W": 1.4, "d": 1.05, "Z": 3.2},
+    "35": {"D": 38.75, "t": 1.3, "G": 37.2, "W": 1.4, "d": 1.1, "Z": 3.3},
+    "36": {"D": 40, "t": 1.3, "G": 38.3, "W": 1.4, "d": 1.15, "Z": 3.5},
+    "37": {"D": 41.05, "t": 1.3, "G": 39.3, "W": 1.4, "d": 1.15, "Z": 3.5},
+    "38": {"D": 42.15, "t": 1.3, "G": 40.4, "W": 1.4, "d": 1.2, "Z": 3.6},
+    "40": {"D": 44.25, "t": 1.6, "G": 42.4, "W": 1.75, "d": 1.2, "Z": 3.6},
+    "42": {"D": 46.6, "t": 1.6, "G": 44.5, "W": 1.75, "d": 1.25, "Z": 3.7},
+    "45": {"D": 49.95, "t": 1.6, "G": 47.6, "W": 1.75, "d": 1.3, "Z": 3.9},
+    "46": {"D": 51.05, "t": 1.6, "G": 48.7, "W": 1.75, "d": 1.35, "Z": 4},
+    "47": {"D": 52.15, "t": 1.6, "G": 49.8, "W": 1.75, "d": 1.4, "Z": 4.2},
+    "48": {"D": 53.3, "t": 1.6, "G": 50.9, "W": 1.75, "d": 1.45, "Z": 4.3},
+    "50": {"D": 55.35, "t": 1.6, "G": 53.1, "W": 1.75, "d": 1.55, "Z": 4.6},
+    "52": {"D": 57.9, "t": 2, "G": 55.3, "W": 2.15, "d": 1.65, "Z": 5},
+    "55": {"D": 61.1, "t": 2, "G": 58.4, "W": 2.15, "d": 1.7, "Z": 5.1},
+    "57": {"D": 63.25, "t": 2, "G": 60.5, "W": 2.15, "d": 1.75, "Z": 5.3},
+    "58": {"D": 64.4, "t": 2, "G": 61.6, "W": 2.15, "d": 1.8, "Z": 5.4},
+    "60": {"D": 66.8, "t": 2, "G": 63.8, "W": 2.15, "d": 1.9, "Z": 5.7},
+    "62": {"D": 68.6, "t": 2, "G": 65.8, "W": 2.15, "d": 1.9, "Z": 5.7},
+    "63": {"D": 69.9, "t": 2, "G": 66.9, "W": 2.15, "d": 1.95, "Z": 5.9},
+    "65": {"D": 72.2, "t": 2.4, "G": 69, "W": 2.55, "d": 2, "Z": 6},
+    "68": {"D": 75.7, "t": 2.4, "G": 72.2, "W": 2.55, "d": 2.1, "Z": 6.3},
+    "70": {"D": 77.5, "t": 2.4, "G": 74.4, "W": 2.55, "d": 2.2, "Z": 6.6},
+    "72": {"D": 79.6, "t": 2.4, "G": 76.5, "W": 2.55, "d": 2.25, "Z": 6.7},
+    "75": {"D": 83.3, "t": 2.4, "G": 79.7, "W": 2.55, "d": 2.35, "Z": 7.1},
+    "78": {"D": 86.8, "t": 2.8, "G": 82.8, "W": 2.95, "d": 2.4, "Z": 7.2},
+    "80": {"D": 89.1, "t": 2.8, "G": 85, "W": 2.95, "d": 2.5, "Z": 7.5},
+    "82": {"D": 91.1, "t": 2.8, "G": 87.2, "W": 2.95, "d": 2.6, "Z": 7.8},
+    "85": {"D": 94.4, "t": 2.8, "G": 90.4, "W": 2.95, "d": 2.7, "Z": 8.1},
+    "88": {"D": 97.9, "t": 2.8, "G": 93.6, "W": 2.95, "d": 2.8, "Z": 8.4},
+    "90": {"D": 100, "t": 2.8, "G": 95.7, "W": 2.95, "d": 2.85, "Z": 8.6},
+    "92": {"D": 102.2, "t": 2.8, "G": 97.8, "W": 2.95, "d": 2.9, "Z": 8.7},
+    "95": {"D": 105.6, "t": 2.8, "G": 101, "W": 2.95, "d": 3, "Z": 9},
+    "98": {"D": 109, "t": 2.8, "G": 104.2, "W": 2.95, "d": 3.1, "Z": 9.3},
+    "100": {"D": 110.7, "t": 2.8, "G": 106.3, "W": 2.95, "d": 3.15, "Z": 9.5},
+    "102": {"D": 112.4, "t": 2.8, "G": 108.4, "W": 2.95, "d": 3.2, "Z": 9.6},
+    "105": {"D": 115.8, "t": 2.8, "G": 111.5, "W": 2.95, "d": 3.25, "Z": 9.8},
+    "108": {"D": 119.2, "t": 2.8, "G": 114.6, "W": 2.95, "d": 3.3, "Z": 9.9},
+    "110": {"D": 120.8, "t": 2.8, "G": 116.7, "W": 2.95, "d": 3.35, "Z": 10.1},
+    "115": {"D": 126, "t": 2.8, "G": 121.9, "W": 2.95, "d": 3.45, "Z": 10.4},
+    "120": {"D": 132.4, "t": 2.8, "G": 127, "W": 2.95, "d": 3.5, "Z": 10.5},
+    "125": {"D": 137.1, "t": 2.8, "G": 132.1, "W": 2.95, "d": 3.55, "Z": 10.7},
+    "130": {"D": 142.5, "t": 2.8, "G": 137.2, "W": 2.95, "d": 3.6, "Z": 10.8},
+    "135": {"D": 148.5, "t": 3.2, "G": 142.3, "W": 3.4, "d": 3.65, "Z": 11},
+    "140": {"D": 154.1, "t": 3.2, "G": 147.4, "W": 3.4, "d": 3.7, "Z": 11.1},
+    "145": {"D": 159.5, "t": 3.2, "G": 152.5, "W": 3.4, "d": 3.75, "Z": 11.3},
+    "150": {"D": 164.5, "t": 3.2, "G": 157.6, "W": 3.4, "d": 3.8, "Z": 11.4},
+    "155": {"D": 168.8, "t": 3.2, "G": 162.7, "W": 3.4, "d": 3.85, "Z": 11.6},
+    "160": {"D": 175.1, "t": 4, "G": 167.8, "W": 4.25, "d": 3.9, "Z": 11.7},
+    "165": {"D": 180.3, "t": 4, "G": 172.9, "W": 4.25, "d": 3.95, "Z": 11.9},
+    "170": {"D": 185.6, "t": 4, "G": 178, "W": 4.25, "d": 4, "Z": 12},
+    "175": {"D": 191.3, "t": 4, "G": 183.2, "W": 4.25, "d": 4.1, "Z": 12.3},
+    "180": {"D": 196.6, "t": 4, "G": 188.4, "W": 4.25, "d": 4.2, "Z": 12.6},
+    "185": {"D": 202.7, "t": 4.8, "G": 193.6, "W": 5.1, "d": 4.3, "Z": 12.9},
+    "190": {"D": 207.7, "t": 4.8, "G": 198.8, "W": 5.1, "d": 4.4, "Z": 13.2},
+    "200": {"D": 217.8, "t": 4.8, "G": 209, "W": 5.1, "d": 4.5, "Z": 13.5},
+    "210": {"D": 230.3, "t": 4.8, "G": 219.4, "W": 5.1, "d": 4.7, "Z": 14.1},
+    "220": {"D": 240.5, "t": 4.8, "G": 230, "W": 5.1, "d": 5, "Z": 15},
+    "230": {"D": 251.4, "t": 4.8, "G": 240.6, "W": 5.1, "d": 5.3, "Z": 15.9},
+    "240": {"D": 262.3, "t": 4.8, "G": 251, "W": 5.1, "d": 5.5, "Z": 16.5},
+    "250": {"D": 273.3, "t": 4.8, "G": 261.4, "W": 5.1, "d": 5.7, "Z": 17.1},
+}
+
+RING_TABLES = {"3am1": RETAINING_RINGS_3AM1, "3bm1": RETAINING_RINGS_3BM1}
+
+# Ranuras para o-ring (Machinery's Handbook 27, «O-Rings», tablas 1 y 2, pp. 2503-2505), en pulgadas y
+# por grueso de la sección AS568. w: grueso; static y moving: profundidad del alojamiento (fondo de la
+# ranura hasta la superficie contra la que sella), como (mín, máx); width: ancho de la ranura sin
+# anillos de apoyo. La clave es el grueso en mm con que se venden.
+ORING_GROOVES_INCH = {
+    "1.78": {"w": 0.070, "static": (0.050, 0.052), "moving": (0.055, 0.057), "width": 0.094},
+    "2.62": {"w": 0.103, "static": (0.081, 0.083), "moving": (0.088, 0.090), "width": 0.141},
+    "3.53": {"w": 0.139, "static": (0.111, 0.113), "moving": (0.121, 0.123), "width": 0.188},
+    "5.33": {"w": 0.210, "static": (0.170, 0.173), "moving": (0.185, 0.188), "width": 0.281},
+    "6.99": {"w": 0.275, "static": (0.226, 0.229), "moving": (0.237, 0.240), "width": 0.375},
+}
+
+GROOVE_FN = 96     # las máscaras llevan su resolución: un Ø de ranura no puede depender del ajuste global
+
 FIT_ALLOWANCE = {"fine": 0.2, "medium": 0.4, "coarse": 0.6}
 PROFILE_SLOT_WIDTH = 6.2   # boca de la ranura de un perfil 20xx
 PROFILE_SLOT_DEPTH = 6.0
@@ -177,6 +346,10 @@ def available_sizes(category: str, standard: str = "") -> list[str]:
         return list(BEARINGS_ISO)
     if category == "profile":
         return ["2020", "2040"]
+    if category == "ring_groove":
+        return list(RING_TABLES[standard])
+    if category == "oring_groove":
+        return list(ORING_GROOVES_INCH)
     raise ValueError(f"Categoría desconocida: {category}")
 
 
@@ -460,7 +633,80 @@ def create_profile_node(
     return _colored(tr("Perfil {model}x{length}mm").format(model=model, length=format_number(length)), "LightGray", diff, u_fn)
 
 
-def describe(category: str, standard: str, size: str, length: float, fit: str) -> list[str]:
+def _ring_mask(name: str, outer_d: float, inner_d: float, h: float, z: float, u_fn) -> Node:
+    """Máscara de resta en forma de corona, de Ø outer_d a Ø inner_d, entre z y z + h."""
+    outer = _cylinder(tr("Exterior"), h, outer_d / 2.0, u_fn)
+    inner = _cylinder(tr("Paso interior"), h + 0.2, inner_d / 2.0, u_fn)
+    outer.params["$fn"] = inner.params["$fn"] = GROOVE_FN
+    mask = make_node("difference", u_fn(name))
+    mask.children += [outer, _at(-0.1, inner)]
+    return _at(z, mask) if z else mask
+
+
+def create_ring_groove_node(
+    standard: str = "3am1",
+    size: str = "20",
+    unique_fn: Optional[Callable[[str], str]] = None,
+) -> Node:
+    """Máscara de la ranura de un anillo de retención: se resta del eje o del agujero. Empieza en z = 0
+    y sobresale 1 mm de la superficie para que la resta quede limpia."""
+    u_fn = unique_fn or (lambda s: s)
+    spec = _lookup(RING_TABLES[standard], size, tr("Diámetro"))
+    s, g, w = float(size), spec["G"], spec["W"]
+    name = tr("Ranura anillo {ref}-{size}").format(ref=standard.upper(), size=size)
+    if standard == "3am1":
+        return _ring_mask(name, s + 2.0, g, w, 0.0, u_fn)
+    return _ring_mask(name, g, s - 2.0, w, 0.0, u_fn)
+
+
+def oring_groove(size: str, seal: str = "static") -> dict:
+    """Medidas de la ranura en mm: grueso del anillo, profundidad del alojamiento (la mitad de su
+    intervalo en la tabla), ancho de la ranura y cuánto se aplasta el anillo, en %."""
+    spec = _lookup(ORING_GROOVES_INCH, size, tr("Sección"))
+    low, high = spec[seal]
+    gland = (low + high) / 2
+    return {"w": round(spec["w"] * 25.4, 3), "gland": round(gland * 25.4, 3),
+            "width": round(spec["width"] * 25.4, 3), "squeeze": round((1 - gland / spec["w"]) * 100)}
+
+
+def _oring_diameters(standard: str, size: str, diameter: float, seal: str) -> tuple[dict, float, float]:
+    """(medidas, Ø exterior e interior de la ranura). shaft: ranura en un eje que entra en un agujero
+    de ese Ø; bore: en un agujero por el que pasa un eje de ese Ø; face: en una cara plana, con ese Ø
+    exterior y siempre como junta estática."""
+    d = oring_groove(size, "static" if standard == "face" else seal)
+    if standard == "shaft":
+        outer, inner = diameter, diameter - 2 * d["gland"]
+    elif standard == "bore":
+        outer, inner = diameter + 2 * d["gland"], diameter
+    else:
+        outer, inner = diameter, diameter - 2 * d["width"]
+    if inner <= 0:
+        raise ValueError(tr("Ø {d} mm es demasiado pequeño para un o-ring de {size} mm").format(
+            d=format_number(diameter), size=size))
+    return d, round(outer, 3), round(inner, 3)
+
+
+def create_oring_groove_node(
+    standard: str = "shaft",
+    size: str = "2.62",
+    diameter: float = 20.0,
+    seal: str = "static",
+    unique_fn: Optional[Callable[[str], str]] = None,
+) -> Node:
+    """Máscara de la ranura de un o-ring. La de eje o agujero empieza en z = 0; la de cara plana tiene
+    la cara en z = 0: baja la profundidad y sube 1 mm para que la resta quede limpia."""
+    u_fn = unique_fn or (lambda s: s)
+    d, outer, inner = _oring_diameters(standard, size, diameter, seal)
+    name = tr("Ranura o-ring {size}").format(size=size)
+    if standard == "shaft":
+        return _ring_mask(name, outer + 2.0, inner, d["width"], 0.0, u_fn)
+    if standard == "bore":
+        return _ring_mask(name, outer, max(inner - 2.0, inner / 2), d["width"], 0.0, u_fn)
+    return _ring_mask(name, outer, inner, d["gland"] + 1.0, -d["gland"], u_fn)
+
+
+def describe(category: str, standard: str, size: str, length: float, fit: str,
+             diameter: float = 20.0, seal: str = "static") -> list[str]:
     """Líneas de texto con las medidas que usará la pieza (las mismas que los constructores).
 
     La primera línea es el título; el diálogo la muestra en negrita.
@@ -519,4 +765,26 @@ def describe(category: str, standard: str, size: str, length: float, fit: str) -
                     model=size, section=section, length=fmt(length)),
                 tr("Ranura recta de {slot} mm (sin el ala en T) y taladro central Ø{hole} mm para roscar M5").format(
                     slot=fmt(PROFILE_SLOT_WIDTH), hole=fmt(2 * PROFILE_CORE_HOLE_R))]
+    if category == "ring_groove":
+        spec = _lookup(RING_TABLES[standard], size, tr("Diámetro"))
+        title = (tr("Ranura de eje Ø{size} para anillo 3AM1-{size} (ANSI B27.7)") if standard == "3am1"
+                 else tr("Ranura de agujero Ø{size} para anillo 3BM1-{size} (ANSI B27.7)"))
+        return [title.format(size=size),
+                tr("Ø de la ranura {g} mm · ancho {w} mm · profundidad {d} mm").format(
+                    g=fmt(spec["G"]), w=fmt(spec["W"]), d=fmt(spec["d"])),
+                tr("Anillo de {t} mm de grueso · deja al menos {z} mm entre la ranura y el borde").format(
+                    t=fmt(spec["t"]), z=fmt(spec["Z"]))]
+    if category == "oring_groove":
+        d, outer, inner = _oring_diameters(standard, size, diameter, seal)
+        title = tr("Ranura para o-ring de {size} mm (sección AS568)").format(size=size)
+        tail = tr("Profundidad del alojamiento {f} mm · el anillo se aplasta un {p} %").format(
+            f=fmt(d["gland"]), p=d["squeeze"])
+        if standard == "shaft":
+            return [title, tr("En un eje, para un agujero de Ø{a}: Ø de fondo {r} mm · ancho {w} mm").format(
+                a=fmt(diameter), r=fmt(inner), w=fmt(d["width"])), tail]
+        if standard == "bore":
+            return [title, tr("En un agujero, para un eje de Ø{a}: Ø de fondo {r} mm · ancho {w} mm").format(
+                a=fmt(diameter), r=fmt(outer), w=fmt(d["width"])), tail]
+        return [title, tr("En una cara plana, junta estática: Ø {o} a Ø {i} mm · ancho {w} mm").format(
+            o=fmt(outer), i=fmt(inner), w=fmt(d["width"])), tail]
     raise ValueError(f"Categoría desconocida: {category}")

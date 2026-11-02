@@ -250,6 +250,50 @@ def test_pestanas_de_la_polea_en_todos_los_idiomas():
             assert abs(volume_of(text) - reference) < 1, (flange, lang)
 
 
+def test_ranuras_de_anillo_y_oring_quitan_lo_que_toca():
+    """La máscara restada de un eje o un agujero quita la corona de la tabla, en toda su altura."""
+    from scadgui import hardware as hw
+    n = hw.GROOVE_FN
+
+    def area(d):
+        return n * 0.5 * (d / 2) ** 2 * math.sin(2 * math.pi / n)
+
+    def mask_code(node):
+        doc = Document()
+        doc.children.append(node)
+        return generate(doc, header=False).text
+
+    def removed(base, node, z=0.0):
+        whole = volume_of(base)
+        cut = volume_of(f"difference() {{ {base} translate([0, 0, {z}]) {{ {mask_code(node)} }} }}")
+        return whole - cut
+
+    shaft = "cylinder(h = 20, d = {d}, $fn = 96);"
+    block = "difference() {{ cylinder(h = 20, d = 300, $fn = 96); translate([0, 0, -1]) cylinder(h = 22, d = {d}, $fn = 96); }}"
+    for s in ("4", "20", "100"):
+        r = hw.RETAINING_RINGS_3AM1[s]
+        got = removed(shaft.format(d=s), hw.create_ring_groove_node("3am1", s), 5)
+        want = (area(float(s)) - area(r["G"])) * r["W"]
+        assert abs(got - want) < max(0.05, want * 1e-3), ("3am1", s, got, want)
+    for s in ("8", "20", "100"):
+        r = hw.RETAINING_RINGS_3BM1[s]
+        got = removed(block.format(d=s), hw.create_ring_groove_node("3bm1", s), 5)
+        want = (area(r["G"]) - area(float(s))) * r["W"]
+        assert abs(got - want) < max(0.05, want * 1e-3), ("3bm1", s, got, want)
+    f = hw.oring_groove("2.62")
+    # Un eje de Ø29.9 para un agujero de Ø30: la ranura va al Ø de la tabla, no al del eje.
+    got = removed(shaft.format(d=29.9), hw.create_oring_groove_node("shaft", "2.62", 30), 5)
+    want = (area(29.9) - area(30 - 2 * f["gland"])) * f["width"]
+    assert abs(got - want) < want * 1e-3, (got, want)
+    got = removed(block.format(d=30), hw.create_oring_groove_node("bore", "2.62", 30), 5)
+    want = (area(30 + 2 * f["gland"]) - area(30)) * f["width"]
+    assert abs(got - want) < want * 1e-3, (got, want)
+    base = "translate([0, 0, -20]) cylinder(h = 20, d = 100, $fn = 96);"     # la cara queda en z = 0
+    got = removed(base, hw.create_oring_groove_node("face", "2.62", 40))
+    want = (area(40) - area(40 - 2 * f["width"])) * f["gland"]
+    assert abs(got - want) < want * 1e-3, (got, want)
+
+
 def test_estriado_volumen_y_encaje():
     """La pieza de OpenSCAD pesa lo mismo que la vista aproximada, en todas las columnas de la tabla;
     el eje y el cubo encajan sin chocar y girar el eje medio paso los haría chocar."""
