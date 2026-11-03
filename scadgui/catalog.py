@@ -515,8 +515,9 @@ ICONS = {
     "cam": ("M13 3c-4.5 0-8 3.8-8 9s3.5 9 8 9c0.9 0 1.7-1.6 2.3-4.2c0.4-1.7 1.7-3 3.4-3l1.3 0"
             "c0.6 0 1-0.4 1-1v-1.6c0-0.6-0.4-1-1-1l-1.3 0c-1.7 0-3-1.3-3.4-3C14.7 4.6 13.9 3 13 3z"
             " M12 9a3 3 0 1 0 0.01 0"),
-    "camshaft_main_shaft": "M2 10h20v4H2z M5 10v4 M19 10v4",
-    "cam_lobe": ("M2 11h20v2H2z M9 6c0-2 1.5-3.5 3-3.5S15 4 15 6v12c0 2-1.5 3.5-3 3.5S9 20 9 18z"),
+    # Eje con dos muñones escalonados, y lóbulo visto de frente: círculo base, punta y el agujero del eje.
+    "camshaft_main_shaft": "M2 10.5h20v3H2z M5 8.5h3v7H5z M16 8.5h3v7h-3z",
+    "cam_lobe": "M12 3C14 3 18 9 18 15a6 6 0 0 1-12 0C6 9 10 3 12 3z M12 13a2 2 0 1 0 0 4a2 2 0 1 0 0-4z",
     "pipe_flange": ("M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20z M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8z"
                     " M12 4.2a.9.9 0 1 0 0 1.8a.9.9 0 1 0 0-1.8z M12 18a.9.9 0 1 0 0 1.8a.9.9 0 1 0 0-1.8z"
                     " M4.2 12a.9.9 0 1 0 1.8 0a.9.9 0 1 0-1.8 0z M18 12a.9.9 0 1 0 1.8 0a.9.9 0 1 0-1.8 0z"),
