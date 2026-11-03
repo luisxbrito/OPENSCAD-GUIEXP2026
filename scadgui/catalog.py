@@ -340,6 +340,24 @@ _add(Spec("spline", "Estriado", "solid", False, (
    "ISO 4156). El eje y el cubo encajan en el mismo sitio, sin moverlos ni girarlos. La holgura solo "
    "adelgaza el diente del eje: el hueco del cubo siempre tiene el ancho básico."))
 
+_add(Spec("cam", "Leva de disco", "solid", False, (
+    Param("base_d", "num", 40, label="Ø base", minimum=1),
+    Param("lift", "num", 10, label="Alzada", minimum=0.1),
+    Param("rise_angle", "num", 90, label="Ángulo de subida (°)", minimum=1, maximum=358, step=5),
+    Param("dwell_angle", "num", 30, optional=True, label="Reposo arriba (°)", minimum=0, maximum=358, step=5),
+    Param("fall_angle", "num", 90, label="Ángulo de bajada (°)", minimum=1, maximum=358, step=5),
+    Param("motion", "choice", "cicloidal", label="Ley de movimiento",
+          options=("cicloidal", "armonica", "parabolica", "velocidad_constante")),
+    Param("thickness", "num", 8, label="Espesor", minimum=0.01),
+    Param("bore", "num", 6, optional=True, label="Agujero (Ø)", minimum=0),
+    Param("center", "bool", False, label="Centrado"),
+), keyword="module", hint="Leva de disco: el seguidor sube la alzada con la ley de movimiento "
+   "elegida durante el ángulo de subida, se queda arriba el reposo, baja con la misma ley "
+   "espejada y el resto del giro se queda en el Ø base. 4 leyes clásicas de «Cams and Cam "
+   "Design» (Machinery's Handbook 27, pp. 2190-2192): cicloidal (la de menos vibración, usada en "
+   "maquinaria rápida), armónica, parabólica y velocidad constante (con golpe en los cambios, "
+   "solo para mecanismos lentos)."))
+
 _add(Spec("v_pulley", "Polea trapecial", "solid", False, (
     Param("section", "choice", "A", label="Sección", options=("A", "B", "C", "D")),
     Param("datum_d", "num", 80, label="Ø primitivo (datum)", minimum=10, step=5),
@@ -441,6 +459,9 @@ ICONS = {
                " M5.3 18.7l2.2-2.2 M16.5 7.5l2.2-2.2"),
     "spline": ("M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 3v5 M12 16v5 M3 12h5 M16 12h5"
                " M5.6 5.6l3.5 3.5 M14.9 14.9l3.5 3.5 M5.6 18.4l3.5-3.5 M14.9 9.1l3.5-3.5"),
+    "cam": ("M13 3c-4.5 0-8 3.8-8 9s3.5 9 8 9c0.9 0 1.7-1.6 2.3-4.2c0.4-1.7 1.7-3 3.4-3l1.3 0"
+            "c0.6 0 1-0.4 1-1v-1.6c0-0.6-0.4-1-1-1l-1.3 0c-1.7 0-3-1.3-3.4-3C14.7 4.6 13.9 3 13 3z"
+            " M12 9a3 3 0 1 0 0.01 0"),
     "v_pulley": ("M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20z"
                  " M9 2.5l3 3l3-3 M9 21.5l3-3l3 3 M2.5 9l3 3l-3 3 M21.5 9l-3 3l3 3"),
     "rack": ("M2 14H2.7L3.5 7h2l0.8 7h1.4L8.5 7h2l0.8 7h1.4L13.5 7h2l0.8 7h1.4L18.5 7h2l0.8 7H22"

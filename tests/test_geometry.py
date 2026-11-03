@@ -801,6 +801,31 @@ def test_estriado_cubo_con_hueco_y_eje_que_cabe():
     assert spline({"mod": 2, "internal": True, "hub_d": 10}, ctx) is None     # el hueco se sale del cubo
 
 
+def test_leva_perfil_radio_base_y_alzada():
+    """El perfil nunca baja del radio base ni sube más que la alzada, y en el tramo de reposo
+    de arriba se mantiene exactamente en Ø base + alzada (dentro de la resolución de 1°/punto)."""
+    from scadgui import gears
+    d = gears.cam_dims(40, 10, 90, 30, 90)
+    poly = gears.cam_polygon(40, 10, 90, 30, 90, "cicloidal")
+    r = np.linalg.norm(poly, axis=1)
+    assert r.min() >= d["base_r"] - 1e-6
+    assert r.max() <= d["outer_r"] + 1e-6
+    assert np.isclose(r.max(), d["outer_r"], atol=0.01)      # llega arriba del todo
+    assert np.isclose(r.min(), d["base_r"], atol=0.01)       # y vuelve abajo del todo
+
+
+def test_leva_en_la_vista_aproximada():
+    from scadgui.parser import parse
+    from scadgui import geometry as geo, gears
+    doc = parse('cam(base_d = 40, lift = 10, rise_angle = 90, dwell_angle = 30, fall_angle = 90, '
+                'thickness = 8, center = true);')
+    tris = next(iter(geo.build_ghosts(doc).values()))
+    assert np.isclose(tris[..., 2].min(), -4) and np.isclose(tris[..., 2].max(), 4)
+    r = np.linalg.norm(tris[..., :2], axis=-1)
+    assert np.isclose(r.max(), 30.0, atol=0.5)   # Ø base 40 + alzada 10 = radio 30
+    assert geo.signed_volume(tris) > 0
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

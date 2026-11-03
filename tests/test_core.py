@@ -32,7 +32,7 @@ def roundtrip(text):
 
 
 def test_catalogo_completo():
-    assert len(SPECS) == 42  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 7 de mecánica
+    assert len(SPECS) == 43  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 8 de mecánica
     for key, _, _ in CATEGORIES:
         assert specs_in(key), key
     for name in SPECS:
@@ -1046,7 +1046,7 @@ def test_modulos_propios_con_comentarios_en_ingles():
     def code_only(text):
         return " ".join(re.sub(r"//[^\n]*", "", text).split())
 
-    assert set(SPANISH_COMMENTS) == set(LIBRARY) - {"shaft_bore", "spline"}   # nacieron ya en inglés
+    assert set(SPANISH_COMMENTS) == set(LIBRARY) - {"shaft_bore", "spline", "cam"}   # nacieron ya en inglés
     for name, code in LIBRARY.items():
         assert all(c.isascii() for c in re.findall(r"//[^\n]*", code)), name
         assert "written by OpenSCAD GUI Mejorada" in code and "lo escribe" not in code, name
@@ -1563,6 +1563,41 @@ def test_polea_trapecial_codigo_y_vuelta():
     again = parse(text)
     assert generate(again).text == text              # ida y vuelta
     assert [n.kind for n in again.children] == ["v_pulley"]
+
+
+def test_leva_valores_y_ley_cicloidal():
+    """La ley cicloidal arranca y termina con velocidad y aceleración nulas: y(0)=0, y(1)=1."""
+    import math
+    from scadgui import gears
+    assert math.isclose(gears.cam_motion("cicloidal", 0.0), 0.0, abs_tol=1e-9)
+    assert math.isclose(gears.cam_motion("cicloidal", 1.0), 1.0, abs_tol=1e-9)
+    assert math.isclose(gears.cam_motion("cicloidal", 0.5), 0.5, abs_tol=1e-9)   # simétrica
+    assert math.isclose(gears.cam_motion("armonica", 0.5), 0.5, abs_tol=1e-9)
+    assert math.isclose(gears.cam_motion("parabolica", 0.5), 0.5, abs_tol=1e-9)
+    assert math.isclose(gears.cam_motion("velocidad_constante", 0.5), 0.5, abs_tol=1e-9)
+    d = gears.cam_dims(40, 10, 90, 30, 90)
+    assert d["outer_r"] == d["base_r"] + 10
+    assert d["rest_angle"] == 360 - 90 - 30 - 90
+    poly = gears.cam_polygon(40, 10, 90, 30, 90, "cicloidal")
+    assert len(poly) > 10
+    assert gears.cam_warnings(40, 10, 0, 30, 90)           # sin subida: aviso
+    assert gears.cam_warnings(40, 10, 90, 30, 0)           # sin bajada: aviso
+    assert gears.cam_warnings(40, 10, 200, 100, 200)       # suma > 360°: aviso
+
+
+def test_leva_codigo_y_vuelta():
+    doc = Document()
+    cm = doc.add("cam")
+    for key, value in (("base_d", 40), ("lift", 10), ("rise_angle", 90), ("dwell_angle", 30),
+                       ("fall_angle", 90), ("motion", "armonica"), ("thickness", 8), ("bore", 6),
+                       ("center", True)):
+        doc.set_param(cm.id, key, value)
+    text = generate(doc).text
+    assert text.count("module cam(") == 1
+    assert 'motion = "armonica"' in text and "base_d = 40" in text
+    again = parse(text)
+    assert generate(again).text == text              # ida y vuelta
+    assert [n.kind for n in again.children] == ["cam"]
 
 
 if __name__ == "__main__":

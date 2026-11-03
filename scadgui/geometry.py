@@ -800,6 +800,22 @@ def v_pulley(p, ctx) -> Optional[Tris]:
     return revolve(prof, ctx)
 
 
+def cam(p) -> Optional[Tris]:
+    """Leva de disco (vista aproximada: sin el agujero, que lo hace OpenSCAD). Perfil extruido
+    recto, sin necesidad de ctx (su resolución es propia, en grados por punto, no $fn)."""
+    from . import gears
+    base_d, lift = _num(p.get("base_d", 40)), _num(p.get("lift", 10))
+    rise, dwell = _num(p.get("rise_angle", 90)), _num(p.get("dwell_angle", 0), 0.0)
+    fall, t = _num(p.get("fall_angle", 90)), _num(p.get("thickness", 8))
+    motion = p.get("motion", "cicloidal")
+    if (motion not in gears.CAM_MOTIONS or None in (base_d, lift, rise, dwell, fall, t)
+            or base_d <= 0 or t <= 0 or lift < 0 or rise <= 0 or fall <= 0):
+        return None
+    poly = gears.cam_polygon(base_d, lift, rise, dwell, fall, motion)
+    z0 = -t / 2 if p.get("center") is True else 0.0
+    return prism(poly, t, z0)
+
+
 def rack(p) -> Optional[Tris]:
     """Cremallera, recta o helicoidal (el dentado inclinado sale sesgando el prisma)."""
     from . import gears
@@ -1208,6 +1224,8 @@ def solid(node, ctx) -> dict:
         mesh = v_pulley(p, ctx)
     elif k == "spline":
         mesh = spline(p, ctx)
+    elif k == "cam":
+        mesh = cam(p)
     elif k == "cylinder_edges":
         mesh = cylinder_edges(p, ctx)
     elif k in ("square", "circle", "polygon"):

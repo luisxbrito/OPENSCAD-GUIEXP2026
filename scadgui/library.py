@@ -418,9 +418,44 @@ SHAFT_BORE = '''module shaft_bore(d, h, keyway = false, key_width = 0, key_depth
   if (keyway && b > 0 && t2 > 0) translate([0, -b / 2, 0]) cube([d / 2 + t2, b, h]);
 }'''
 
+CAM = '''module cam(base_d = 40, lift = 10, rise_angle = 90, dwell_angle = 30, fall_angle = 90,
+          motion = "cicloidal", thickness = 8, bore = 0, center = false) {
+  // Plate cam (written by OpenSCAD GUI Mejorada).
+  // The profile is the base radius plus the lift set by the chosen motion law, over the rise
+  // angle; it stays up for the dwell angle, falls with the same law mirrored, and the rest of
+  // the turn stays at the base radius. 4 classic laws from "Cams and Cam Design" (Machinery's
+  // Handbook 27, pp. 2190-2192), normalized to lift 1 and angle 1 (t from 0 to 1).
+  r0 = base_d / 2;
+  rise = max(0, rise_angle); dwell = max(0, dwell_angle); fall = max(0, fall_angle);
+  rest = max(0, 360 - rise - dwell - fall);
+  step = 1;
+  function mot(t) = motion == "velocidad_constante" ? t :
+                     motion == "parabolica" ? (t <= 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t)) :
+                     motion == "armonica" ? 0.5 * (1 - cos(180 * t)) :
+                     t - sin(360 * t) / (2 * PI);                              // cycloidal (default)
+  n_rise = max(1, ceil(rise / step));
+  rise_pts = rise > 0 ? [for (i = [0 : n_rise - 1]) let(f = i / n_rise, r = r0 + lift * mot(f),
+                          a = rise * f) [r * cos(a), r * sin(a)]] : [];
+  n_dwell = max(1, ceil(dwell / step));
+  dwell_pts = dwell > 0 ? [for (i = [0 : n_dwell - 1]) let(a = rise + dwell * i / n_dwell)
+                           [(r0 + lift) * cos(a), (r0 + lift) * sin(a)]] : [];
+  n_fall = max(1, ceil(fall / step));
+  fall_pts = fall > 0 ? [for (i = [0 : n_fall - 1]) let(f = i / n_fall,
+                          r = r0 + lift * (1 - mot(f)), a = rise + dwell + fall * f)
+                         [r * cos(a), r * sin(a)]] : [];
+  n_rest = max(1, ceil(rest / step));
+  rest_pts = rest > 0 ? [for (i = [0 : n_rest - 1]) let(a = rise + dwell + fall + rest * i / n_rest)
+                         [r0 * cos(a), r0 * sin(a)]] : [];
+  profile = concat(rise_pts, dwell_pts, fall_pts, rest_pts);
+  translate([0, 0, center ? -thickness / 2 : 0]) difference() {
+    linear_extrude(thickness) polygon(profile);
+    if (bore > 0) translate([0, 0, -1]) cylinder(h = thickness + 2, d = bore);
+  }
+}'''
+
 LIBRARY = {"cube_edges": CUBE_EDGES, "cylinder_edges": CYLINDER_EDGES, "spur_gear": SPUR_GEAR,
            "helical_gear": HELICAL_GEAR, "rack": RACK, "bevel_gear": BEVEL_GEAR, "pulley": PULLEY,
-           "v_pulley": V_PULLEY, "spline": SPLINE, "shaft_bore": SHAFT_BORE}
+           "v_pulley": V_PULLEY, "spline": SPLINE, "cam": CAM, "shaft_bore": SHAFT_BORE}
 
 # Versiones anteriores que ya pueden estar en archivos guardados. Al abrir el archivo se
 # reconocen como nuestras y se sustituyen por la versión actual (no se conservan como código

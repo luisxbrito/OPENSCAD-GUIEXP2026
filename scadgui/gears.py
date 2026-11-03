@@ -764,3 +764,81 @@ def spline_warnings(mod: float, teeth: int, pressure_angle: float = 30.0, fillet
         if width <= 0 or width / d["pitch_d"] + _inv(d["angle"]) - _inv(tip) <= 0:
             out.append((N_("La holgura de {c:g} mm se come el diente."), {"c": clearance}))
     return out
+
+# --------------------------------------------------------------------------- Levas
+# Leva de disco (plato) con seguidor de traslación: el perfil es el radio base más la alzada que
+# marca la ley de movimiento elegida, durante el ángulo de subida; se mantiene arriba (reposo),
+# baja con la misma ley (espejada) y el resto del giro se queda en el radio base (reposo abajo).
+# No hay tabla que transcribir: son las 4 curvas de desplazamiento de "Cams and Cam Design"
+# (Machinery's Handbook 27, pp. 2190-2192, fig. 4 a 7), normalizadas a alzada 1 y ángulo 1 (t de
+# 0 a 1). No se calculan ángulo de presión ni radio de curvatura (p. 2193 y siguientes): hacen
+# falta para elegir el radio base de verdad, pero no cambian el perfil aquí dibujado.
+CAM_MOTIONS = ("cicloidal", "armonica", "parabolica", "velocidad_constante")
+
+
+def cam_motion(kind: str, t: float) -> float:
+    """Fracción de la alzada (0 a 1) para t de 0 a 1, según la ley de movimiento."""
+    t = min(1.0, max(0.0, t))
+    if kind == "velocidad_constante":                  # ec. 1a: y = h·t/T
+        return t
+    if kind == "parabolica":                            # ec. 2a/2d: dos parábolas, en T/2
+        return 2 * t * t if t <= 0.5 else 1 - 2 * (1 - t) ** 2
+    if kind == "armonica":                               # ec. 3a: y = h/2·(1 - cos(180°·t))
+        return 0.5 * (1 - math.cos(math.pi * t))
+    return t - math.sin(2 * math.pi * t) / (2 * math.pi)   # cicloidal, ec. 4a (por defecto)
+
+
+def cam_dims(base_d: float, lift: float, rise_angle: float, dwell_angle: float,
+            fall_angle: float) -> dict:
+    """Medidas de la leva (mm y grados)."""
+    base_r = max(0.0, float(base_d)) / 2
+    rise, dwell, fall = max(0.0, rise_angle), max(0.0, dwell_angle), max(0.0, fall_angle)
+    used = rise + dwell + fall
+    rest = max(0.0, 360.0 - used)
+    return {
+        "base_r": base_r, "lift": float(lift), "outer_r": base_r + float(lift),
+        "rise_angle": rise, "dwell_angle": dwell, "fall_angle": fall, "rest_angle": rest,
+        "used_angle": used,
+    }
+
+
+def cam_polygon(base_d: float, lift: float, rise_angle: float, dwell_angle: float,
+                fall_angle: float, motion: str = "cicloidal", step: float = 1.0) -> np.ndarray:
+    """Contorno de la leva (N × 2), antihorario, empezando en +X con el radio base."""
+    d = cam_dims(base_d, lift, rise_angle, dwell_angle, fall_angle)
+    r0, h = d["base_r"], d["lift"]
+    segs = [(d["rise_angle"], lambda f: cam_motion(motion, f)),
+            (d["dwell_angle"], lambda f: 1.0),
+            (d["fall_angle"], lambda f: 1.0 - cam_motion(motion, f)),
+            (d["rest_angle"], lambda f: 0.0)]
+    pts = []
+    theta = 0.0
+    for ang, fn in segs:
+        if ang > 1e-9:
+            n = max(1, int(math.ceil(ang / step)))
+            for i in range(n):
+                r = r0 + h * fn(i / n)
+                a = math.radians(theta + ang * i / n)
+                pts.append((r * math.cos(a), r * math.sin(a)))
+        theta += ang
+    return np.array(pts, dtype=np.float64)
+
+
+def cam_warnings(base_d: float, lift: float, rise_angle: float, dwell_angle: float,
+                 fall_angle: float) -> list[tuple[str, dict]]:
+    """Problemas de diseño de la leva: (texto en español, valores para format)."""
+    out = []
+    d = cam_dims(base_d, lift, rise_angle, dwell_angle, fall_angle)
+    if rise_angle <= 0:
+        out.append((N_("Sin ángulo de subida no hay leva: el seguidor nunca se mueve."), {}))
+    if fall_angle <= 0:
+        out.append((N_("Sin ángulo de bajada el seguidor no vuelve al radio base."), {}))
+    if d["used_angle"] > 360.0 + 1e-6:
+        out.append((N_("Subida + reposo + bajada suman {u:.1f}°, más de 360°: se recorta el "
+                       "reposo de abajo."), {"u": d["used_angle"]}))
+    if lift > 0 and d["base_r"] > 0 and lift > d["base_r"]:
+        out.append((N_("La alzada ({l:g} mm) es mayor que el radio base ({r:.1f} mm): el ángulo "
+                       "de presión puede salir muy alto y el seguidor forzarse."),
+                    {"l": lift, "r": d["base_r"]}))
+    return out
+

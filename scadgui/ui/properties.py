@@ -224,6 +224,8 @@ class PropertyPanel(QScrollArea):
             self._v_pulley_info(node)
         if node.kind == "spline":
             self._spline_info(node)
+        if node.kind == "cam":
+            self._cam_info(node)
         if spec and spec.hint:
             self._hint(tr(spec.hint))
         if spec and spec.container and not node.children:
@@ -391,6 +393,26 @@ class PropertyPanel(QScrollArea):
                           "que moverlo ni girarlo."))
         add.clicked.connect(lambda: self.addMeshingGear.emit(node.id, 0))
         self._lay.addWidget(add)
+
+    def _cam_info(self, node: Node) -> None:
+        """Medidas calculadas y avisos de diseño de la leva de disco."""
+        from .. import gears
+        p = node.params
+        values = [p.get(k, v) for k, v in (("base_d", 40), ("lift", 10), ("rise_angle", 90),
+                                           ("dwell_angle", 0), ("fall_angle", 90))]
+        if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in values):
+            return                                   # con expresiones no se puede calcular aquí
+        base_d, lift, rise, dwell, fall = values
+        motion = p.get("motion", "cicloidal")
+        d = gears.cam_dims(base_d, lift, rise, dwell, fall)
+        motion_label = {"cicloidal": tr("cicloidal"), "armonica": tr("armónica"),
+                        "parabolica": tr("parabólica"),
+                        "velocidad_constante": tr("velocidad constante")}.get(motion, motion)
+        self._hint(tr("Ø base {b:.2f} mm · Ø exterior {o:.2f} mm · ley {m}").format(
+            b=d["base_r"] * 2, o=d["outer_r"] * 2, m=motion_label))
+        self._hint(tr("Reposo abajo {r:.1f}°").format(r=d["rest_angle"]))
+        for text, values2 in gears.cam_warnings(base_d, lift, rise, dwell, fall):
+            self._hint(tr(text).format(**values2), "warnText")
 
     def _pulley_info(self, node: Node) -> None:
         """Medidas calculadas y avisos de diseño de la polea dentada."""

@@ -131,7 +131,7 @@ class Ribbon(QTabWidget):
     # Grupos de cada pestaña, con su título debajo (como en Fusion). Un comando de la pestaña que
     # no esté en ningún grupo va al último, para que nunca se quede sin botón.
     GROUPS = {
-        "solid": ((N_("Primitivas"), ("cube", "sphere", "cylinder", "polyhedron")), (N_("Mecánica"), ("spur_gear", "helical_gear", "bevel_gear", "rack", "pulley", "v_pulley", "spline")),
+        "solid": ((N_("Primitivas"), ("cube", "sphere", "cylinder", "polyhedron")), (N_("Mecánica"), ("spur_gear", "helical_gear", "bevel_gear", "rack", "pulley", "v_pulley", "spline", "cam")),
                   (N_("Asistentes"), ("hardware",))),
         "shape2d": ((N_("Primitivas 2D"), ("square", "circle", "polygon", "text")), (N_("Modificar"), ("offset",)),
                     (N_("Asistentes"), ("sketch2d", "drawing2d"))),
