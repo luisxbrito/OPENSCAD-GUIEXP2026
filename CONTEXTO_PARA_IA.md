@@ -415,9 +415,16 @@ python tests/simulacion/sim_ventana_visor_imagen.py
   y bajada independientes, `step` grados por punto). Las leyes son las de la leva de disco
   (`gears.cam_motion`); `gears.lobe_polygon` es el mismo perfil que el módulo. Grupo propio en la
   cinta («Árbol de levas»). Ejemplo: `examples/arbol_de_levas.scad`.
-  - Hecho: fase 1 (eje y lóbulo paramétrico).
-  - Pendiente: fase 2 (perfiles circular, excéntrico, elíptico y periforme —construcciones
-    geométricas, sin norma— y aviso de autointersección por radio de curvatura); fase 3
+  - Hecho: fase 1 (eje y lóbulo paramétrico) y fase 2 (perfiles). `profile` = "ley" (las leyes,
+    con subida/reposo/bajada) o "circular", "excentrico", "eliptico" y "periforme" (`nose_r`):
+    construcciones geométricas sin norma, todas con radio base y alzada exactos y hechas como
+    envolvente convexa (`hull` de `circle`/`scale`, $fn = ceil(360/step)), así que no se cortan;
+    `gears.lobe_polygon` repite los mismos vértices (envolvente propia, `_convex_hull`). Un perfil
+    por ley es polar con r > 0 y tampoco se corta; `lobe_concave` avisa de tramos cóncavos.
+    `lobe_opening` da la apertura real de cualquier perfil (>1 % de la alzada). El módulo de la
+    fase 1 está en PREVIOUS_VERSIONS (tenía una variable interna llamada `profile`).
+  - Pendiente: personalizado por funciones (las leyes ya cubren lo habitual; una función de
+    OpenSCAD como parámetro sería un `Expr` sin vista aproximada); fase 3
     (asistente de varias levas, reparto por cilindros, desfases); fase 4 (muñones, apoyos y
     extremos, reutilizando chavetero y estriado; esos parámetros entran como opcionales en
     `camshaft_main_shaft` para no romper archivos ya guardados); fase 5 (exportar por piezas y

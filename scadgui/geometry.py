@@ -843,13 +843,14 @@ def cam_lobe(p) -> Optional[Tris]:
     keys = (("base_r", 15), ("lift", 8), ("width", 12), ("rise_angle", 110), ("dwell_angle", 20),
             ("fall_angle", 110), ("angle", 0), ("position", 20), ("step", 1))
     vals = [_num(p.get(k, v)) for k, v in keys]
-    motion = p.get("motion", "cicloidal")
-    if None in vals or motion not in gears.CAM_MOTIONS:
+    motion, profile = p.get("motion", "cicloidal"), p.get("profile", "ley")
+    nose_r = _num(p.get("nose_r", 0))
+    if None in vals or nose_r is None or motion not in gears.CAM_MOTIONS or profile not in gears.LOBE_PROFILES:
         return None
     base_r, lift, width, rise, dwell, fall, angle, position, step = vals
     if base_r <= 0 or width <= 0 or lift < 0:
         return None
-    poly = gears.lobe_polygon(base_r, lift, rise, dwell, fall, motion, angle, step)
+    poly = gears.lobe_polygon(base_r, lift, rise, dwell, fall, motion, angle, step, profile, nose_r)
     return prism(poly, width, position - width / 2)
 
 

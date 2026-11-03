@@ -856,7 +856,7 @@ def test_arbol_de_levas_desde_la_cinta():
     lobe = w.doc.children[1]
     assert w.selected_ids() == [lobe.id]
     texts = [l.text() for l in w.props.findChildren(QLabel)]
-    assert "Ø base 30.00 mm · Ø en la punta 46.00 mm · base sin alzada 120.0°" in texts, texts
+    assert "Ø base 30.00 mm · Ø en la punta 46.00 mm · abre 214.0° de la vuelta" in texts, texts
     assert "Ocupa de z = 14 a z = 26 mm" in texts, texts
     code = w.code.text.toPlainText()
     assert "module cam_lobe(" in code and "module camshaft_main_shaft(" in code

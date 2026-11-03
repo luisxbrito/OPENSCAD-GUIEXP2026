@@ -860,6 +860,18 @@ def test_lobulo_y_eje_en_la_vista_aproximada():
     assert abs(shaft[:, :, 2].min()) < 1e-9 and abs(shaft[:, :, 2].max() - 250) < 1e-9
 
 
+def test_lobulo_perfiles_en_la_vista_aproximada():
+    """Cada perfil se extruye tal cual: el volumen es el área de su contorno por el ancho."""
+    from scadgui import gears
+    from scadgui.geometry import _area
+    for profile in ("circular", "excentrico", "eliptico", "periforme"):
+        p = {"base_r": 15, "lift": 8, "width": 10, "rise_angle": 110, "dwell_angle": 20, "fall_angle": 110,
+             "motion": "cicloidal", "angle": 30, "position": 5, "step": 2, "profile": profile, "nose_r": 6}
+        poly = gears.lobe_polygon(15, 8, 110, 20, 110, "cicloidal", 30, 2, profile, 6)
+        assert abs(g.signed_volume(g.cam_lobe(p)) - abs(_area(poly)) * 10) < 1e-6, profile
+    assert g.cam_lobe({"profile": "cuadrado"}) is None
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

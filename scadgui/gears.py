@@ -844,25 +844,60 @@ def cam_warnings(base_d: float, lift: float, rise_angle: float, dwell_angle: flo
 
 
 # --------------------------------------------------------------------------- Árbol de levas
-# Lóbulo de un árbol de levas: las mismas leyes de movimiento que la leva de disco, pero con la
-# punta (alzada máxima) centrada en el ángulo ``angle``: la subida acaba y la bajada empieza a
-# medio reposo de la punta. Subida y bajada pueden durar distinto (leva asimétrica). El eje del
-# árbol es Z y el lóbulo se extruye centrado en ``position``.
+# Lóbulo de un árbol de levas. Con el perfil "ley", las mismas leyes de movimiento que la leva de
+# disco, pero con la punta (alzada máxima) centrada en el ángulo ``angle``: la subida acaba y la
+# bajada empieza a medio reposo de la punta, y subida y bajada pueden durar distinto (lóbulo
+# asimétrico). Los demás perfiles son construcciones geométricas, no de una norma; todos dejan el
+# radio base y la alzada exactos y, al ser la envolvente convexa de círculos o de una elipse, no
+# pueden cortarse a sí mismos:
+#   circular   disco de radio base, sin alzada (separador o muñón con forma de leva);
+#   excentrico círculo de radio base + alzada/2, desplazado alzada/2 hacia la punta;
+#   eliptico   envolvente del círculo base y una elipse de semiejes base + alzada/2 (hacia la punta)
+#              y base (de lado), centrada a alzada/2: punta más ancha que la del excéntrico;
+#   periforme  envolvente del círculo base y un círculo de punta de radio nose_r cuyo borde llega
+#              a base + alzada: flancos rectos tangentes a los dos (leva de arcos y tangentes).
+# Un perfil por ley es una curva polar r(θ) con r > 0, así que tampoco se corta; lo que puede tener
+# son tramos cóncavos, de los que avisa ``lobe_warnings``. El eje del árbol es Z y el lóbulo se
+# extruye centrado en ``position``. La resolución ``step`` son grados por punto; en los círculos
+# se usa $fn = ceil(360 / step), con los mismos vértices que OpenSCAD.
+LOBE_PROFILES = ("ley", "circular", "excentrico", "eliptico", "periforme")
 
 
-def lobe_polygon(base_r: float, lift: float, rise_angle: float, dwell_angle: float, fall_angle: float,
-                 motion: str = "cicloidal", angle: float = 0.0, step: float = 1.0) -> np.ndarray:
-    """Contorno del lóbulo (N × 2), antihorario, con la punta mirando a ``angle`` grados.
-    Mismos puntos que el módulo cam_lobe de library.py."""
+def _circle_points(r: float, n: int, cx: float = 0.0, sx: float = 1.0, sy: float = 1.0) -> list:
+    """Vértices de circle(r, $fn = n) de OpenSCAD, escalados en x e y y desplazados en x."""
+    return [(cx + sx * r * math.cos(2 * math.pi * i / n), sy * r * math.sin(2 * math.pi * i / n))
+            for i in range(n)]
+
+
+def _convex_hull(points: list) -> list:
+    """Envolvente convexa antihoraria (cadena monótona), sin puntos alineados."""
+    pts = sorted(set((round(x, 12), round(y, 12)) for x, y in points))
+    if len(pts) < 3:
+        return pts
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+    lower, upper = [], []
+    for pt in pts:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], pt) <= 1e-12:
+            lower.pop()
+        lower.append(pt)
+    for pt in reversed(pts):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], pt) <= 1e-12:
+            upper.pop()
+        upper.append(pt)
+    return lower[:-1] + upper[:-1]
+
+
+def _law_points(base_r, lift, rise_angle, dwell_angle, fall_angle, motion, step) -> list:
     d = cam_dims(2 * base_r, lift, rise_angle, dwell_angle, fall_angle)
     r0, h = d["base_r"], d["lift"]
     segs = [(d["rise_angle"], lambda f: cam_motion(motion, f)),
             (d["dwell_angle"], lambda f: 1.0),
             (d["fall_angle"], lambda f: 1.0 - cam_motion(motion, f)),
             (d["rest_angle"], lambda f: 0.0)]
-    step = max(0.1, float(step))
     pts = []
-    theta = angle - d["rise_angle"] - d["dwell_angle"] / 2
+    theta = -d["rise_angle"] - d["dwell_angle"] / 2
     for ang, fn in segs:
         if ang > 1e-9:
             n = max(1, int(math.ceil(ang / step)))
@@ -871,13 +906,73 @@ def lobe_polygon(base_r: float, lift: float, rise_angle: float, dwell_angle: flo
                 a = math.radians(theta + ang * i / n)
                 pts.append((r * math.cos(a), r * math.sin(a)))
         theta += ang
-    return np.array(pts, dtype=np.float64)
+    return pts
 
 
-def lobe_warnings(base_r: float, lift: float, rise_angle: float, dwell_angle: float,
-                  fall_angle: float) -> list[tuple[str, dict]]:
-    """Los mismos avisos que la leva de disco (el lóbulo es una leva de disco sin agujero)."""
-    out = cam_warnings(2 * base_r, lift, rise_angle, dwell_angle, fall_angle)
+def lobe_polygon(base_r: float, lift: float, rise_angle: float, dwell_angle: float, fall_angle: float,
+                 motion: str = "cicloidal", angle: float = 0.0, step: float = 1.0, profile: str = "ley",
+                 nose_r: float = 0.0) -> np.ndarray:
+    """Contorno del lóbulo (N × 2), antihorario, con la punta mirando a ``angle`` grados.
+    Los mismos puntos que el módulo cam_lobe de library.py."""
+    step = max(0.1, float(step))
+    n = max(3, int(math.ceil(360 / step)))
+    lift = max(0.0, float(lift))
+    if profile == "circular":
+        pts = _circle_points(base_r, n)
+    elif profile == "excentrico":
+        pts = _circle_points(base_r + lift / 2, n, lift / 2)
+    elif profile == "eliptico":
+        pts = _convex_hull(_circle_points(base_r, n) + _circle_points(1.0, n, lift / 2, base_r + lift / 2, base_r))
+    elif profile == "periforme":
+        nose = _circle_points(nose_r, n, base_r + lift - nose_r) if nose_r > 0 else []
+        pts = _convex_hull(_circle_points(base_r, n) + nose)
+    else:
+        pts = _law_points(base_r, lift, rise_angle, dwell_angle, fall_angle, motion, step)
+    c, s = math.cos(math.radians(angle)), math.sin(math.radians(angle))
+    return np.array([(x * c - y * s, x * s + y * c) for x, y in pts], dtype=np.float64)
+
+
+def lobe_opening(poly: np.ndarray, base_r: float, lift: float) -> float:
+    """Grados de giro en los que el lóbulo levanta más del 1 % de la alzada sobre el radio base:
+    la duración de apertura que sale del perfil, sea cual sea."""
+    if lift <= 0 or len(poly) < 3:
+        return 0.0
+    r = np.hypot(poly[:, 0], poly[:, 1])
+    a = np.degrees(np.arctan2(poly[:, 1], poly[:, 0]))
+    order = np.argsort(a)
+    a, r = np.concatenate([a[order], a[order][:1] + 360]), np.concatenate([r[order], r[order][:1]])
+    up = r > base_r + 0.01 * lift
+    return float(sum(a[i + 1] - a[i] for i in range(len(a) - 1) if up[i] and up[i + 1]))
+
+
+def lobe_concave(poly: np.ndarray) -> bool:
+    """True si el contorno tiene algún tramo cóncavo (se dobla hacia dentro)."""
+    p = np.asarray(poly)
+    a, b = np.roll(p, 1, axis=0), np.roll(p, -1, axis=0)
+    cross = (p[:, 0] - a[:, 0]) * (b[:, 1] - p[:, 1]) - (p[:, 1] - a[:, 1]) * (b[:, 0] - p[:, 0])
+    scale = float(np.abs(cross).max()) if len(cross) else 0.0
+    return bool(scale > 0 and cross.min() < -1e-6 * scale)
+
+
+def lobe_warnings(base_r: float, lift: float, rise_angle: float, dwell_angle: float, fall_angle: float,
+                  motion: str = "cicloidal", profile: str = "ley", nose_r: float = 0.0,
+                  step: float = 1.0) -> list[tuple[str, dict]]:
+    """Problemas de diseño del lóbulo: (texto en español, valores para format)."""
     if base_r <= 0:
-        out.append((N_("El radio base tiene que ser mayor que 0."), {}))
+        return [(N_("El radio base tiene que ser mayor que 0."), {})]
+    out = []
+    if profile == "ley":
+        out += cam_warnings(2 * base_r, lift, rise_angle, dwell_angle, fall_angle)
+        if lobe_concave(lobe_polygon(base_r, lift, rise_angle, dwell_angle, fall_angle, motion, 0, step)):
+            out.append((N_("El perfil tiene tramos cóncavos: un seguidor plano no los toca. Alargue la "
+                           "subida o la bajada, o baje la alzada."), {}))
+        return out
+    if profile == "circular" and lift > 0:
+        out.append((N_("El perfil circular no tiene alzada: la alzada no se usa."), {}))
+    if profile == "periforme":
+        if nose_r <= 0:
+            out.append((N_("Falta el radio de la punta del perfil periforme."), {}))
+        elif nose_r > base_r:
+            out.append((N_("El radio de la punta ({n:g} mm) es mayor que el radio base ({r:g} mm): el "
+                           "lóbulo deja de apoyarse en el círculo base."), {"n": nose_r, "r": base_r}))
     return out

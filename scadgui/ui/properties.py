@@ -424,15 +424,19 @@ class PropertyPanel(QScrollArea):
         p = node.params
         values = [p.get(k, v) for k, v in (("base_r", 15), ("lift", 8), ("rise_angle", 110),
                                            ("dwell_angle", 20), ("fall_angle", 110), ("position", 20),
-                                           ("width", 12))]
-        if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in values):
+                                           ("width", 12), ("nose_r", 0), ("step", 1))]
+        motion, profile = p.get("motion", "cicloidal"), p.get("profile", "ley")
+        if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in values) \
+                or motion not in gears.CAM_MOTIONS or profile not in gears.LOBE_PROFILES:
             return                                   # con expresiones no se puede calcular aquí
-        base_r, lift, rise, dwell, fall, position, width = values
-        d = gears.cam_dims(2 * base_r, lift, rise, dwell, fall)
-        self._hint(tr("Ø base {b:.2f} mm · Ø en la punta {o:.2f} mm · base sin alzada {r:.1f}°").format(
-            b=d["base_r"] * 2, o=d["outer_r"] * 2, r=d["rest_angle"]))
+        base_r, lift, rise, dwell, fall, position, width, nose_r, step = values
+        if base_r > 0:
+            top = base_r if profile == "circular" else base_r + max(0, lift)
+            poly = gears.lobe_polygon(base_r, lift, rise, dwell, fall, motion, 0, step, profile, nose_r)
+            self._hint(tr("Ø base {b:.2f} mm · Ø en la punta {o:.2f} mm · abre {a:.1f}° de la vuelta").format(
+                b=2 * base_r, o=2 * top, a=gears.lobe_opening(poly, base_r, lift)))
         self._hint(tr("Ocupa de z = {a:g} a z = {b:g} mm").format(a=position - width / 2, b=position + width / 2))
-        for text, data in gears.lobe_warnings(base_r, lift, rise, dwell, fall):
+        for text, data in gears.lobe_warnings(base_r, lift, rise, dwell, fall, motion, profile, nose_r, step):
             self._hint(tr(text).format(**data), "warnText")
 
     def _flange_info(self, node: Node) -> None:

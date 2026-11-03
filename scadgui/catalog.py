@@ -376,11 +376,16 @@ _add(Spec("cam_lobe", "Lóbulo de leva", "solid", False, (
     Param("angle", "num", 0, label="Orientación de la punta (°)", minimum=-360, maximum=360, step=15),
     Param("position", "num", 20, label="Posición en el eje (Z)", step=5),
     Param("step", "num", 1, label="Resolución (° por punto)", minimum=0.1, maximum=10, step=0.5),
+    Param("profile", "choice", "ley", optional=True, initial=True, label="Perfil",
+          options=("ley", "circular", "excentrico", "eliptico", "periforme")),
+    Param("nose_r", "num", 6, optional=True, label="Radio de la punta (periforme)", minimum=0.01),
 ), keyword="module", hint="Lóbulo de un árbol de levas, extruido a lo largo de Z y centrado en su "
    "posición. La punta (alzada máxima) mira a la orientación dada: sube durante el ángulo de "
    "subida, se mantiene el reposo centrado en la punta y baja durante el de bajada; el resto del "
    "giro queda en el radio base. Si subida y bajada son distintas, el lóbulo es asimétrico. Las "
-   "mismas 4 leyes que la leva de disco (Machinery's Handbook 27, pp. 2190-2192)."))
+   "mismas 4 leyes que la leva de disco (Machinery's Handbook 27, pp. 2190-2192). Los perfiles "
+   "circular, excéntrico, elíptico y periforme son construcciones geométricas (no de una norma) con "
+   "el mismo radio base y la misma alzada; el periforme usa el radio de la punta."))
 
 _add(Spec("v_pulley", "Polea trapecial", "solid", False, (
     Param("section", "choice", "A", label="Sección", options=("A", "B", "C", "D")),

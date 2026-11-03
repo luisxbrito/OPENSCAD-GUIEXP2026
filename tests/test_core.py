@@ -1737,6 +1737,46 @@ def test_arbol_de_levas_codigo_y_vuelta():
     assert [n.params["angle"] for n in again.children[1:]] == [0, 120, 240]
 
 
+def test_lobulo_perfiles_geometricos():
+    """Circular, excéntrico, elíptico y periforme: radio base y alzada exactos, punta en su ángulo,
+    convexos (no se cortan); el periforme sin radio de punta es solo el círculo base."""
+    import math
+    from scadgui import gears
+    for profile, nose_r, top in (("circular", 0, 15), ("excentrico", 0, 23), ("eliptico", 0, 23),
+                                 ("periforme", 6, 23)):
+        poly = gears.lobe_polygon(15, 8, 110, 20, 110, "cicloidal", 135, 1, profile, nose_r)
+        r = [math.hypot(x, y) for x, y in poly]
+        assert abs(min(r) - 15) < 1e-6 and abs(max(r) - top) < 1e-6, profile
+        if top > 15:
+            x, y = poly[r.index(max(r))]
+            assert abs(math.degrees(math.atan2(y, x)) - 135) < 1e-6, profile
+        assert not gears.lobe_concave(poly), profile
+    plain = gears.lobe_polygon(15, 8, 110, 20, 110, profile="periforme", nose_r=0)
+    assert abs(max(math.hypot(x, y) for x, y in plain) - 15) < 1e-9
+    # La apertura sale del perfil: el excéntrico abre casi toda la vuelta, el periforme poco.
+    ecc = gears.lobe_opening(gears.lobe_polygon(15, 8, 0, 0, 0, profile="excentrico"), 15, 8)
+    pear = gears.lobe_opening(gears.lobe_polygon(15, 8, 0, 0, 0, profile="periforme", nose_r=6), 15, 8)
+    assert ecc > 300 and pear < 90
+    assert gears.lobe_concave(gears.lobe_polygon(15, 12, 30, 0, 30, "cicloidal", 0, 0.5))
+    assert any("cóncavos" in w for w, _ in gears.lobe_warnings(15, 12, 30, 0, 30))
+    assert any("radio de la punta" in w.lower() for w, _ in gears.lobe_warnings(15, 8, 0, 0, 0, profile="periforme"))
+    assert any("mayor que el radio base" in w for w, _ in gears.lobe_warnings(15, 8, 0, 0, 0, profile="periforme",
+                                                                           nose_r=20))
+    assert any("no tiene alzada" in w for w, _ in gears.lobe_warnings(15, 8, 0, 0, 0, profile="circular"))
+
+
+def test_lobulo_de_la_fase_1_se_actualiza_al_abrir():
+    """Un archivo guardado con el cam_lobe de la fase 1 (sin profile) se reconoce como nuestro y se
+    escribe con el módulo nuevo, sin quedar como código del usuario."""
+    from scadgui.library import CAM_LOBE, PREVIOUS_VERSIONS
+    old = PREVIOUS_VERSIONS["cam_lobe"][0]
+    assert 'profile = "ley"' not in old and 'profile = "ley"' in CAM_LOBE
+    doc = parse(f"cam_lobe(position = 60);\n\n{old}\n")
+    assert [n.kind for n in doc.children] == ["cam_lobe"]
+    text = generate(doc).text
+    assert CAM_LOBE in text and old not in text
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

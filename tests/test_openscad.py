@@ -487,6 +487,29 @@ def test_arbol_de_levas_volumen_y_orientacion():
     assert volume_of(f"intersection() {{ cam_lobe(angle = 180); {nose} }}\n{module}") < 1e-6
 
 
+def test_lobulo_perfiles_geometricos_en_openscad():
+    """Los perfiles hechos con hull/circle/scale pesan en OpenSCAD lo mismo que la vista aproximada
+    (los mismos vértices), y el periforme tiene la punta donde dice su ángulo."""
+    from scadgui import geometry
+    for params in ({"profile": "circular"}, {"profile": "excentrico", "angle": 60},
+                   {"profile": "eliptico", "step": 2}, {"profile": "periforme", "nose_r": 6, "angle": -90},
+                   {"profile": "periforme", "nose_r": 4, "lift": 10, "step": 0.5}):
+        doc = Document()
+        node = doc.add("cam_lobe")
+        for key, value in params.items():
+            doc.set_param(node.id, key, value)
+        mine = abs(signed_volume(geometry.cam_lobe(node.params)))
+        assert abs(volume_of(generate(doc).text) - mine) < max(0.01, mine * 1e-5), params
+    doc = Document()
+    doc.add("cam_lobe")
+    code = generate(doc).text
+    module = code[code.index("module cam_lobe("):]
+    nose = "translate([0, -22, 20]) cube(1, center = true);"        # radio 22 en -Y
+    pear = 'cam_lobe(profile = "periforme", nose_r = 6, angle = {a});'
+    assert volume_of(f"intersection() {{ {pear.format(a=-90)} {nose} }}\n{module}") > 0.99
+    assert volume_of(f"intersection() {{ {pear.format(a=90)} {nose} }}\n{module}") < 1e-6
+
+
 if __name__ == "__main__":
     if not EXE:
         print("OpenSCAD no encontrado: se omiten estas pruebas (define OPENSCAD para indicar dónde está)")
