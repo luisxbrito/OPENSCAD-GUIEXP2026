@@ -118,11 +118,11 @@ class Ribbon(QTabWidget):
 
     # Botones de asistentes que no son un módulo de OpenSCAD: (pestaña, comando, icono, texto, ayuda)
     EXTRA_BUTTONS = (
-        ("solid", "hardware", "hardware", "Tornillería ·\nEstándar",
+        ("mech", "hardware", "hardware", "Tornillería ·\nEstándar",
          "Tornillería ISO/DIN, tuercas, insertos térmicos, rodamientos y perfiles."),
-        ("solid", "flange_wizard", "pipe_flange", "Bridas ·\nNormalizadas",
+        ("mech", "flange_wizard", "pipe_flange", "Bridas ·\nNormalizadas",
          "Bridas ASME B16.5 y EN 1092-1: de cuello, deslizantes, ciegas y planas, con sus medidas."),
-        ("solid", "camshaft_wizard", "cam_lobe", "Árbol ·\nde levas",
+        ("mech", "camshaft_wizard", "cam_lobe", "Árbol ·\nde levas",
          "Eje y lóbulos repartidos por cilindros, con sus desfases; luego se cambia cada lóbulo por separado."),
         ("shape2d", "sketch2d", "sketch", "Boceto 2D ·\nAsistente",
          "Perfiles paramétricos: rectángulos redondeados, ranuras, polígonos, estrellas, etc."),
@@ -135,9 +135,12 @@ class Ribbon(QTabWidget):
     # Grupos de cada pestaña, con su título debajo (como en Fusion). Un comando de la pestaña que
     # no esté en ningún grupo va al último, para que nunca se quede sin botón.
     GROUPS = {
-        "solid": ((N_("Primitivas"), ("cube", "sphere", "cylinder", "polyhedron")), (N_("Mecánica"), ("spur_gear", "helical_gear", "bevel_gear", "rack", "pulley", "v_pulley", "spline", "cam", "pipe_flange")),
-                  (N_("Árbol de levas"), ("camshaft_main_shaft", "cam_lobe", "camshaft_wizard")),
-                  (N_("Asistentes"), ("hardware", "flange_wizard"))),
+        "solid": ((N_("Primitivas"), ("cube", "sphere", "cylinder", "polyhedron")),),
+        "mech": ((N_("Engranajes"), ("spur_gear", "helical_gear", "bevel_gear", "rack")),
+                 (N_("Transmisión"), ("pulley", "v_pulley", "spline")),
+                 (N_("Levas"), ("cam", "camshaft_main_shaft", "cam_lobe")),
+                 (N_("Uniones"), ("pipe_flange",)),
+                 (N_("Asistentes"), ("hardware", "flange_wizard", "camshaft_wizard"))),
         "shape2d": ((N_("Primitivas 2D"), ("square", "circle", "polygon", "text")), (N_("Modificar"), ("offset",)),
                     (N_("Asistentes"), ("sketch2d", "drawing2d"))),
         "transform": ((N_("Posición"), ("translate", "rotate", "mirror")), (N_("Tamaño"), ("scale", "resize", "multmatrix")),

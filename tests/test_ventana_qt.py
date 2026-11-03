@@ -894,6 +894,21 @@ def test_asistente_de_arbol_de_levas():
     assert any(t.startswith("Los lóbulos Admisión 1 y Escape 1 se solapan") for t in texts), texts
 
 
+def test_pestana_mecanica():
+    """Sólidos 3D solo tiene las primitivas; las piezas mecánicas y sus asistentes van en Mecánica."""
+    w = window()
+    tabs = [w.ribbon.widget(i) for i in range(w.ribbon.count())]
+
+    def tab_of(cmd):
+        return next(i for i, page in enumerate(tabs) if page.isAncestorOf(w.ribbon.buttons[cmd]))
+    solid, mech = tab_of("cube"), tab_of("spur_gear")
+    assert solid != mech and mech == solid + 1
+    assert all(tab_of(c) == solid for c in ("cube", "sphere", "cylinder", "polyhedron"))
+    assert all(tab_of(c) == mech for c in ("helical_gear", "bevel_gear", "rack", "pulley", "v_pulley", "spline", "cam",
+                                           "camshaft_main_shaft", "cam_lobe", "pipe_flange", "hardware",
+                                           "flange_wizard", "camshaft_wizard"))
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

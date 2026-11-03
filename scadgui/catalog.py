@@ -245,7 +245,7 @@ KEYWAY = (
     Param("key_depth", "num", 1, optional=True, label="Profundidad del cuñero", minimum=0.1, step=0.1),
 )
 
-_add(Spec("spur_gear", "Engranaje recto", "solid", False, (
+_add(Spec("spur_gear", "Engranaje recto", "mech", False, (
     Param("mod", "num", 1, label="Módulo (m)", minimum=0.05, step=0.25),
     Param("teeth", "int", 20, label="Dientes (z)", minimum=3, maximum=400),
     Param("thickness", "num", 5, label="Grueso", minimum=0.01),
@@ -259,7 +259,7 @@ _add(Spec("spur_gear", "Engranaje recto", "solid", False, (
     FN,
 ), keyword="module", hint="Engranaje recto de evolvente. Ø primitivo = m·z; dos engranajes del mismo "
    "módulo engranan con sus centros a m·(z1 + z2)/2."))
-_add(Spec("helical_gear", "Engranaje helicoidal", "solid", False, (
+_add(Spec("helical_gear", "Engranaje helicoidal", "mech", False, (
     Param("mod", "num", 1, label="Módulo normal (mn)", minimum=0.05, step=0.25),
     Param("teeth", "int", 20, label="Dientes (z)", minimum=3, maximum=400),
     # Más grueso que un recto: el diente tiene que envolver al menos un paso axial para que el
@@ -276,7 +276,7 @@ _add(Spec("helical_gear", "Engranaje helicoidal", "solid", False, (
 ), keyword="module", hint="Engranaje helicoidal de evolvente. El módulo y el ángulo de presión son los "
    "normales (perpendiculares al diente); Ø primitivo = m·z/cos ψ. Dos iguales de mano contraria "
    "engranan con sus centros a m·(z1 + z2)/(2·cos ψ)."))
-_add(Spec("bevel_gear", "Engranaje cónico", "solid", False, (
+_add(Spec("bevel_gear", "Engranaje cónico", "mech", False, (
     Param("mod", "num", 1, label="Módulo (m)", minimum=0.05, step=0.25),
     Param("teeth", "int", 20, label="Dientes (z)", minimum=3, maximum=400),
     # El cono de cada rueda depende de las dos: un cónico solo no existe, se diseña por parejas.
@@ -291,7 +291,7 @@ _add(Spec("bevel_gear", "Engranaje cónico", "solid", False, (
 ), keyword="module", hint="Engranaje cónico recto para ejes que se cortan. El vértice del cono queda en "
    "el origen y la rueda mira hacia +Z, así que la pareja es la misma pieza girada el ángulo entre ejes, "
    "sin moverla. Su cono depende de los dientes de las dos, por eso hay que decir los de la otra."))
-_add(Spec("rack", "Cremallera", "solid", False, (
+_add(Spec("rack", "Cremallera", "mech", False, (
     Param("mod", "num", 1, label="Módulo (m)", minimum=0.05, step=0.25),
     Param("teeth", "int", 10, label="Dientes (z)", minimum=1, maximum=400),
     Param("thickness", "num", 5, label="Grueso", minimum=0.01),
@@ -309,7 +309,7 @@ _add(Spec("rack", "Cremallera", "solid", False, (
    "engrana con su centro a su radio primitivo de altura. Con ángulo de hélice el dentado se inclina y "
    "engrana con un helicoidal de la misma mano; entonces los extremos quedan al sesgo del dentado."))
 
-_add(Spec("pulley", "Polea dentada", "solid", False, (
+_add(Spec("pulley", "Polea dentada", "mech", False, (
     Param("section", "choice", "XL", label="Sección", options=("MXL", "XL", "L", "H", "XH")),
     Param("teeth", "int", 20, label="Dientes (z)", minimum=3, maximum=400),
     Param("width", "num", 6, label="Ancho (correa)", minimum=0.01),
@@ -325,7 +325,7 @@ _add(Spec("pulley", "Polea dentada", "solid", False, (
    "MXL/XL/L/H/XH. Ø primitivo = dientes·paso/π; el hueco es el negativo del diente de la "
    "correa. No necesita pareja: el centro entre dos poleas lo pone la longitud de la correa."))
 
-_add(Spec("spline", "Estriado", "solid", False, (
+_add(Spec("spline", "Estriado", "mech", False, (
     Param("mod", "num", 1, label="Módulo (m)", minimum=0.25, step=0.25),
     Param("teeth", "int", 20, label="Dientes (z)", minimum=3, maximum=400),
     Param("length", "num", 20, label="Longitud", minimum=0.01),
@@ -340,7 +340,7 @@ _add(Spec("spline", "Estriado", "solid", False, (
    "ISO 4156). El eje y el cubo encajan en el mismo sitio, sin moverlos ni girarlos. La holgura solo "
    "adelgaza el diente del eje: el hueco del cubo siempre tiene el ancho básico."))
 
-_add(Spec("cam", "Leva de disco", "solid", False, (
+_add(Spec("cam", "Leva de disco", "mech", False, (
     Param("base_d", "num", 40, label="Ø base", minimum=1),
     Param("lift", "num", 10, label="Alzada", minimum=0.1),
     Param("rise_angle", "num", 90, label="Ángulo de subida (°)", minimum=1, maximum=358, step=5),
@@ -359,12 +359,12 @@ _add(Spec("cam", "Leva de disco", "solid", False, (
    "solo para mecanismos lentos)."))
 
 # Árbol de levas: el eje y los lóbulos son piezas separadas, cada lóbulo con su posición y su ángulo.
-_add(Spec("camshaft_main_shaft", "Eje del árbol de levas", "solid", False, (
+_add(Spec("camshaft_main_shaft", "Eje del árbol de levas", "mech", False, (
     Param("length", "num", 250, label="Longitud", minimum=0.01, step=5),
     Param("d", "num", 25, label="Ø del eje", minimum=0.01),
 ), keyword="module", hint="Eje principal de un árbol de levas, a lo largo de Z desde z = 0 hasta su "
    "longitud. Los lóbulos (cam_lobe) se colocan sobre él con su propia posición y ángulo."))
-_add(Spec("cam_lobe", "Lóbulo de leva", "solid", False, (
+_add(Spec("cam_lobe", "Lóbulo de leva", "mech", False, (
     Param("base_r", "num", 15, label="Radio base", minimum=0.01),
     Param("lift", "num", 8, label="Alzada", minimum=0),
     Param("width", "num", 12, label="Ancho", minimum=0.01),
@@ -387,7 +387,7 @@ _add(Spec("cam_lobe", "Lóbulo de leva", "solid", False, (
    "circular, excéntrico, elíptico y periforme son construcciones geométricas (no de una norma) con "
    "el mismo radio base y la misma alzada; el periforme usa el radio de la punta."))
 
-_add(Spec("v_pulley", "Polea trapecial", "solid", False, (
+_add(Spec("v_pulley", "Polea trapecial", "mech", False, (
     Param("section", "choice", "A", label="Sección", options=("A", "B", "C", "D")),
     Param("datum_d", "num", 80, label="Ø primitivo (datum)", minimum=10, step=5),
     Param("grooves", "int", 1, label="Ranuras", minimum=1, maximum=20),
@@ -401,7 +401,7 @@ _add(Spec("v_pulley", "Polea trapecial", "solid", False, (
 
 # Por defecto, una brida de cuello NPS 4 clase 150 con resalte (ASME B16.5-2013, tablas 7, 8 y 4).
 # Las medidas de cada norma las pone el asistente de bridas (flanges.py); aquí se pueden retocar.
-_add(Spec("pipe_flange", "Brida", "solid", False, (
+_add(Spec("pipe_flange", "Brida", "mech", False, (
     Param("od", "num", 230, label="Ø exterior", minimum=0.1, step=5),
     Param("thickness", "num", 22.3, label="Grueso (sin resalte)", minimum=0.1),
     Param("bolt_circle", "num", 190.5, label="Ø del círculo de tornillos", minimum=0, step=5),
@@ -447,6 +447,8 @@ CONTROL_KEYWORDS = ("for", "intersection_for", "if", "let", "echo", "assert", "c
 CATEGORIES = (
     ("solid", "Sólidos 3D", "Crea la pieza con valores por defecto. Si hay una operación o "
      "transformación seleccionada, la pieza se añade dentro de ella."),
+    ("mech", "Mecánica", "Engranajes, poleas, levas y piezas normalizadas. Los asistentes toman las "
+     "medidas de las tablas de cada norma."),
     ("shape2d", "Formas 2D", "Perfiles 2D para extruir, o para exportar a SVG / DXF."),
     ("transform", "Transformar", "Envuelve las piezas seleccionadas en la transformación."),
     ("bool", "Booleanas", "Selecciona dos o más piezas (Ctrl+clic). La primera en el árbol es la base."),
