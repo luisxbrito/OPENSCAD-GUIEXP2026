@@ -2043,6 +2043,7 @@ class MainWindow(QMainWindow):
         self._retranslate_view_message()
 
         self.ribbon.retranslate_ui()
+        self.viewer.retranslate_ui()
         self.dock_model.setWindowTitle(tr("Modelo"))
         self.dock_code.setWindowTitle(tr("Código"))
         self.code.retranslate_ui()

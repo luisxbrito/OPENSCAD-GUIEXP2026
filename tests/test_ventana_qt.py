@@ -909,6 +909,34 @@ def test_pestana_mecanica():
                                            "flange_wizard", "camshaft_wizard"))
 
 
+def test_barra_del_visor_cambia_de_idioma():
+    """Al cambiar de idioma, la barra del visor (vistas, Medir, Regla…) se vuelve a escribir sin
+    reiniciar, en el visor OpenGL y en el de imágenes."""
+    from scadgui.i18n import set_language
+    from scadgui.ui.viewer import Viewport
+    w = window()
+    set_language("es")
+    w.retranslate_ui()
+    assert w.viewer.measure_btn.text() == "Medir" and w.viewer.view_buttons["iso"].text() == "Isométrica"
+    set_language("en")
+    try:
+        w.retranslate_ui()
+        assert w.viewer.measure_btn.text() == "Measure", w.viewer.measure_btn.text()
+        assert w.viewer.view_buttons["iso"].text() == "Isometric"
+        assert w.viewer.ruler_btn.text() == "Ruler" and w.viewer.explosion_label.text() == "Explode:"
+        assert w.viewer.title.text() == "3D View"
+        fallback = Viewport()
+        set_language("es")
+        fallback.retranslate_ui()
+        set_language("en")
+        fallback.retranslate_ui()
+        assert fallback.fit_btn.text() == "Fit" and fallback.view_buttons["Isométrica"].text() == "Isometric"
+        fallback.deleteLater()
+    finally:
+        set_language("es")
+        w.retranslate_ui()
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

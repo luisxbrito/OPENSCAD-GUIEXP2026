@@ -388,9 +388,9 @@ class Viewer3D(QWidget):
         row = QHBoxLayout(bar)
         row.setContentsMargins(10, 6, 10, 6)
         row.setSpacing(6)
-        title = QLabel(tr("Vista 3D"))
-        title.setObjectName("viewTitle")
-        row.addWidget(title)
+        self.title = QLabel(tr("Vista 3D"))
+        self.title.setObjectName("viewTitle")
+        row.addWidget(self.title)
         self.view_buttons: dict[str, QPushButton] = {}
         for name in VIEWS:
             b = QPushButton(tr(name))
@@ -400,11 +400,11 @@ class Viewer3D(QWidget):
             b.setToolTip(tr("Tecla {key} (teclado numérico o fila de números)").format(key=SHORTCUT_OF[name]))
             b.clicked.connect(lambda _=False, n=name: self.set_view(n))
             row.addWidget(b)
-        fit = QPushButton(tr("Ajustar"))
-        fit.setObjectName("viewButton")
-        fit.setToolTip(tr("Tecla Inicio: todo · Tecla . (punto): la selección"))
-        fit.clicked.connect(lambda: self.fit())   # clicked pasa un bool que fit() tomaría por la caja
-        row.addWidget(fit)
+        self.fit_btn = QPushButton(tr("Ajustar"))
+        self.fit_btn.setObjectName("viewButton")
+        self.fit_btn.setToolTip(tr("Tecla Inicio: todo · Tecla . (punto): la selección"))
+        self.fit_btn.clicked.connect(lambda: self.fit())   # clicked pasa un bool que fit() tomaría por la caja
+        row.addWidget(self.fit_btn)
         self.measure_btn = QPushButton(tr("Medir"))
         self.measure_btn.setObjectName("viewButton")
         self.measure_btn.setCheckable(True)
@@ -433,7 +433,8 @@ class Viewer3D(QWidget):
         self.edges_check.setChecked(True)
         self.edges_check.toggled.connect(lambda on: self.edges.setVisible(on and self.real is not None))
         row.addWidget(self.edges_check)
-        row.addWidget(QLabel(tr("Explosión:")))
+        self.explosion_label = QLabel(tr("Explosión:"))
+        row.addWidget(self.explosion_label)
         self.explosion_slider = QSlider(Qt.Orientation.Horizontal)
         self.explosion_slider.setRange(0, 100)
         self.explosion_slider.setValue(0)
@@ -925,6 +926,28 @@ class Viewer3D(QWidget):
             if abs(elev - e) < 0.5 and abs((azim - a + 180.0) % 360.0 - 180.0) < 0.5:
                 return key
         return ""
+
+    def retranslate_ui(self) -> None:
+        """Vuelve a escribir los textos de la barra del visor en el idioma activo."""
+        self.title.setText(tr("Vista 3D"))
+        for name, cam in VIEWS.items():
+            b = self.view_buttons[cam]
+            b.setText(tr(name))
+            b.setToolTip(tr("Tecla {key} (teclado numérico o fila de números)").format(key=SHORTCUT_OF[name]))
+        self.fit_btn.setText(tr("Ajustar"))
+        self.fit_btn.setToolTip(tr("Tecla Inicio: todo · Tecla . (punto): la selección"))
+        self.measure_btn.setText(tr("Medir"))
+        self.edge_btn.setText(tr("Elegir aristas"))
+        self.edge_btn.setToolTip(tr("Elige aristas de cube y cylinder para redondearlas o achaflanarlas"))
+        self.tree_btn.setText(tr("Árbol"))
+        self.tree_btn.setToolTip(tr("Muestra el árbol del modelo encima del visor, como en Fusion"))
+        self.ruler_btn.setText(tr("Regla"))
+        self.ruler_btn.setToolTip(tr("Regla graduada en los ejes, como la de OpenSCAD (tecla R)"))
+        self.edges_check.setText(tr("Aristas"))
+        self.explosion_label.setText(tr("Explosión:"))
+        self.explosion_slider.setToolTip(tr("Separa las piezas para visualización explosionada"))
+        self.auto.setText(tr("Actualizar sola"))
+        self._update_view_name()
 
     def _update_view_name(self) -> None:
         """Marca el botón de la vista actual y escribe su nombre en el visor."""

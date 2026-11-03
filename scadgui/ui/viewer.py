@@ -116,18 +116,20 @@ class Viewport(QWidget):
         row = QHBoxLayout(bar)
         row.setContentsMargins(10, 6, 10, 6)
         row.setSpacing(6)
-        title = QLabel(tr("Vista previa"))
-        title.setObjectName("viewTitle")
-        row.addWidget(title)
+        self.title = QLabel(tr("Vista previa"))
+        self.title.setObjectName("viewTitle")
+        row.addWidget(self.title)
+        self.view_buttons: dict[str, QPushButton] = {}
         for name in VIEWS:
             b = QPushButton(tr(name))
             b.setObjectName("viewButton")
             b.clicked.connect(lambda _=False, n=name: self.set_view(n))
+            self.view_buttons[name] = b
             row.addWidget(b)
-        fit = QPushButton(tr("Ajustar"))
-        fit.setObjectName("viewButton")
-        fit.clicked.connect(lambda: self.fit())   # clicked pasa un bool que fit() tomaría por render
-        row.addWidget(fit)
+        self.fit_btn = QPushButton(tr("Ajustar"))
+        self.fit_btn.setObjectName("viewButton")
+        self.fit_btn.clicked.connect(lambda: self.fit())   # clicked pasa un bool que fit() tomaría por render
+        row.addWidget(self.fit_btn)
         row.addStretch(1)
         self.auto = QCheckBox(tr("Actualizar sola"))
         self.auto.setObjectName("viewCheck")
@@ -156,6 +158,15 @@ class Viewport(QWidget):
         self._render_timer.timeout.connect(self.renderRequested.emit)
         self.canvas.cameraChanged.connect(self.request_render)
         self.canvas.zoomChanged.connect(self._zoom_changed)
+
+    def retranslate_ui(self) -> None:
+        """Vuelve a escribir los textos de la barra del visor en el idioma activo."""
+        self.title.setText(tr("Vista previa"))
+        for name, b in self.view_buttons.items():
+            b.setText(tr(name))
+        self.fit_btn.setText(tr("Ajustar"))
+        self.auto.setText(tr("Actualizar sola"))
+        self.setup.setText(tr("Elegir openscad…"))
 
     # ----- api
     def render_size(self) -> tuple[int, int]:
