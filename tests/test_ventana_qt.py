@@ -841,6 +841,27 @@ def test_brida_desde_la_cinta_y_asistente():
     dlg.deleteLater()
 
 
+def test_arbol_de_levas_desde_la_cinta():
+    """Botones del grupo Árbol de levas: eje y lóbulo; el panel da las medidas del lóbulo y dónde está."""
+    from PySide6.QtWidgets import QLabel
+    from scadgui.i18n import set_language
+    from scadgui.model import Document
+    set_language("es")
+    w = window()
+    w.set_document(Document())
+    w.ribbon.buttons["camshaft_main_shaft"].click()
+    w.ribbon.buttons["cam_lobe"].click()
+    app.processEvents()
+    assert [n.kind for n in w.doc.children] == ["camshaft_main_shaft", "cam_lobe"]
+    lobe = w.doc.children[1]
+    assert w.selected_ids() == [lobe.id]
+    texts = [l.text() for l in w.props.findChildren(QLabel)]
+    assert "Ø base 30.00 mm · Ø en la punta 46.00 mm · base sin alzada 120.0°" in texts, texts
+    assert "Ocupa de z = 14 a z = 26 mm" in texts, texts
+    code = w.code.text.toPlainText()
+    assert "module cam_lobe(" in code and "module camshaft_main_shaft(" in code
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

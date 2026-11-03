@@ -460,6 +460,33 @@ def test_bridas_volumen_en_los_dos_motores():
     assert volume_of(f"intersection() {{ {flange} {half_step} }}\n{module}") < 1e-6
 
 
+def test_arbol_de_levas_volumen_y_orientacion():
+    """Cada lóbulo (leyes, ángulos, asimetría, resolución) pesa en OpenSCAD lo mismo que la vista
+    aproximada; el árbol entero se renderiza sin avisos, y la punta está donde dice su ángulo."""
+    from scadgui import geometry
+    cases = ({}, {"motion": "armonica", "angle": 90}, {"motion": "parabolica", "rise_angle": 60, "fall_angle": 140},
+             {"motion": "velocidad_constante", "dwell_angle": 0, "step": 2}, {"angle": -45, "step": 0.5, "lift": 3})
+    for params in cases:
+        doc = Document()
+        node = doc.add("cam_lobe")
+        for key, value in params.items():
+            doc.set_param(node.id, key, value)
+        mine = abs(signed_volume(geometry.cam_lobe(node.params)))
+        assert abs(volume_of(generate(doc).text) - mine) < max(0.01, mine * 1e-5), params
+    doc = Document()
+    doc.add("camshaft_main_shaft")
+    for i, z in enumerate((40, 100, 160, 220)):
+        lobe = doc.add("cam_lobe")
+        doc.set_param(lobe.id, "position", z)
+        doc.set_param(lobe.id, "angle", 90 * i)
+    code = generate(doc).text
+    assert len(render(code)) > 1000
+    module = code[code.index("module camshaft_main_shaft("):]
+    nose = "translate([22, 0, 20]) cube(1, center = true);"            # radio 22 en +X, dentro del lóbulo
+    assert volume_of(f"intersection() {{ cam_lobe(angle = 0); {nose} }}\n{module}") > 0.99
+    assert volume_of(f"intersection() {{ cam_lobe(angle = 180); {nose} }}\n{module}") < 1e-6
+
+
 if __name__ == "__main__":
     if not EXE:
         print("OpenSCAD no encontrado: se omiten estas pruebas (define OPENSCAD para indicar dónde está)")

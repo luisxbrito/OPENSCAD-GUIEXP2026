@@ -358,6 +358,30 @@ _add(Spec("cam", "Leva de disco", "solid", False, (
    "maquinaria rápida), armónica, parabólica y velocidad constante (con golpe en los cambios, "
    "solo para mecanismos lentos)."))
 
+# Árbol de levas: el eje y los lóbulos son piezas separadas, cada lóbulo con su posición y su ángulo.
+_add(Spec("camshaft_main_shaft", "Eje del árbol de levas", "solid", False, (
+    Param("length", "num", 250, label="Longitud", minimum=0.01, step=5),
+    Param("d", "num", 25, label="Ø del eje", minimum=0.01),
+), keyword="module", hint="Eje principal de un árbol de levas, a lo largo de Z desde z = 0 hasta su "
+   "longitud. Los lóbulos (cam_lobe) se colocan sobre él con su propia posición y ángulo."))
+_add(Spec("cam_lobe", "Lóbulo de leva", "solid", False, (
+    Param("base_r", "num", 15, label="Radio base", minimum=0.01),
+    Param("lift", "num", 8, label="Alzada", minimum=0),
+    Param("width", "num", 12, label="Ancho", minimum=0.01),
+    Param("rise_angle", "num", 110, label="Ángulo de subida (°)", minimum=1, maximum=358, step=5),
+    Param("dwell_angle", "num", 20, label="Reposo en la punta (°)", minimum=0, maximum=358, step=5),
+    Param("fall_angle", "num", 110, label="Ángulo de bajada (°)", minimum=1, maximum=358, step=5),
+    Param("motion", "choice", "cicloidal", label="Ley de movimiento",
+          options=("cicloidal", "armonica", "parabolica", "velocidad_constante")),
+    Param("angle", "num", 0, label="Orientación de la punta (°)", minimum=-360, maximum=360, step=15),
+    Param("position", "num", 20, label="Posición en el eje (Z)", step=5),
+    Param("step", "num", 1, label="Resolución (° por punto)", minimum=0.1, maximum=10, step=0.5),
+), keyword="module", hint="Lóbulo de un árbol de levas, extruido a lo largo de Z y centrado en su "
+   "posición. La punta (alzada máxima) mira a la orientación dada: sube durante el ángulo de "
+   "subida, se mantiene el reposo centrado en la punta y baja durante el de bajada; el resto del "
+   "giro queda en el radio base. Si subida y bajada son distintas, el lóbulo es asimétrico. Las "
+   "mismas 4 leyes que la leva de disco (Machinery's Handbook 27, pp. 2190-2192)."))
+
 _add(Spec("v_pulley", "Polea trapecial", "solid", False, (
     Param("section", "choice", "A", label="Sección", options=("A", "B", "C", "D")),
     Param("datum_d", "num", 80, label="Ø primitivo (datum)", minimum=10, step=5),
@@ -484,6 +508,8 @@ ICONS = {
     "cam": ("M13 3c-4.5 0-8 3.8-8 9s3.5 9 8 9c0.9 0 1.7-1.6 2.3-4.2c0.4-1.7 1.7-3 3.4-3l1.3 0"
             "c0.6 0 1-0.4 1-1v-1.6c0-0.6-0.4-1-1-1l-1.3 0c-1.7 0-3-1.3-3.4-3C14.7 4.6 13.9 3 13 3z"
             " M12 9a3 3 0 1 0 0.01 0"),
+    "camshaft_main_shaft": "M2 10h20v4H2z M5 10v4 M19 10v4",
+    "cam_lobe": ("M2 11h20v2H2z M9 6c0-2 1.5-3.5 3-3.5S15 4 15 6v12c0 2-1.5 3.5-3 3.5S9 20 9 18z"),
     "pipe_flange": ("M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20z M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8z"
                     " M12 4.2a.9.9 0 1 0 0 1.8a.9.9 0 1 0 0-1.8z M12 18a.9.9 0 1 0 0 1.8a.9.9 0 1 0 0-1.8z"
                     " M4.2 12a.9.9 0 1 0 1.8 0a.9.9 0 1 0-1.8 0z M18 12a.9.9 0 1 0 1.8 0a.9.9 0 1 0-1.8 0z"),

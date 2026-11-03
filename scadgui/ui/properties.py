@@ -226,6 +226,8 @@ class PropertyPanel(QScrollArea):
             self._spline_info(node)
         if node.kind == "cam":
             self._cam_info(node)
+        if node.kind == "cam_lobe":
+            self._lobe_info(node)
         if node.kind == "pipe_flange":
             self._flange_info(node)
         if spec and spec.hint:
@@ -415,6 +417,23 @@ class PropertyPanel(QScrollArea):
         self._hint(tr("Reposo abajo {r:.1f}°").format(r=d["rest_angle"]))
         for text, values2 in gears.cam_warnings(base_d, lift, rise, dwell, fall):
             self._hint(tr(text).format(**values2), "warnText")
+
+    def _lobe_info(self, node: Node) -> None:
+        """Medidas y avisos del lóbulo del árbol de levas."""
+        from .. import gears
+        p = node.params
+        values = [p.get(k, v) for k, v in (("base_r", 15), ("lift", 8), ("rise_angle", 110),
+                                           ("dwell_angle", 20), ("fall_angle", 110), ("position", 20),
+                                           ("width", 12))]
+        if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in values):
+            return                                   # con expresiones no se puede calcular aquí
+        base_r, lift, rise, dwell, fall, position, width = values
+        d = gears.cam_dims(2 * base_r, lift, rise, dwell, fall)
+        self._hint(tr("Ø base {b:.2f} mm · Ø en la punta {o:.2f} mm · base sin alzada {r:.1f}°").format(
+            b=d["base_r"] * 2, o=d["outer_r"] * 2, r=d["rest_angle"]))
+        self._hint(tr("Ocupa de z = {a:g} a z = {b:g} mm").format(a=position - width / 2, b=position + width / 2))
+        for text, data in gears.lobe_warnings(base_r, lift, rise, dwell, fall):
+            self._hint(tr(text).format(**data), "warnText")
 
     def _flange_info(self, node: Node) -> None:
         """Volumen y avisos de forma de la brida (también si se retocan las medidas a mano)."""

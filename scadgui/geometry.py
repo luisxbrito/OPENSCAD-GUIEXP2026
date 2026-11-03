@@ -829,6 +829,30 @@ def pipe_flange(p, ctx) -> Optional[Tris]:
     return revolve(prof, ctx)
 
 
+def camshaft_main_shaft(p, ctx) -> Optional[Tris]:
+    """Eje del árbol de levas: cilindro de z = 0 a z = length."""
+    length, d = _num(p.get("length", 250)), _num(p.get("d", 25))
+    if None in (length, d) or length <= 0 or d <= 0:
+        return None
+    return revolve(np.array([[0, 0], [d / 2, 0], [d / 2, length], [0, length]], dtype=float), ctx)
+
+
+def cam_lobe(p) -> Optional[Tris]:
+    """Lóbulo del árbol de levas: el perfil de gears.lobe_polygon extruido a lo largo de Z."""
+    from . import gears
+    keys = (("base_r", 15), ("lift", 8), ("width", 12), ("rise_angle", 110), ("dwell_angle", 20),
+            ("fall_angle", 110), ("angle", 0), ("position", 20), ("step", 1))
+    vals = [_num(p.get(k, v)) for k, v in keys]
+    motion = p.get("motion", "cicloidal")
+    if None in vals or motion not in gears.CAM_MOTIONS:
+        return None
+    base_r, lift, width, rise, dwell, fall, angle, position, step = vals
+    if base_r <= 0 or width <= 0 or lift < 0:
+        return None
+    poly = gears.lobe_polygon(base_r, lift, rise, dwell, fall, motion, angle, step)
+    return prism(poly, width, position - width / 2)
+
+
 def rack(p) -> Optional[Tris]:
     """Cremallera, recta o helicoidal (el dentado inclinado sale sesgando el prisma)."""
     from . import gears
@@ -1241,6 +1265,10 @@ def solid(node, ctx) -> dict:
         mesh = cam(p)
     elif k == "pipe_flange":
         mesh = pipe_flange(p, ctx)
+    elif k == "camshaft_main_shaft":
+        mesh = camshaft_main_shaft(p, ctx)
+    elif k == "cam_lobe":
+        mesh = cam_lobe(p)
     elif k == "cylinder_edges":
         mesh = cylinder_edges(p, ctx)
     elif k in ("square", "circle", "polygon"):

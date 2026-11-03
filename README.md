@@ -60,6 +60,8 @@ All by module (metric). The panel shows the calculated dimensions and warns abou
 | V-belt pulley | A, B, C, D sections (ANSI/RMA IP-20), groove angle by diameter range |
 | Involute spline | Shaft and hub (ANSI B92.2M / ISO 4156), 30°, 37.5° and 45°; the hub is added in place, already meshing |
 | Keyways | On gears and pulleys, sized by bore from BS 4235-1 / ISO R773 |
+| Plate cam | Rise, dwell and fall with the cycloidal, harmonic, parabolic or constant-velocity law (*Machinery's Handbook*, «Cams and Cam Design») |
+| Camshaft (in progress) | Main shaft and lobes as separate parts: each lobe has its own axial position, nose angle, law, lift and rise/fall angles (asymmetric lobes allowed) |
 
 ![Spur gear pair with keyways](docs/images/gears_spur_pair.png)
 

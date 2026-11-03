@@ -842,3 +842,42 @@ def cam_warnings(base_d: float, lift: float, rise_angle: float, dwell_angle: flo
                     {"l": lift, "r": d["base_r"]}))
     return out
 
+
+# --------------------------------------------------------------------------- Árbol de levas
+# Lóbulo de un árbol de levas: las mismas leyes de movimiento que la leva de disco, pero con la
+# punta (alzada máxima) centrada en el ángulo ``angle``: la subida acaba y la bajada empieza a
+# medio reposo de la punta. Subida y bajada pueden durar distinto (leva asimétrica). El eje del
+# árbol es Z y el lóbulo se extruye centrado en ``position``.
+
+
+def lobe_polygon(base_r: float, lift: float, rise_angle: float, dwell_angle: float, fall_angle: float,
+                 motion: str = "cicloidal", angle: float = 0.0, step: float = 1.0) -> np.ndarray:
+    """Contorno del lóbulo (N × 2), antihorario, con la punta mirando a ``angle`` grados.
+    Mismos puntos que el módulo cam_lobe de library.py."""
+    d = cam_dims(2 * base_r, lift, rise_angle, dwell_angle, fall_angle)
+    r0, h = d["base_r"], d["lift"]
+    segs = [(d["rise_angle"], lambda f: cam_motion(motion, f)),
+            (d["dwell_angle"], lambda f: 1.0),
+            (d["fall_angle"], lambda f: 1.0 - cam_motion(motion, f)),
+            (d["rest_angle"], lambda f: 0.0)]
+    step = max(0.1, float(step))
+    pts = []
+    theta = angle - d["rise_angle"] - d["dwell_angle"] / 2
+    for ang, fn in segs:
+        if ang > 1e-9:
+            n = max(1, int(math.ceil(ang / step)))
+            for i in range(n):
+                r = r0 + h * fn(i / n)
+                a = math.radians(theta + ang * i / n)
+                pts.append((r * math.cos(a), r * math.sin(a)))
+        theta += ang
+    return np.array(pts, dtype=np.float64)
+
+
+def lobe_warnings(base_r: float, lift: float, rise_angle: float, dwell_angle: float,
+                  fall_angle: float) -> list[tuple[str, dict]]:
+    """Los mismos avisos que la leva de disco (el lóbulo es una leva de disco sin agujero)."""
+    out = cam_warnings(2 * base_r, lift, rise_angle, dwell_angle, fall_angle)
+    if base_r <= 0:
+        out.append((N_("El radio base tiene que ser mayor que 0."), {}))
+    return out

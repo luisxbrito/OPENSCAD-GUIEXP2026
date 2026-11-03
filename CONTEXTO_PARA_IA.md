@@ -407,6 +407,21 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     de las clases altas salen ilegibles en texto; habría que leerlas de la imagen y comprobarlas.
   - Solo se probó con OpenSCAD 2021.01 (CGAL): `test_bridas_volumen_en_los_dos_motores` usa
     Manifold solo si la versión instalada tiene `--backend`.
+- **Árbol de levas** (encargo del usuario en 6 fases; se entrega fase a fase y no se pasa a la
+  siguiente sin su visto bueno). Decisión: no un archivo con variables globales arriba (perdería
+  la selección en 3D, el panel y los avisos), sino piezas del modelo con los nombres de módulo del
+  encargo: `camshaft_main_shaft` (eje a lo largo de Z, de 0 a length) y `cam_lobe` (lóbulo
+  extruido en Z, centrado en `position`, punta hacia `angle`, reposo centrado en la punta, subida
+  y bajada independientes, `step` grados por punto). Las leyes son las de la leva de disco
+  (`gears.cam_motion`); `gears.lobe_polygon` es el mismo perfil que el módulo. Grupo propio en la
+  cinta («Árbol de levas»). Ejemplo: `examples/arbol_de_levas.scad`.
+  - Hecho: fase 1 (eje y lóbulo paramétrico).
+  - Pendiente: fase 2 (perfiles circular, excéntrico, elíptico y periforme —construcciones
+    geométricas, sin norma— y aviso de autointersección por radio de curvatura); fase 3
+    (asistente de varias levas, reparto por cilindros, desfases); fase 4 (muñones, apoyos y
+    extremos, reutilizando chavetero y estriado; esos parámetros entran como opcionales en
+    `camshaft_main_shaft` para no romper archivos ya guardados); fase 5 (exportar por piezas y
+    colocar para imprimir); fase 6 (casos al azar en los dos motores). Sin animación ni cinemática.
 
 ## 7. Limitaciones conocidas y siguientes pasos posibles
 

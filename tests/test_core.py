@@ -32,7 +32,7 @@ def roundtrip(text):
 
 
 def test_catalogo_completo():
-    assert len(SPECS) == 44  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 9 de mecánica
+    assert len(SPECS) == 46  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 11 de mecánica
     for key, _, _ in CATEGORIES:
         assert specs_in(key), key
     for name in SPECS:
@@ -1046,7 +1046,8 @@ def test_modulos_propios_con_comentarios_en_ingles():
     def code_only(text):
         return " ".join(re.sub(r"//[^\n]*", "", text).split())
 
-    assert set(SPANISH_COMMENTS) == set(LIBRARY) - {"shaft_bore", "spline", "cam", "pipe_flange"}  # nacieron en inglés
+    assert set(SPANISH_COMMENTS) == set(LIBRARY) - {"shaft_bore", "spline", "cam", "pipe_flange",
+                                                       "camshaft_main_shaft", "cam_lobe"}  # nacieron en inglés
     for name, code in LIBRARY.items():
         assert all(c.isascii() for c in re.findall(r"//[^\n]*", code)), name
         assert "written by OpenSCAD GUI Mejorada" in code and "lo escribe" not in code, name
@@ -1690,6 +1691,50 @@ def test_bridas_avisos_y_pieza_por_defecto():
     doc = Document()
     node = doc.add("pipe_flange")                      # el botón de la cinta: la misma brida de la tabla
     assert node.params == {**good, "center": False}
+
+
+def test_lobulo_de_leva_perfil():
+    """Radio base y punta exactos, punta en la orientación dada con el reposo centrado en ella, y
+    subida y bajada independientes (lóbulo asimétrico)."""
+    import math
+    from scadgui import gears
+    p = gears.lobe_polygon(15, 8, 110, 20, 110, "cicloidal", angle=90, step=0.5)
+    r = [math.hypot(x, y) for x, y in p]
+    a = [math.degrees(math.atan2(y, x)) % 360 for x, y in p]
+    assert abs(min(r) - 15) < 1e-9 and abs(max(r) - 23) < 1e-9
+    top = [ang for ang, rad in zip(a, r) if rad > 23 - 1e-9]
+    assert abs(min(top) - 80) < 1e-6 and abs(max(top) - 100) < 1e-6          # reposo de 80° a 100°
+    # Asimétrica: subida de 60° y bajada de 120°. A mitad de la subida (80 - 30 = 50°) y a mitad de la
+    # bajada (100 + 60 = 160°) la cicloidal vale justo la mitad de la alzada.
+    p = gears.lobe_polygon(15, 8, 60, 20, 120, "cicloidal", angle=90, step=1)
+    by_angle = {round(math.degrees(math.atan2(y, x)) % 360, 6): math.hypot(x, y) for x, y in p}
+    assert abs(by_angle[50.0] - 19) < 1e-9 and abs(by_angle[160.0] - 19) < 1e-9
+    assert len(gears.lobe_polygon(15, 8, 110, 20, 110, step=1)) == 360
+    assert len(gears.lobe_polygon(15, 8, 110, 20, 110, step=0.25)) == 1440
+    assert not gears.lobe_warnings(15, 8, 110, 20, 110)
+    assert gears.lobe_warnings(15, 8, 200, 20, 200)             # más de 360°
+    assert gears.lobe_warnings(5, 8, 110, 20, 110)              # alzada mayor que el radio base
+
+
+def test_arbol_de_levas_codigo_y_vuelta():
+    """Eje y lóbulos son piezas con sus parámetros: cada lóbulo se cambia sin tocar los demás, el
+    archivo lleva un solo módulo de cada y vuelve igual al abrirlo."""
+    doc = Document()
+    doc.add("camshaft_main_shaft")
+    lobes = [doc.add("cam_lobe") for _ in range(3)]
+    for i, lobe in enumerate(lobes):
+        doc.set_param(lobe.id, "position", 40 + 60 * i)
+        doc.set_param(lobe.id, "angle", 120 * i)
+    doc.set_param(lobes[1].id, "motion", "armonica")
+    doc.set_param(lobes[2].id, "fall_angle", 140)
+    text = generate(doc).text
+    assert text.count("module cam_lobe(") == 1 and text.count("module camshaft_main_shaft(") == 1
+    assert "cam_lobe(base_r = 15, lift = 8, width = 12, rise_angle = 110, dwell_angle = 20, fall_angle = 140" in text
+    again = parse(text)
+    assert [n.kind for n in again.children] == ["camshaft_main_shaft"] + ["cam_lobe"] * 3
+    assert [n.params for n in again.children] == [n.params for n in doc.children]
+    assert generate(again).text == text
+    assert [n.params["angle"] for n in again.children[1:]] == [0, 120, 240]
 
 
 if __name__ == "__main__":

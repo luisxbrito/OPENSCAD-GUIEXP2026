@@ -844,6 +844,22 @@ def test_brida_malla_gira_el_perfil_del_modulo():
     assert g.pipe_flange({**p, "od": 0}, ctx) is None
 
 
+def test_lobulo_y_eje_en_la_vista_aproximada():
+    """El lóbulo es su perfil extruido: ocupa de position - width/2 a position + width/2 y pesa el área
+    del perfil por el ancho; el eje va de z = 0 a su longitud."""
+    from scadgui import gears
+    from scadgui.geometry import _area
+    p = {"base_r": 15, "lift": 8, "width": 12, "rise_angle": 70, "dwell_angle": 10, "fall_angle": 130,
+         "motion": "parabolica", "angle": 45, "position": 100, "step": 0.5}
+    mesh = g.cam_lobe(p)
+    poly = gears.lobe_polygon(15, 8, 70, 10, 130, "parabolica", 45, 0.5)
+    assert abs(mesh[:, :, 2].min() - 94) < 1e-9 and abs(mesh[:, :, 2].max() - 106) < 1e-9
+    assert abs(g.signed_volume(mesh) - abs(_area(poly)) * 12) < 1e-6
+    assert g.cam_lobe({**p, "motion": "inventada"}) is None and g.cam_lobe({**p, "width": 0}) is None
+    shaft = g.camshaft_main_shaft({"length": 250, "d": 25}, {"fn": 64, "fa": 12, "fs": 2})
+    assert abs(shaft[:, :, 2].min()) < 1e-9 and abs(shaft[:, :, 2].max() - 250) < 1e-9
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):
