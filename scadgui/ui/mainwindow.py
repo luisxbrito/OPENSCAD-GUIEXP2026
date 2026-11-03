@@ -136,7 +136,7 @@ class Ribbon(QTabWidget):
     # no esté en ningún grupo va al último, para que nunca se quede sin botón.
     GROUPS = {
         "solid": ((N_("Primitivas"), ("cube", "sphere", "cylinder", "polyhedron")),),
-        "mech": ((N_("Engranajes"), ("spur_gear", "helical_gear", "bevel_gear", "rack")),
+        "mech": ((N_("Engranajes"), ("spur_gear", "helical_gear", "herringbone_gear", "bevel_gear", "rack")),
                  (N_("Transmisión"), ("pulley", "v_pulley", "spline")),
                  (N_("Levas"), ("cam", "camshaft_main_shaft", "cam_lobe")),
                  (N_("Uniones"), ("pipe_flange",)),

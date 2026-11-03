@@ -1223,4 +1223,9 @@ STRINGS: dict[str, str] = {
     'El agujero ({b} mm) casi llega al fondo de la ranura (Ø {f:.1f} mm): deja algo de material alrededor.': "Il foro ({b} mm) arriva quasi al fondo della gola (Ø {f:.1f} mm): lascia un po' di materiale attorno.",
     'inferior': 'inferiore',
     'superior': 'superiore',
+    'Engranaje espina de pescado': 'Ingranaggio a spina di pesce',
+    'Engranaje espina de pescado (helicoidal doble): dos mitades de mano contraria, en fase (sin giro relativo) en el plano central, así el empuje axial de una mitad cancela el de la otra y no hace falta un cojinete de empuje. El módulo y el ángulo de presión son los normales; Ø primitivo = m·z/cos ψ. Engrana igual que un helicoidal simple: con otro igual pero de mano contraria.': "Ingranaggio a spina di pesce (elicoidale doppio): due metà di mano opposta, in fase (senza sfasamento relativo) sul piano centrale, così la spinta assiale di una metà annulla quella dell'altra e non serve un cuscinetto assiale. Il modulo e l'angolo di pressione sono quelli normali; Ø primitivo = m·z/cos ψ. S'innesta come un elicoidale semplice: con un altro di mano opposta.",
+    'Ranura central': 'Scanalatura centrale',
+    'La ranura central ({g} mm) debe ser positiva y menor que el grueso total ({t} mm): si no, no queda material para alguna de las dos mitades.': 'La scanalatura centrale ({g} mm) deve essere positiva e minore dello spessore totale ({t} mm): altrimenti non resta materiale per una delle due metà.',
+    'Módulo aparente {mt:.3f} · presión aparente {at:.2f}° · giro {tw:.1f}° por mitad · solape axial por mitad {ov:.2f}': 'Modulo apparente {mt:.3f} · angolo di pressione apparente {at:.2f}° · torsione {tw:.1f}° per metà · sovrapposizione assiale per metà {ov:.2f}',
 }

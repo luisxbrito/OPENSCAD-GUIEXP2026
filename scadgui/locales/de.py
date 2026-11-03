@@ -1223,4 +1223,9 @@ STRINGS: dict[str, str] = {
     'El agujero ({b} mm) casi llega al fondo de la ranura (Ø {f:.1f} mm): deja algo de material alrededor.': 'Die Bohrung ({b} mm) reicht fast bis zum Rillengrund (Ø {f:.1f} mm): lassen Sie etwas Material übrig.',
     'inferior': 'unten',
     'superior': 'oben',
+    'Engranaje espina de pescado': 'Pfeilrad',
+    'Engranaje espina de pescado (helicoidal doble): dos mitades de mano contraria, en fase (sin giro relativo) en el plano central, así el empuje axial de una mitad cancela el de la otra y no hace falta un cojinete de empuje. El módulo y el ángulo de presión son los normales; Ø primitivo = m·z/cos ψ. Engrana igual que un helicoidal simple: con otro igual pero de mano contraria.': 'Pfeilverzahnung (doppelschrägverzahntes Rad): zwei Hälften mit entgegengesetzter Steigungsrichtung, phasengleich (ohne gegenseitigen Versatz) in der Mittelebene, sodass sich der Axialschub der einen Hälfte mit dem der anderen aufhebt und kein Axiallager nötig ist. Modul und Eingriffswinkel sind die normalen; Teilkreis-Ø = m·z/cos ψ. Greift wie eine einfache Schrägverzahnung ein: mit einer weiteren mit entgegengesetztem Drehsinn.',
+    'Ranura central': 'Mittlere Nut',
+    'La ranura central ({g} mm) debe ser positiva y menor que el grueso total ({t} mm): si no, no queda material para alguna de las dos mitades.': 'Die mittlere Nut ({g} mm) muss positiv und kleiner als die Gesamtdicke ({t} mm) sein: sonst bleibt für eine der beiden Hälften kein Material übrig.',
+    'Módulo aparente {mt:.3f} · presión aparente {at:.2f}° · giro {tw:.1f}° por mitad · solape axial por mitad {ov:.2f}': 'Scheinbarer Modul {mt:.3f} · scheinbarer Eingriffswinkel {at:.2f}° · Verdrehung {tw:.1f}° je Hälfte · axiale Überdeckung je Hälfte {ov:.2f}',
 }

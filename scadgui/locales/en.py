@@ -1223,4 +1223,9 @@ STRINGS: dict[str, str] = {
     'El agujero ({b} mm) casi llega al fondo de la ranura (Ø {f:.1f} mm): deja algo de material alrededor.': 'The bore ({b} mm) nearly reaches the bottom of the groove (Ø {f:.1f} mm): leave some material around it.',
     'inferior': 'bottom',
     'superior': 'top',
+    'Engranaje espina de pescado': 'Herringbone gear',
+    'Engranaje espina de pescado (helicoidal doble): dos mitades de mano contraria, en fase (sin giro relativo) en el plano central, así el empuje axial de una mitad cancela el de la otra y no hace falta un cojinete de empuje. El módulo y el ángulo de presión son los normales; Ø primitivo = m·z/cos ψ. Engrana igual que un helicoidal simple: con otro igual pero de mano contraria.': "Herringbone (double helical) gear: two halves of opposite hand, phase-aligned (no relative twist) at the centre plane, so the axial thrust of one half cancels the other's and no thrust bearing is needed. The module and pressure angle are the normal ones; pitch Ø = m·z/cos ψ. Meshes just like a plain helical gear: with another one of opposite hand.",
+    'Ranura central': 'Centre groove',
+    'La ranura central ({g} mm) debe ser positiva y menor que el grueso total ({t} mm): si no, no queda material para alguna de las dos mitades.': 'The centre groove ({g} mm) must be positive and smaller than the total thickness ({t} mm): otherwise one of the two halves is left with no material.',
+    'Módulo aparente {mt:.3f} · presión aparente {at:.2f}° · giro {tw:.1f}° por mitad · solape axial por mitad {ov:.2f}': 'Transverse module {mt:.3f} · transverse angle {at:.2f}° · twist {tw:.1f}° per half · axial overlap per half {ov:.2f}',
 }

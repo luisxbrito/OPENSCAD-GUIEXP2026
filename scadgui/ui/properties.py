@@ -216,7 +216,7 @@ class PropertyPanel(QScrollArea):
             fix = QPushButton(tr("Corregir (misma forma)"))
             fix.clicked.connect(lambda: self.fixRadii.emit(node.id))
             self._lay.addWidget(fix)
-        if node.kind in ("spur_gear", "helical_gear", "rack", "bevel_gear"):
+        if node.kind in ("spur_gear", "helical_gear", "herringbone_gear", "rack", "bevel_gear"):
             self._gear_info(node)
         if node.kind == "pulley":
             self._pulley_info(node)
@@ -311,6 +311,25 @@ class PropertyPanel(QScrollArea):
                 mt=d["transverse_mod"], at=d["transverse_angle"], lead=d["lead"], tw=d["twist"],
                 ov=d["axial_overlap"]))
             problems = gears.helical_warnings(mod, int(z), psi, pa, num("backlash"), num("bore"), thick)
+            label = tr("Añadir engranaje que engrane")
+            tip = tr("Crea otro engranaje de la misma hélice pero de mano contraria (si no, no "
+                     "engranan), ya colocado a m·(z1 + z2)/(2·cos ψ) y girado para que los dientes "
+                     "encajen.")
+            start = int(z)
+        elif node.kind == "herringbone_gear":
+            psi, thick, groove = val("helix_angle", 25), val("thickness", 16), num("groove")
+            if None in (psi, thick):
+                return
+            half_b = (thick - groove) / 2
+            d = gears.helical_dims(mod, int(z), psi, pa, half_b)
+            self._hint(tr("Ø primitivo {d:g} mm · Ø exterior {da:g} mm · Ø raíz {df:g} mm").format(
+                d=round(d["pitch_d"], 3), da=round(d["tip_d"], 3), df=round(d["root_d"], 3)))
+            self._hint(tr("Módulo aparente {mt:.3f} · presión aparente {at:.2f}° · giro {tw:.1f}° "
+                          "por mitad · solape axial por mitad {ov:.2f}").format(
+                mt=d["transverse_mod"], at=d["transverse_angle"], tw=d["twist"],
+                ov=d["axial_overlap"]))
+            problems = gears.herringbone_warnings(mod, int(z), psi, pa, num("backlash"), num("bore"),
+                                                  thick, groove)
             label = tr("Añadir engranaje que engrane")
             tip = tr("Crea otro engranaje de la misma hélice pero de mano contraria (si no, no "
                      "engranan), ya colocado a m·(z1 + z2)/(2·cos ψ) y girado para que los dientes "

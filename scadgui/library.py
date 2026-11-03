@@ -172,6 +172,52 @@ HELICAL_GEAR = '''module helical_gear(mod = 1, teeth = 20, thickness = 10, helix
   }
 }'''
 
+HERRINGBONE_GEAR = '''module herringbone_gear(mod = 1, teeth = 20, thickness = 10, helix_angle = 20, left_hand = false, pressure_angle = 20, backlash = 0, bore = 0, groove = 0, center = false, keyway = false, key_width = 0, key_depth = 0) {
+  // Herringbone (double helical) gear (written by OpenSCAD GUI Mejorada).
+  // Two helical halves of opposite hand, meeting phase-aligned (same untwisted profile) at the
+  // center plane, so the axial thrust of one half cancels the other's -- no thrust bearing
+  // needed, unlike a plain helical gear. groove opens a small gap at the center plane (hobbing
+  // clearance on a real gear; usually 0 for 3D printing). Same involute profile as helical_gear;
+  // see that module for how the normal module and pressure angle relate to the transverse ones.
+  // Meshes like a plain helical pair: with ANOTHER ONE of OPPOSITE hand (left_hand toggled).
+  z = max(3, round(teeth));
+  half_b = max(0.001, (thickness - groove) / 2);
+  mt = mod / cos(helix_angle);                        // transverse module
+  at = atan(tan(pressure_angle) / cos(helix_angle));  // transverse pressure angle
+  r = mt * z / 2;                       // pitch radius
+  rb = r * cos(at);                     // base radius
+  ra = r + mod;                         // the addendum uses the normal module
+  rf = max(r - 1.25 * mod, mod * 0.1);  // and so does the dedendum
+  r0 = max(rb, rf);
+  function inv(a) = tan(a) - a * PI / 180;
+  function half(R) = max(0, ((PI * mt / 2 - backlash / 2) / (2 * r) + inv(at)
+                             - inv(acos(min(1, rb / R)))) * 180 / PI);
+  n = 8;
+  flank = [for (k = [0 : n]) r0 + (ra - r0) * k / n];
+  root = rf < r0 - 1e-6;
+  pts = [for (i = [0 : z - 1]) let(c = i * 360 / z) each concat(
+           root ? [[rf * cos(c - half(r0)), rf * sin(c - half(r0))]] : [],
+           [for (R = flank) [R * cos(c - half(R)), R * sin(c - half(R))]],
+           [for (k = [n : -1 : 0]) let(R = flank[k]) [R * cos(c + half(R)), R * sin(c + half(R))]],
+           root ? [[rf * cos(c + half(r0)), rf * sin(c + half(r0))]] : [],
+           [[rf * cos(c + 180 / z), rf * sin(c + 180 / z)]])];
+  // Twist of one half over half_b: 2 * half_b * sin(helix) / (z * mod) radians, in degrees.
+  turn = 2 * half_b * sin(helix_angle) / (z * mod) * 180 / PI;
+  module half_profile() {
+    linear_extrude(half_b, twist = left_hand ? -turn : turn, slices = max(8, ceil(turn / 2)),
+                   convexity = 10) polygon(pts);
+  }
+  translate([0, 0, center ? -thickness / 2 : 0]) difference() {
+    union() {
+      // Lower half: mirrored, so it has zero twist where it meets the center plane.
+      translate([0, 0, half_b]) mirror([0, 0, 1]) half_profile();
+      // Upper half: zero twist at its own base, which sits at the center plane (plus the groove).
+      translate([0, 0, half_b + groove]) half_profile();
+    }
+    if (bore > 0) translate([0, 0, -1]) shaft_bore(bore, thickness + 2, keyway, key_width, key_depth);
+  }
+}'''
+
 RACK = '''module rack(mod = 1, teeth = 10, thickness = 5, base = 5, pressure_angle = 20, backlash = 0, helix_angle = 0, left_hand = false, center = false) {
   // Rack of the module system (written by OpenSCAD GUI Mejorada).
   // It is the "basic rack" that defines the tooth form: straight flanks inclined at the pressure
@@ -535,7 +581,8 @@ CAM_LOBE = '''module cam_lobe(base_r = 15, lift = 8, width = 12, rise_angle = 11
 }'''
 
 LIBRARY = {"cube_edges": CUBE_EDGES, "cylinder_edges": CYLINDER_EDGES, "spur_gear": SPUR_GEAR,
-           "helical_gear": HELICAL_GEAR, "rack": RACK, "bevel_gear": BEVEL_GEAR, "pulley": PULLEY,
+           "helical_gear": HELICAL_GEAR, "herringbone_gear": HERRINGBONE_GEAR, "rack": RACK,
+           "bevel_gear": BEVEL_GEAR, "pulley": PULLEY,
            "v_pulley": V_PULLEY, "spline": SPLINE, "cam": CAM, "shaft_bore": SHAFT_BORE,
            "pipe_flange": PIPE_FLANGE,
            "camshaft_main_shaft": CAMSHAFT_MAIN_SHAFT, "cam_lobe": CAM_LOBE}

@@ -1223,4 +1223,9 @@ STRINGS: dict[str, str] = {
     'El agujero ({b} mm) casi llega al fondo de la ranura (Ø {f:.1f} mm): deja algo de material alrededor.': 'O furo ({b} mm) quase alcança o fundo da ranhura (Ø {f:.1f} mm): deixe algum material em volta.',
     'inferior': 'inferior',
     'superior': 'superior',
+    'Engranaje espina de pescado': 'Engrenagem duplo-helicoidal',
+    'Engranaje espina de pescado (helicoidal doble): dos mitades de mano contraria, en fase (sin giro relativo) en el plano central, así el empuje axial de una mitad cancela el de la otra y no hace falta un cojinete de empuje. El módulo y el ángulo de presión son los normales; Ø primitivo = m·z/cos ψ. Engrana igual que un helicoidal simple: con otro igual pero de mano contraria.': 'Engrenagem duplo-helicoidal (espinha de peixe): duas metades de mão contrária, em fase (sem deslocamento relativo) no plano central, de modo que o empuxo axial de uma metade cancela o da outra e não é preciso rolamento de encosto. O módulo e o ângulo de pressão são os normais; Ø primitivo = m·z/cos ψ. Engrena igual a um helicoidal simples: com outra igual mas de mão contrária.',
+    'Ranura central': 'Ranhura central',
+    'La ranura central ({g} mm) debe ser positiva y menor que el grueso total ({t} mm): si no, no queda material para alguna de las dos mitades.': 'A ranhura central ({g} mm) deve ser positiva e menor que a espessura total ({t} mm): senão, não resta material para uma das duas metades.',
+    'Módulo aparente {mt:.3f} · presión aparente {at:.2f}° · giro {tw:.1f}° por mitad · solape axial por mitad {ov:.2f}': 'Módulo aparente {mt:.3f} · ângulo de pressão aparente {at:.2f}° · torção {tw:.1f}° por metade · sobreposição axial por metade {ov:.2f}',
 }

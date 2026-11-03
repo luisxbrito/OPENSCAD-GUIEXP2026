@@ -32,7 +32,7 @@ def roundtrip(text):
 
 
 def test_catalogo_completo():
-    assert len(SPECS) == 46  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 11 de mecánica
+    assert len(SPECS) == 47  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 12 de mecánica
     for key, _, _ in CATEGORIES:
         assert specs_in(key), key
     for name in SPECS:
@@ -1047,7 +1047,8 @@ def test_modulos_propios_con_comentarios_en_ingles():
         return " ".join(re.sub(r"//[^\n]*", "", text).split())
 
     assert set(SPANISH_COMMENTS) == set(LIBRARY) - {"shaft_bore", "spline", "cam", "pipe_flange",
-                                                       "camshaft_main_shaft", "cam_lobe"}  # nacieron en inglés
+                                                       "camshaft_main_shaft", "cam_lobe",
+                                                       "herringbone_gear"}  # nacieron en inglés
     for name, code in LIBRARY.items():
         assert all(c.isascii() for c in re.findall(r"//[^\n]*", code)), name
         assert "written by OpenSCAD GUI Mejorada" in code and "lo escribe" not in code, name
@@ -1449,6 +1450,36 @@ def test_helicoidal_y_su_pareja_de_mano_contraria():
     assert "left_hand = true" in text
     again = parse(text)
     assert generate(again).text == text                              # ida y vuelta
+
+
+def test_espina_de_pescado_y_su_pareja_de_mano_contraria():
+    """La pareja de un espina de pescado es de mano contraria, igual que un helicoidal simple (las
+    dos mitades no dejan de ser helicoidales), a m·(z1+z2)/(2·cos ψ); y la ranura central avisa si
+    no deja material."""
+    import math
+    from scadgui import gears
+    doc = Document()
+    g = doc.add("herringbone_gear")
+    for key, value in (("mod", 2), ("helix_angle", 30), ("thickness", 16), ("bore", 6)):
+        doc.set_param(g.id, key, value)
+    new = doc.add_meshing_gear(g.id, 40)
+    shift = doc.children[1]
+    assert shift.kind == "translate"
+    assert abs(shift.params["v"][0] - 2 * 60 / (2 * math.cos(math.radians(30)))) < 1e-5
+    assert shift.children[0].params["a"] == [0, 0, 4.5]              # 40 dientes: par, medio paso
+    assert new.params["teeth"] == 40 and new.params["left_hand"] is True   # se voltea: mano contraria
+    assert new.params["helix_angle"] == 30 and new.params["bore"] == 6 and new.params["thickness"] == 16
+    assert doc.add_meshing_gear(new.id, 20).params["left_hand"] is False   # y la de esa, otra vez a derechas
+    text = generate(doc).text
+    assert text.count("module herringbone_gear(") == 1
+    assert "left_hand = true" in text
+    again = parse(text)
+    assert generate(again).text == text                              # ida y vuelta
+    # Avisos de la ranura central: ninguno si es razonable, uno si no deja material.
+    assert gears.herringbone_warnings(2, 20, 20, 20, 0, 0, 16, 0) == \
+           gears.helical_warnings(2, 20, 20, 20, 0, 0, 8)
+    bad = gears.herringbone_warnings(2, 20, 20, 20, 0, 0, 16, 20)
+    assert any("ranura central" in t for t, _ in bad)
 
 
 def test_conico_y_su_pareja_girada_el_angulo_entre_ejes():

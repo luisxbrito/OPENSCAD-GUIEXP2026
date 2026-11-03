@@ -161,6 +161,36 @@ def test_helicoidal_como_en_la_vista_aproximada():
     assert gears.helical_center_distance(1, 20, 40, 20) > 0
 
 
+def test_espina_de_pescado_igual_que_la_vista_aproximada():
+    """El espina de pescado de OpenSCAD pesa igual que la vista aproximada (las dos mitades
+    siguen las mismas rebanadas), y la pareja -de mano contraria, igual que un helicoidal
+    simple- no se toca."""
+    from scadgui import geometry
+    doc = Document()
+    g = doc.add("herringbone_gear")
+    for key, value in (("mod", 2), ("teeth", 18), ("thickness", 16), ("helix_angle", 25)):
+        doc.set_param(g.id, key, value)
+    code = generate(doc).text
+    mine = abs(signed_volume(geometry.herringbone_gear(g.params)))
+    assert abs(volume_of(code) - mine) < 1, (volume_of(code), mine)
+    # La pareja va a la mano contraria (como un helicoidal simple): no se tocan…
+    doc.add_meshing_gear(g.id, 40)
+    pair = generate(doc).text
+    body = pair.split("module ", 1)
+    assert volume_of("intersection() {\n" + body[0] + "}\nmodule " + body[1]) == 0
+    # …y juntas pesan lo que las dos por separado (o sea que no se solapan ni les falta nada)
+    both = mine + abs(signed_volume(geometry.herringbone_gear(
+        dict(g.params, teeth=40, left_hand=True))))
+    assert abs(volume_of(pair) - both) < 2, (volume_of(pair), both)
+    # Con ranura central: menos volumen que sin ella, y sigue sin avisos de CGAL.
+    doc2 = Document()
+    g2 = doc2.add("herringbone_gear")
+    for key, value in (("mod", 2), ("teeth", 18), ("thickness", 16), ("helix_angle", 25),
+                       ("groove", 3), ("bore", 8), ("keyway", True)):
+        doc2.set_param(g2.id, key, value)
+    assert volume_of(generate(doc2).text) < volume_of(code)
+
+
 def test_conico_su_pareja_y_las_operaciones_normales():
     """El cónico sale con el volumen calculado, su pareja no lo toca, y aguanta las operaciones
     de siempre: buje soldado, agujero del eje y aligeramientos, sin avisos de CGAL."""

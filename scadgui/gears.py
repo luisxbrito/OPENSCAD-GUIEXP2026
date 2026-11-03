@@ -362,6 +362,20 @@ def helical_warnings(mod: float, teeth: int, helix_angle: float, pressure_angle:
     return out
 
 
+def herringbone_warnings(mod: float, teeth: int, helix_angle: float, pressure_angle: float = 20.0,
+                         backlash: float = 0.0, bore: float = 0.0, thickness: float = 0.0,
+                         groove: float = 0.0) -> list[tuple[str, dict]]:
+    """Avisos del engranaje espina de pescado: los del helicoidal (con el grueso de cada mitad,
+    sin la ranura central) más el de la ranura, si no deja material para las dos mitades."""
+    half_b = max(0.0, (thickness - groove) / 2)
+    out = helical_warnings(mod, teeth, helix_angle, pressure_angle, backlash, bore, half_b)
+    if groove < 0 or (thickness > 0 and groove >= thickness):
+        out.append((N_("La ranura central ({g} mm) debe ser positiva y menor que el grueso total "
+                    "({t} mm): si no, no queda material para alguna de las dos mitades."),
+                    {"g": f"{groove:g}", "t": f"{thickness:g}"}))
+    return out
+
+
 # --- Engranaje cónico recto -------------------------------------------------
 
 def bevel_dims(mod: float, teeth: int, mate_teeth: int, shaft_angle: float = 90.0,

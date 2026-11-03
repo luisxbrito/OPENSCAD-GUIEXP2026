@@ -732,6 +732,30 @@ def test_polea_trapecial_desde_la_cinta():
     assert "module v_pulley(" in w.code.text.toPlainText()
 
 
+def test_espina_de_pescado_desde_la_cinta():
+    """Botón herringbone_gear de la cinta; el panel calcula sus datos y crea la pareja IGUAL
+    (sin voltear la mano, a diferencia del helicoidal simple)."""
+    from PySide6.QtWidgets import QLabel, QPushButton
+    from scadgui.i18n import tr
+    from scadgui.model import Document
+    w = window()
+    w.set_document(Document())
+    w.ribbon.buttons["herringbone_gear"].click()
+    app.processEvents()
+    gear = w.doc.children[0]
+    assert gear.kind == "herringbone_gear"
+    texts = [l.text() for l in w.props.findChildren(QLabel)]
+    assert any("Módulo aparente 1.103" in t for t in texts), texts     # m = 1, hélice 25°, grueso/2 = 8
+    assert any(t.startswith("Ø primitivo 22.068 mm") for t in texts), texts
+    add = next(b for b in w.props.findChildren(QPushButton) if b.text() == tr("Añadir engranaje que engrane"))
+    add.click()
+    app.processEvents()
+    assert [n.kind for n in w.doc.children] == ["herringbone_gear", "translate"]
+    pair = w.doc.find(w.selected_ids()[0])
+    assert pair.kind == "herringbone_gear" and pair.params["left_hand"] is True  # mano contraria
+    assert "module herringbone_gear(" in w.code.text.toPlainText()
+
+
 def test_helicoidal_y_cremallera_desde_la_cinta():
     """Botones helical_gear y rack de la cinta; el panel calcula sus datos y crea la pareja."""
     from PySide6.QtWidgets import QLabel, QPushButton
@@ -904,7 +928,8 @@ def test_pestana_mecanica():
     solid, mech = tab_of("cube"), tab_of("spur_gear")
     assert solid != mech and mech == solid + 1
     assert all(tab_of(c) == solid for c in ("cube", "sphere", "cylinder", "polyhedron"))
-    assert all(tab_of(c) == mech for c in ("helical_gear", "bevel_gear", "rack", "pulley", "v_pulley", "spline", "cam",
+    assert all(tab_of(c) == mech for c in ("helical_gear", "herringbone_gear", "bevel_gear", "rack", "pulley",
+                                           "v_pulley", "spline", "cam",
                                            "camshaft_main_shaft", "cam_lobe", "pipe_flange", "hardware",
                                            "flange_wizard", "camshaft_wizard"))
 

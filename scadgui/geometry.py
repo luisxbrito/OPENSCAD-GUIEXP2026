@@ -713,6 +713,47 @@ def helical_gear(p) -> Optional[Tris]:
                          max(8, int(math.ceil(abs(turn) / 2))))
 
 
+def _mirror_z(tris: Tris) -> Tris:
+    """Refleja un conjunto de triángulos en el plano Z = 0, invirtiendo también el orden de sus
+    vértices para que las caras sigan mirando hacia fuera (como un ``mirror`` de OpenSCAD)."""
+    out = tris.copy()
+    out[:, :, 2] *= -1
+    return out[:, ::-1, :]
+
+
+def herringbone_gear(p) -> Optional[Tris]:
+    """Engranaje espina de pescado (vista aproximada: sin el agujero, que lo hace OpenSCAD).
+
+    Dos mitades helicoidales de mano contraria que se juntan en fase (el mismo perfil, sin
+    girar) en el plano central, con una ranura opcional (groove) entre ellas."""
+    from . import gears
+    mod, z = _num(p.get("mod", 1)), _num(p.get("teeth", 20))
+    t, ha = _num(p.get("thickness", 10)), _num(p.get("helix_angle", 20))
+    pa = _num(p.get("pressure_angle", 20))
+    groove = _num(p.get("groove", 0), 0.0) or 0.0
+    if None in (mod, z, t, ha, pa) or mod <= 0 or t <= 0 or not -89 < ha < 89 or groove < 0:
+        return None
+    half_b = (t - groove) / 2
+    if half_b <= 0:
+        return None
+    poly = gears.helical_polygon(mod, int(z), ha, pa, _num(p.get("backlash", 0), 0.0) or 0.0)
+    turn = gears.helix_twist(mod, int(z), ha, half_b)
+    if p.get("left_hand") is True:
+        turn = -turn
+    slices = max(8, int(math.ceil(abs(turn) / 2)))
+    # Una mitad sin girar en su propia base (z = 0) y girada "turn" en su otro extremo; la otra
+    # mitad es la misma pero reflejada, así las dos coinciden en el plano central (ninguna hay
+    # giro ahí) y se van cada una a su lado, de mano contraria.
+    half_mesh = twisted_prism(poly, half_b, 0.0, -turn, slices)
+    lower = _mirror_z(half_mesh)
+    lower[:, :, 2] += half_b
+    upper = half_mesh.copy()
+    upper[:, :, 2] += half_b + groove
+    mesh = np.concatenate([lower, upper])
+    mesh[:, :, 2] += -t / 2 if p.get("center") is True else 0.0
+    return mesh
+
+
 def bevel_gear(p) -> Optional[Tris]:
     """Engranaje cónico recto (vista aproximada: sin el agujero, que lo hace OpenSCAD).
 
@@ -1252,6 +1293,8 @@ def solid(node, ctx) -> dict:
         mesh = spur_gear(p)
     elif k == "helical_gear":
         mesh = helical_gear(p)
+    elif k == "herringbone_gear":
+        mesh = herringbone_gear(p)
     elif k == "rack":
         mesh = rack(p)
     elif k == "bevel_gear":

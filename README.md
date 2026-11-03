@@ -54,6 +54,7 @@ All by module (metric). The panel shows the calculated dimensions and warns abou
 |---|---|
 | Spur gear | Involute profile, undercut warning, button that adds the mating gear already placed and in phase |
 | Helical gear | Normal module and pressure angle, lead, twist and axial overlap; the mate is made with the opposite hand |
+| Herringbone gear | Two opposite-hand helical halves meeting in phase at the centre plane: cancels axial thrust, no thrust bearing needed; mates like a plain helical gear |
 | Bevel gear | Straight bevel from the Handbook's milled-bevel formulas; the mate is the same part turned by the shaft angle |
 | Rack | Straight or helical, meshes with a gear placed on it |
 | Timing pulley | MXL, XL, L, H, XH sections (ANSI/RMA IP-24), optional flanges |

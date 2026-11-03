@@ -252,10 +252,10 @@ python tests/simulacion/sim_ventana_visor_imagen.py
   lo aplica al visor OpenGL (fondo, color de piezas sin color(), rejilla y textos oscuros si el fondo
   es claro: `VIEWER_ON_LIGHT_STYLES`) y al de imágenes (`--colorscheme`). Los colores de las
   piezas (muestra del panel) NO pasan por `themed()`.
-- Dentados (pestaña Mecánica): `spur_gear`, `helical_gear` y `rack`. Cada uno es un módulo
-  propio en library.py (como cube_edges) con las MISMAS fórmulas repetidas en `scadgui/gears.py`
-  para la vista aproximada, los datos del panel y los avisos. Si se cambia una, cambiar la otra:
-  `test_openscad` compara el volumen de OpenSCAD con el de Python para los tres.
+- Dentados (pestaña Mecánica): `spur_gear`, `helical_gear`, `herringbone_gear` y `rack`. Cada uno
+  es un módulo propio en library.py (como cube_edges) con las MISMAS fórmulas repetidas en
+  `scadgui/gears.py` para la vista aproximada, los datos del panel y los avisos. Si se cambia una,
+  cambiar la otra: `test_openscad` compara el volumen de OpenSCAD con el de Python para los cuatro.
   - Recto: evolvente, diámetros por módulo, mínimo de dientes 2/sin²α, distancia m·(z1+z2)/2,
     giro de fase `mesh_rotation`.
   - Helicoidal: el módulo y el ángulo de presión que se dan son los NORMALES; en el plano de giro
@@ -265,6 +265,23 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     gira en sentido HORARIO con twist positivo, así que la hélice a derechas lleva twist negativo
     (comprobado contra OpenSCAD real). La pareja va de MANO CONTRARIA, a m·(z1+z2)/(2·cos ψ);
     con la misma mano chocan, y hay pruebas que lo verifican en los dos sentidos.
+  - Espina de pescado (`herringbone_gear`, helicoidal doble): dos mitades iguales a un
+    `helical_gear` de grueso mitad (`half_b = (thickness - groove) / 2`), que se juntan EN FASE
+    (mismo perfil sin girar, `pts` tal cual) en el plano central. Cada mitad se construye con un
+    único `module half_profile()` (`linear_extrude(twist = …)`), y la de abajo es la de arriba
+    reflejada (`mirror([0, 0, 1])` tras un `translate` a `half_b`): así las dos coinciden en el
+    centro sin giro relativo y se van cada una a su lado con la hélice opuesta (comprobado
+    midiendo el ángulo del diente más lejano a varias alturas: es una función PAR respecto al
+    centro, o sea simétrica en espejo, no un helicoidal continuo del doble de grueso). `groove`
+    (opcional, 0 por defecto) abre un hueco entre las dos mitades, la holgura de tallado de una
+    leva de verdad; para imprimir en 3D no hace falta. OJO con la intuición: por tener ya las dos
+    manos, PARECE que debería engranar con otro igual sin voltear nada, pero NO es así — engrana
+    exactamente como un helicoidal simple, con otro de MANO CONTRARIA (`left_hand`, mismo
+    mecanismo que en `helical_gear`); comprobado con una intersección vacía en OpenSCAD real
+    tras equivocarme la primera vez (con la misma mano se solapan). La vista aproximada
+    (`geometry.herringbone_gear`) construye una mitad con `twisted_prism` y refleja el array de
+    triángulos en Z para la otra (`_mirror_z`: niega la coordenada Z e invierte el orden de los
+    vértices de cada triángulo, como un `mirror` de verdad).
   - Cónico (`bevel_gear`): Handbook p. 2087, "milled bevel gears". El ángulo del cono depende de
     los dientes de LAS DOS ruedas (tan α = sen Σ/(NG/NP + cos Σ)), por eso la pieza pide los de
     la pareja. El diente sale del engranaje virtual de Tredgold (recto, N/cos α dientes): un
@@ -337,7 +354,7 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     aquí). Por eso su mesh-builder recibe `ctx` (como `cube_edges`/`cylinder_edges`), a diferencia
     de `pulley`/`spur_gear`/etc.
   - Cuñeros (`keyway`, y `key_width`/`key_depth` opcionales; en `spur_gear`, `helical_gear`,
-    `bevel_gear`, `pulley` y `v_pulley`): cuñas paralelas métricas BS 4235-1, con las medidas de ISO
+    `herringbone_gear`, `bevel_gear`, `pulley` y `v_pulley`): cuñas paralelas métricas BS 4235-1, con las medidas de ISO
     R773 (Machinery's Handbook 27, tabla 12, p. 2376; la tabla 1 de ANSI B17.1 es en pulgadas y no se
     usa). La tabla está en `gears.KEY_TABLE` y en el módulo `shaft_bore`; un test exige que coincidan.
     Cada fila es «más de, hasta e incluido», así que Ø 6 no está en la tabla y Ø 8 es de la fila 6-8.

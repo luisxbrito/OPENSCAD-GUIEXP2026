@@ -276,6 +276,27 @@ _add(Spec("helical_gear", "Engranaje helicoidal", "mech", False, (
 ), keyword="module", hint="Engranaje helicoidal de evolvente. El módulo y el ángulo de presión son los "
    "normales (perpendiculares al diente); Ø primitivo = m·z/cos ψ. Dos iguales de mano contraria "
    "engranan con sus centros a m·(z1 + z2)/(2·cos ψ)."))
+_add(Spec("herringbone_gear", "Engranaje espina de pescado", "mech", False, (
+    Param("mod", "num", 1, label="Módulo normal (mn)", minimum=0.05, step=0.25),
+    Param("teeth", "int", 20, label="Dientes (z)", minimum=3, maximum=400),
+    Param("thickness", "num", 16, label="Grueso", minimum=0.02),
+    Param("helix_angle", "num", 25, label="Ángulo de hélice (°)", minimum=1, maximum=45, step=1),
+    Param("left_hand", "bool", False, label="Hélice a izquierdas"),
+    Param("pressure_angle", "num", 20, label="Ángulo de presión normal (°)", minimum=10, maximum=35, step=0.5),
+    Param("backlash", "num", 0.1, label="Holgura (mm)", minimum=0, step=0.05),
+    # Hueco al centro, entre las dos mitades: la holgura de tallado de una leva de verdad; para
+    # imprimir en 3D no hace falta (0 por defecto, las dos mitades se tocan).
+    Param("groove", "num", 0, optional=True, label="Ranura central", minimum=0, step=0.5),
+    Param("bore", "num", 5, optional=True, label="Agujero (Ø)", minimum=0),
+    *KEYWAY,
+    Param("center", "bool", False, label="Centrado"),
+    FN,
+), keyword="module", hint="Engranaje espina de pescado (helicoidal doble): dos mitades de mano "
+   "contraria, en fase (sin giro relativo) en el plano central, así el empuje axial de una mitad "
+   "cancela el de la otra y no hace falta un cojinete de empuje. El módulo y el ángulo de presión "
+   "son los normales; Ø primitivo = m·z/cos ψ. Engrana igual que un helicoidal simple: con otro "
+   "igual pero de mano contraria."))
+
 _add(Spec("bevel_gear", "Engranaje cónico", "mech", False, (
     Param("mod", "num", 1, label="Módulo (m)", minimum=0.05, step=0.25),
     Param("teeth", "int", 20, label="Dientes (z)", minimum=3, maximum=400),
@@ -507,6 +528,9 @@ ICONS = {
                      " M5.5 7.1l5 12.1 M9 8l5 11.1 M12.5 8.2l5 10.3"),
     "bevel_gear": ("M7 18L4 10l2-2.6l2 2.6l2-2.6l2 2.6l2-2.6l2 2.6l2-2.6l2 2.6L17 18Z"
                    " M12 18v3"),
+    "herringbone_gear": ("M4.5 6c0-1.21 3.36-2.2 7.5-2.2s7.5 0.99 7.5 2.2v11c0 1.21-3.36 2.2-7.5 2.2"
+                         "s-7.5-0.99-7.5-2.2z M4.5 6c0 1.21 3.36 2.2 7.5 2.2s7.5-0.99 7.5-2.2"
+                         " M6 7.5l3 5-3 5 M10 7l3 5-3 5 M14 7l3 5-3 5"),
     "pulley": ("M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20z M12 6a6 6 0 1 0 0 12a6 6 0 1 0 0-12z"
                " M12 2v3 M12 19v3 M2 12h3 M19 12h3 M5.3 5.3l2.2 2.2 M16.5 16.5l2.2 2.2"
                " M5.3 18.7l2.2-2.2 M16.5 7.5l2.2-2.2"),

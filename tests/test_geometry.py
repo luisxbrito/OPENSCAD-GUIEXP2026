@@ -715,6 +715,32 @@ def test_cremallera_y_helicoidal_en_la_vista_aproximada():
     assert min(abs(turned - want), 18 - abs(turned - want)) < 0.01, (turned, want)
 
 
+def test_espina_de_pescado_en_la_vista_aproximada():
+    """Las dos mitades están en fase en el plano central (mismo giro de las dos ahí) y la pieza es
+    simétrica en espejo respecto a él: el giro a una distancia z del centro es el mismo a ambos
+    lados (hélice de mano contraria), justo lo que distingue a un espina de pescado de un helicoidal
+    normal (que seguiría girando siempre para el mismo lado)."""
+    from scadgui.parser import parse
+    from scadgui import geometry as geo, gears
+    doc = parse("herringbone_gear(mod = 2, teeth = 18, thickness = 16, helix_angle = 25, center = true);")
+    tris = next(iter(geo.build_ghosts(doc).values()))
+    assert np.isclose(tris[..., 2].min(), -8) and np.isclose(tris[..., 2].max(), 8)
+    assert geo.signed_volume(tris) > 0
+    pts = tris.reshape(-1, 3)
+    far = lambda ring: ring[np.argmax(np.hypot(ring[:, 0], ring[:, 1]))]
+
+    def angle_at(z0, tol=0.01):
+        ring = pts[np.isclose(pts[:, 2], z0, atol=tol)]
+        p = far(ring)
+        return math.degrees(math.atan2(p[1], p[0]))
+    for d in (1.0, 4.0, 7.0):
+        below, above = angle_at(-d), angle_at(d)
+        assert abs(below - above) < 0.05, (d, below, above)          # simétrico respecto al centro
+    # El giro de cada mitad por separado es el que calcula gears.helix_twist con el medio grueso.
+    mine = abs(geo.signed_volume(geo.herringbone_gear(doc.children[0].params)))
+    assert mine > 0 and gears.helix_twist(2, 18, 25, 8) > 0
+
+
 def test_polea_dentada_diametros_y_hueco():
     """El hueco es el negativo del diente, de flancos rectos: el fondo no se solapa con el de
     al lado y la boca no pasa del lomo entre huecos."""

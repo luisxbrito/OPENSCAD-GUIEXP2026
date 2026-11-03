@@ -319,7 +319,8 @@ class Document:
         """Añade, justo después de la pieza, el engranaje que engrana con ella, ya colocado.
 
         * engranaje recto: otro del mismo módulo a m·(z1 + z2)/2 en +X;
-        * helicoidal: otro de la misma hélice pero de mano contraria, a m·(z1 + z2)/(2·cos ψ);
+        * helicoidal (y espina de pescado): otro de la misma hélice pero de mano contraria, a
+          m·(z1 + z2)/(2·cos ψ);
         * cremallera: el engranaje del mismo módulo que le corresponde (recto, o helicoidal de
           LA MISMA MANO si el dentado va inclinado), con su centro a su radio primitivo de altura
           y en el centro de un hueco;
@@ -330,7 +331,8 @@ class Document:
         En todos los casos va girado para que los dientes encajen. Devuelve el engranaje nuevo."""
         from . import gears
         gear = self.find(gear_id)
-        if not isinstance(gear, Node) or gear.kind not in ("spur_gear", "helical_gear", "rack",
+        if not isinstance(gear, Node) or gear.kind not in ("spur_gear", "helical_gear",
+                                                            "herringbone_gear", "rack",
                                                             "bevel_gear", "spline"):
             raise ValueError(tr("Selecciona un engranaje o una cremallera."))
         if gear.kind == "spline":
@@ -345,7 +347,8 @@ class Document:
             siblings.insert(siblings.index(gear) + 1, new)
             return new
         mod, z1 = gear.params.get("mod", 1), gear.params.get("teeth", 20)
-        psi = gear.params.get("helix_angle", 0) if gear.kind == "helical_gear" else 0
+        psi = gear.params.get("helix_angle", 0) if gear.kind in ("helical_gear",
+                                                                   "herringbone_gear") else 0
         if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (mod, z1, psi)):
             raise ValueError(tr("El módulo y los dientes deben ser números para calcular la pareja."))
         z2 = int(teeth or (20 if gear.kind == "rack" else
@@ -387,8 +390,9 @@ class Document:
         else:
             new = Node(kind=gear.kind, params=copy.deepcopy(gear.params), name=self.unique_name(gear.kind))
             new.params["teeth"] = z2
-            if gear.kind == "helical_gear":
-                # La pareja de un helicoidal va al revés: una hélice a derechas con otra a izquierdas.
+            if gear.kind in ("helical_gear", "herringbone_gear"):
+                # La pareja va al revés: una hélice a derechas con otra a izquierdas (igual que un
+                # helicoidal simple, el espina de pescado no deja de ser dos mitades helicoidales).
                 new.params["left_hand"] = gear.params.get("left_hand") is not True
                 distance = gears.helical_center_distance(mod, int(z1), z2, psi)
             else:
