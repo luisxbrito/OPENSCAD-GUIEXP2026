@@ -801,6 +801,24 @@ def test_estriado_cubo_con_hueco_y_eje_que_cabe():
     assert spline({"mod": 2, "internal": True, "hub_d": 10}, ctx) is None     # el hueco se sale del cubo
 
 
+def test_brida_malla_gira_el_perfil_del_modulo():
+    """La vista aproximada de la brida pesa lo mismo que el perfil girado (Pappus), sin los agujeros
+    de los tornillos; centrada, queda repartida a los dos lados de z = 0."""
+    from scadgui import flanges
+    ctx = {"fn": 720, "fa": 12, "fs": 2}
+    for args in (("asme_b16_5", "150", "4", "weld_neck"), ("en_1092_1", "16", "100", "weld_neck"),
+                 ("asme_b16_5", "300", "6", "blind"), ("en_1092_1", "6", "50", "plate", "flat")):
+        p = flanges.create_flange_node(*args).params
+        mesh = g.pipe_flange(p, ctx)
+        exact = flanges.flange_volume({**p, "bolts": 0})
+        assert abs(abs(g.signed_volume(mesh)) - exact) < exact * 2e-4, args
+        assert abs(mesh[:, :, 2].min()) < 1e-9
+    p = flanges.create_flange_node("asme_b16_5", "150", "4", "weld_neck").params
+    z = g.pipe_flange({**p, "center": True}, ctx)[:, :, 2]
+    assert abs(z.min() + 38.5) < 1e-9 and abs(z.max() - 38.5) < 1e-9          # largo total 77
+    assert g.pipe_flange({**p, "od": 0}, ctx) is None
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

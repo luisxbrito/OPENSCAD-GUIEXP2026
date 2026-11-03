@@ -797,6 +797,50 @@ def test_helicoidal_y_cremallera_desde_la_cinta():
     assert w.doc.children[1].params["a"] == [0, 90, 0]
     assert "module bevel_gear(" in w.code.text.toPlainText()
 
+def test_brida_desde_la_cinta_y_asistente():
+    """El botón pipe_flange crea la brida de la tabla y el panel da su volumen; el asistente ofrece solo
+    lo que la norma tiene y no deja insertar una brida de cuello sin agujero cuando la norma no lo da."""
+    from PySide6.QtWidgets import QLabel
+    from scadgui import flanges
+    from scadgui.i18n import set_language
+    from scadgui.model import Document
+    from scadgui.ui.flange_dialog import FlangeDialog
+    set_language("es")
+    w = window()
+    w.set_document(Document())
+    w.ribbon.buttons["pipe_flange"].click()
+    app.processEvents()
+    node = w.doc.children[0]
+    assert node.kind == "pipe_flange" and w.selected_ids() == [node.id]
+    volume = flanges.flange_volume(node.params) / 1000
+    texts = [l.text() for l in w.props.findChildren(QLabel)]
+    assert f"Volumen {volume:.1f} cm³" in texts, texts
+    assert "module pipe_flange(" in w.code.text.toPlainText()
+    assert "flange_wizard" in w.ribbon.buttons
+
+    dlg = FlangeDialog(w)
+    dlg.combo_standard.setCurrentIndex(dlg.combo_standard.findData("en_1092_1"))
+    dlg.combo_rating.setCurrentIndex(dlg.combo_rating.findData("16"))
+    dlg.combo_type.setCurrentIndex(dlg.combo_type.findData("weld_neck"))
+    dlg.combo_size.setCurrentIndex(dlg.combo_size.findData("100"))
+    assert "DN 100" in dlg.lbl_info.text() and dlg.btn_insert.isEnabled()
+    assert dlg.get_result()["bore"] == 107.1
+    dlg.combo_standard.setCurrentIndex(dlg.combo_standard.findData("asme_b16_5"))
+    dlg.combo_rating.setCurrentIndex(dlg.combo_rating.findData("2500"))
+    dlg.combo_type.setCurrentIndex(dlg.combo_type.findData("slip_on"))
+    assert dlg.combo_size.count() == 0 and not dlg.btn_insert.isEnabled()
+    dlg.combo_rating.setCurrentIndex(dlg.combo_rating.findData("600"))
+    dlg.combo_type.setCurrentIndex(dlg.combo_type.findData("weld_neck"))
+    dlg.combo_size.setCurrentIndex(dlg.combo_size.findData("4"))
+    assert not dlg.btn_insert.isEnabled()                    # B16.5 deja el agujero al comprador
+    dlg.spin_bore.setValue(97.2)
+    assert dlg.btn_insert.isEnabled()
+    res = dlg.get_result()
+    assert (res["standard"], res["rating"], res["type"], res["size"], res["bore"]) == (
+        "asme_b16_5", "600", "weld_neck", "4", 97.2)
+    dlg.deleteLater()
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

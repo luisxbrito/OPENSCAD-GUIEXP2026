@@ -224,6 +224,8 @@ class PropertyPanel(QScrollArea):
             self._v_pulley_info(node)
         if node.kind == "spline":
             self._spline_info(node)
+        if node.kind == "pipe_flange":
+            self._flange_info(node)
         if spec and spec.hint:
             self._hint(tr(spec.hint))
         if spec and spec.container and not node.children:
@@ -391,6 +393,17 @@ class PropertyPanel(QScrollArea):
                           "que moverlo ni girarlo."))
         add.clicked.connect(lambda: self.addMeshingGear.emit(node.id, 0))
         self._lay.addWidget(add)
+
+    def _flange_info(self, node: Node) -> None:
+        """Volumen y avisos de forma de la brida (también si se retocan las medidas a mano)."""
+        from .. import flanges
+        p = node.params
+        if not all(isinstance(p.get(k, 0), (int, float)) and not isinstance(p.get(k, 0), bool)
+                   for k in flanges.MODULE_PARAMS):
+            return                                   # con expresiones no se puede calcular aquí
+        self._hint(tr("Volumen {v:.1f} cm³").format(v=flanges.flange_volume(p) / 1000))
+        for text in flanges.flange_warnings(p):
+            self._hint(text, "warnText")
 
     def _pulley_info(self, node: Node) -> None:
         """Medidas calculadas y avisos de diseño de la polea dentada."""

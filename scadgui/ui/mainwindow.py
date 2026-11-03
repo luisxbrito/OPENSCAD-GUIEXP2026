@@ -120,6 +120,8 @@ class Ribbon(QTabWidget):
     EXTRA_BUTTONS = (
         ("solid", "hardware", "hardware", "Tornillería ·\nEstándar",
          "Tornillería ISO/DIN, tuercas, insertos térmicos, rodamientos y perfiles."),
+        ("solid", "flange_wizard", "pipe_flange", "Bridas ·\nNormalizadas",
+         "Bridas ASME B16.5 y EN 1092-1: de cuello, deslizantes, ciegas y planas, con sus medidas."),
         ("shape2d", "sketch2d", "sketch", "Boceto 2D ·\nAsistente",
          "Perfiles paramétricos: rectángulos redondeados, ranuras, polígonos, estrellas, etc."),
         ("shape2d", "drawing2d", "projection", "Plano 2D ·\nTécnico",
@@ -131,8 +133,8 @@ class Ribbon(QTabWidget):
     # Grupos de cada pestaña, con su título debajo (como en Fusion). Un comando de la pestaña que
     # no esté en ningún grupo va al último, para que nunca se quede sin botón.
     GROUPS = {
-        "solid": ((N_("Primitivas"), ("cube", "sphere", "cylinder", "polyhedron")), (N_("Mecánica"), ("spur_gear", "helical_gear", "bevel_gear", "rack", "pulley", "v_pulley", "spline")),
-                  (N_("Asistentes"), ("hardware",))),
+        "solid": ((N_("Primitivas"), ("cube", "sphere", "cylinder", "polyhedron")), (N_("Mecánica"), ("spur_gear", "helical_gear", "bevel_gear", "rack", "pulley", "v_pulley", "spline", "pipe_flange")),
+                  (N_("Asistentes"), ("hardware", "flange_wizard"))),
         "shape2d": ((N_("Primitivas 2D"), ("square", "circle", "polygon", "text")), (N_("Modificar"), ("offset",)),
                     (N_("Asistentes"), ("sketch2d", "drawing2d"))),
         "transform": ((N_("Posición"), ("translate", "rotate", "mirror")), (N_("Tamaño"), ("scale", "resize", "multmatrix")),
@@ -406,6 +408,8 @@ class MainWindow(QMainWindow):
                                   "Generador de perfiles 2D paramétricos para extrusión")
         self.a_hardware = self._act("Insertar componente estándar…", self.open_hardware_dialog, "Ctrl+Shift+H", "hardware",
                                     "Biblioteca de tornillería ISO/DIN, tuercas, insertos y rodamientos")
+        self.a_flange = self._act("Insertar brida normalizada…", self.open_flange_dialog, None, "pipe_flange",
+                                  "Bridas ASME B16.5 y EN 1092-1 con las medidas de sus tablas")
         self.a_preview = self._act("Vista previa", lambda: self.render_view(False), "F5", "preview",
                                    "Vista previa rápida (resalta la selección)")
         self.a_render = self._act("Render", lambda: self.render_view(True), "F6", "render_action",
@@ -429,6 +433,7 @@ class MainWindow(QMainWindow):
         m.addAction(self.a_operation_helper)
         m.addAction(self.a_sketch)
         m.addAction(self.a_hardware)
+        m.addAction(self.a_flange)
         m.addAction(self.a_drawing)
         m.addSeparator()
         m.addAction(self.a_preview)
@@ -1127,6 +1132,33 @@ class MainWindow(QMainWindow):
             self.mutate(change_add, select=[node.id])
             self.statusBar().showMessage(tr("Componente añadido: {name}").format(name=node.name or node.label), 4000)
 
+    def open_flange_dialog(self) -> None:
+        from ..flanges import create_flange_node
+        from .flange_dialog import FlangeDialog
+
+        dlg = FlangeDialog(parent=self)
+        if not dlg.exec():
+            return
+        res = dlg.get_result()
+        try:
+            node = create_flange_node(res["standard"], res["rating"], res["size"], res["type"], res["facing"],
+                                      res["bore"] or None, unique_fn=self.doc.unique_name)
+        except ValueError as exc:   # tamaño que la norma no tiene o agujero sin dar
+            QMessageBox.warning(self, tr("Brida normalizada"), str(exc))
+            return
+        sel = self.selected_ids()
+        target_id = sel[0] if len(sel) == 1 else None
+
+        def change():
+            target = self.doc.find(target_id) if target_id is not None else None
+            if target is not None and target.is_container:
+                target.children.append(node)
+            else:
+                self.doc.children.append(node)
+
+        self.mutate(change, select=[node.id])
+        self.statusBar().showMessage(tr("Componente añadido: {name}").format(name=node.name), 4000)
+
     def open_drawing_dialog(self) -> None:
         from ..drawing import generate_technical_drawing_code
         from .drawing_dialog import DrawingDialog
@@ -1274,6 +1306,9 @@ class MainWindow(QMainWindow):
             return
         if kind == "sketch2d":
             self.open_sketch_dialog()
+            return
+        if kind == "flange_wizard":
+            self.open_flange_dialog()
             return
         if kind == "hardware":
             self.open_hardware_dialog()

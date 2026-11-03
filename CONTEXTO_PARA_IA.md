@@ -382,6 +382,31 @@ python tests/simulacion/sim_ventana_visor_imagen.py
   piezas normalizadas (tornillos, tuercas, arandelas, insertos, rodamientos, perfiles 20xx).
 - Interfaz en 6 idiomas con cobertura comprobada por `tests/test_i18n.py`.
 - Ejecutable portable con PyInstaller (`build_portable.py`).
+- **Bridas** (`flanges.py`, módulo `pipe_flange` de library.py, `ui/flange_dialog.py`, botón
+  `pipe_flange` en Mecánica y asistente `flange_wizard` en Asistentes). Fuentes: ASME B16.5-2013
+  (PDF del usuario, copia de IHS) y BS EN 1092-1:2018 (PDF del usuario); los PDF están en la carpeta
+  del proyecto, fuera de git (`*.pdf` en `.gitignore`) y no se suben nunca: solo los valores, cada uno
+  con su tabla. Lo decidido leyendo las normas:
+  - ASME: tf e Y se miden desde la cara de la brida, sin el resalte (párr. 6.4.1 y 6.4.2.1, el
+    prólogo de 2009 sobre tf y las figuras de las tablas 8 y 14); el resalte (2 mm en 150/300, 7 mm
+    desde 400) va encima. Cara plana = tf sin resalte (párr. 6.3.2). Clase 400 de NPS ½ a 3½ usa
+    la 600; clase 900 de ½ a 2½, la 1500 (notas de las tablas). El agujero de la brida de cuello lo
+    fija el comprador salvo en 150/300 hasta NPS 12 (tubo de pared estándar): el asistente no deja
+    insertar sin él. Los agujeros vienen en pulgadas (`inch_mm`).
+  - EN: C incluye el resalte (fig. 4, nota 1); f1 por DN de la tabla 8 (2 hasta DN 32, 3 hasta 250,
+    4 hasta 500, 5 desde 600), comprobado en la imagen porque son celdas unidas. Tipo 11: N1 en la
+    cara trasera, A en la punta, H2 largo total, H3 tramo recto (fig. 8); agujero = A − 2·S. PN 6
+    tiene una sola columna C2/C3 y PN 40 une C2 y C3 en una celda: el extractor lo trata.
+  - Las tablas se extrajeron con PyMuPDF (posición de cada palabra, deshaciendo el giro de las
+    páginas apaisadas de ASME y juntando las fracciones apiladas) y se compararon: el Ø exterior
+    de la tabla de taladrado coincide con el de la de medidas en todas las filas, y
+    `test_bridas_todas_las_medidas_son_coherentes_y_vuelven_igual` comprueba que ninguna de las
+    más de 1000 bridas tenga agujeros que corten el cuello o el borde.
+  - Sin MSS SP-44 (NPS 26 a 60, = B16.47 serie A): está gratis y legal en Public Resource
+    (law.resource.org/pub/us/cfr/ibr/inc/ansi/mss.sp-44.2010.pdf), pero es un escaneo y las tablas
+    de las clases altas salen ilegibles en texto; habría que leerlas de la imagen y comprobarlas.
+  - Solo se probó con OpenSCAD 2021.01 (CGAL): `test_bridas_volumen_en_los_dos_motores` usa
+    Manifold solo si la versión instalada tiene `--backend`.
 
 ## 7. Limitaciones conocidas y siguientes pasos posibles
 
@@ -392,3 +417,7 @@ python tests/simulacion/sim_ventana_visor_imagen.py
 - El asistente 2D es un formulario de perfiles; no hay croquis con restricciones.
 - Licencia: GPL-3.0-or-later, la misma GPLv3 con que se publicó la primera versión (archivo `LICENSE`).
 - Posibles mejoras: malla aproximada para `import` (STL/OFF), croquis 2D con restricciones.
+- Bridas pendientes: MSS SP-44 / ASME B16.47 serie A (NPS 26 a 60), B16.47 serie B (sin fuente),
+  EN 1092-1 PN 2,5 y PN 160 a 400, tipos roscado, socket weld y lap joint, y los nombres DIN
+  antiguos (DIN 2633, 2576…) como alias: la tabla de correspondencias está en el anexo nacional
+  alemán, que no tenemos.

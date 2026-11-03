@@ -352,6 +352,28 @@ _add(Spec("v_pulley", "Polea trapecial", "solid", False, (
    "El ancho de cara sale solo de las ranuras: separación·(ranuras−1) + 2·margen. El ángulo y "
    "ancho de la ranura cambian con el Ø primitivo, por tramos de la tabla."))
 
+# Por defecto, una brida de cuello NPS 4 clase 150 con resalte (ASME B16.5-2013, tablas 7, 8 y 4).
+# Las medidas de cada norma las pone el asistente de bridas (flanges.py); aquí se pueden retocar.
+_add(Spec("pipe_flange", "Brida", "solid", False, (
+    Param("od", "num", 230, label="Ø exterior", minimum=0.1, step=5),
+    Param("thickness", "num", 22.3, label="Grueso (sin resalte)", minimum=0.1),
+    Param("bolt_circle", "num", 190.5, label="Ø del círculo de tornillos", minimum=0, step=5),
+    Param("bolts", "int", 8, label="Agujeros", minimum=0, maximum=200),
+    Param("hole", "num", 19.05, label="Ø de los agujeros", minimum=0),
+    Param("bore", "num", 102.3, label="Agujero (Ø)", minimum=0),
+    Param("face_d", "num", 157.2, optional=True, initial=True, label="Ø del resalte", minimum=0, step=5),
+    Param("face_h", "num", 2, optional=True, initial=True, label="Alto del resalte", minimum=0),
+    Param("hub_d", "num", 135, optional=True, initial=True, label="Ø del cuello en la brida", minimum=0, step=5),
+    Param("hub_end_d", "num", 114.3, optional=True, initial=True, label="Ø del cuello en el extremo", minimum=0,
+          step=5),
+    Param("length", "num", 77, optional=True, initial=True, label="Largo total", minimum=0, step=5),
+    Param("neck_length", "num", 0, optional=True, label="Tramo recto del cuello", minimum=0),
+    Param("center", "bool", False, label="Centrado"),
+), keyword="module", hint="Brida para tubería: la cara de la junta en z = 0 y el cuello hacia +Z. "
+   "El resalte va encima del grueso; el cuello baja del Ø en la brida al Ø del extremo y acaba en un "
+   "tramo recto. Sin cuello (Ø 0) es una brida plana o ciega; sin agujero, ciega. Para las medidas de "
+   "ASME B16.5 o EN 1092-1, use el asistente de bridas."))
+
 # --- Importar ---------------------------------------------------------------
 _add(Spec("import", "Importar", "imp", False, (
     Param("file", "file", "", label="Archivo"),
@@ -441,6 +463,9 @@ ICONS = {
                " M5.3 18.7l2.2-2.2 M16.5 7.5l2.2-2.2"),
     "spline": ("M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 3v5 M12 16v5 M3 12h5 M16 12h5"
                " M5.6 5.6l3.5 3.5 M14.9 14.9l3.5 3.5 M5.6 18.4l3.5-3.5 M14.9 9.1l3.5-3.5"),
+    "pipe_flange": ("M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20z M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8z"
+                    " M12 4.2a.9.9 0 1 0 0 1.8a.9.9 0 1 0 0-1.8z M12 18a.9.9 0 1 0 0 1.8a.9.9 0 1 0 0-1.8z"
+                    " M4.2 12a.9.9 0 1 0 1.8 0a.9.9 0 1 0-1.8 0z M18 12a.9.9 0 1 0 1.8 0a.9.9 0 1 0-1.8 0z"),
     "v_pulley": ("M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20z"
                  " M9 2.5l3 3l3-3 M9 21.5l3-3l3 3 M2.5 9l3 3l-3 3 M21.5 9l-3 3l3 3"),
     "rack": ("M2 14H2.7L3.5 7h2l0.8 7h1.4L8.5 7h2l0.8 7h1.4L13.5 7h2l0.8 7h1.4L18.5 7h2l0.8 7H22"

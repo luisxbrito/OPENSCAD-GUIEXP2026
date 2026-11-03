@@ -410,6 +410,56 @@ def test_polea_trapecial_volumen_y_agujero():
         assert abs(volume_of(generate(doc).text) - (mine - hole)) < tol, (section, datum_d, grooves, bore)
 
 
+def _engines() -> tuple:
+    """CGAL siempre; Manifold solo si esta versión de OpenSCAD tiene --backend (2021.01 no)."""
+    if not EXE:
+        return ((),)
+    help_text = subprocess.run([EXE, "--help"], capture_output=True, text=True).stdout
+    return ((), ("--backend=manifold",)) if "--backend" in help_text else ((),)
+
+
+def test_bridas_volumen_en_los_dos_motores():
+    """Bridas de las dos normas, de todos los tipos y caras: OpenSCAD pesa lo mismo que el perfil
+    girado de la vista aproximada menos los agujeros de los tornillos, con CGAL y con Manifold."""
+    from scadgui import flanges, geometry
+    ENGINES = _engines()
+    ctx = {"fn": 0, "fa": 12, "fs": 2}
+    cases = (("asme_b16_5", "150", "4", "weld_neck", "raised"), ("asme_b16_5", "300", "1/2", "slip_on", "raised"),
+             ("asme_b16_5", "600", "8", "blind", "raised"), ("asme_b16_5", "2500", "2", "weld_neck", "flat"),
+             ("asme_b16_5", "400", "2", "weld_neck", "raised"),
+             ("en_1092_1", "16", "100", "weld_neck", "raised"), ("en_1092_1", "6", "50", "plate", "raised"),
+             ("en_1092_1", "40", "200", "slip_on", "flat"), ("en_1092_1", "100", "25", "blind", "raised"))
+    module = None
+    for std, rating, size, ftype, facing in cases:
+        node = flanges.create_flange_node(std, rating, size, ftype, facing, bore=None if flanges.flange(
+            std, rating, size, ftype, facing)["bore"] is not None else 50)
+        doc = Document()
+        doc.children.append(node)
+        code = generate(doc).text
+        module = module or code[code.index("module pipe_flange("):]
+        p = node.params
+        mine = abs(signed_volume(geometry.pipe_flange(p, ctx)))
+        n = geometry.fragments(p["hole"] / 2, ctx)
+        holes = p["bolts"] * n * 0.5 * (p["hole"] / 2) ** 2 * math.sin(2 * math.pi / n) * p["thickness"]
+        for extra in ENGINES:
+            folder = tempfile.mkdtemp()
+            src, out = os.path.join(folder, "m.scad"), os.path.join(folder, "m.stl")
+            with open(src, "w", encoding="utf-8") as fh:
+                fh.write(code)
+            run = subprocess.run([EXE, *extra, "-o", out, src], capture_output=True, text=True, timeout=600)
+            log = run.stdout + run.stderr
+            assert run.returncode == 0 and "WARNING" not in log and "ERROR" not in log, log[-800:]
+            got = abs(signed_volume(load_stl(out)))
+            assert abs(got - (mine - holes)) < max(1, mine * 1e-5), (std, rating, size, ftype, facing, extra, got,
+                                                                     mine - holes)
+    # Los agujeros quedan a horcajadas de los ejes: ninguno corta el eje +X.
+    flange = "pipe_flange(face_h = 0, hub_d = 0, bore = 0);"
+    on_axis = "translate([95.25, 0, 10]) cube([0.5, 0.5, 0.5], center = true);"
+    half_step = "rotate(22.5) " + on_axis
+    assert volume_of(f"intersection() {{ {flange} {on_axis} }}\n{module}") > 0.1
+    assert volume_of(f"intersection() {{ {flange} {half_step} }}\n{module}") < 1e-6
+
+
 if __name__ == "__main__":
     if not EXE:
         print("OpenSCAD no encontrado: se omiten estas pruebas (define OPENSCAD para indicar dónde está)")

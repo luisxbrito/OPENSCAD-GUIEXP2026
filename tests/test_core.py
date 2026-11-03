@@ -32,7 +32,7 @@ def roundtrip(text):
 
 
 def test_catalogo_completo():
-    assert len(SPECS) == 42  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 7 de mecánica
+    assert len(SPECS) == 43  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 8 de mecánica
     for key, _, _ in CATEGORIES:
         assert specs_in(key), key
     for name in SPECS:
@@ -1046,7 +1046,7 @@ def test_modulos_propios_con_comentarios_en_ingles():
     def code_only(text):
         return " ".join(re.sub(r"//[^\n]*", "", text).split())
 
-    assert set(SPANISH_COMMENTS) == set(LIBRARY) - {"shaft_bore", "spline"}   # nacieron ya en inglés
+    assert set(SPANISH_COMMENTS) == set(LIBRARY) - {"shaft_bore", "spline", "pipe_flange"}   # nacieron en inglés
     for name, code in LIBRARY.items():
         assert all(c.isascii() for c in re.findall(r"//[^\n]*", code)), name
         assert "written by OpenSCAD GUI Mejorada" in code and "lo escribe" not in code, name
@@ -1563,6 +1563,98 @@ def test_polea_trapecial_codigo_y_vuelta():
     again = parse(text)
     assert generate(again).text == text              # ida y vuelta
     assert [n.kind for n in again.children] == ["v_pulley"]
+
+
+def test_bridas_medidas_de_las_tablas():
+    """Valores leídos de las tablas de ASME B16.5-2013 y EN 1092-1:2018, tal como salen en la pieza."""
+    from scadgui import flanges as fl
+    p = fl.flange("asme_b16_5", "150", "4", "weld_neck")       # tablas 7, 8 y 4
+    assert (p["od"], p["thickness"], p["bolt_circle"], p["bolts"], p["hole"]) == (230, 22.3, 190.5, 8, 19.05)
+    assert (p["face_d"], p["face_h"], p["hub_d"], p["hub_end_d"], p["length"], p["bore"]) == (
+        157.2, 2.0, 135, 114.3, 77.0, 102.3)                     # Y = 75 desde la cara, más 2 de resalte
+    assert p["bolt"] == "5/8 in" and p["hole_text"] == "3/4 in"
+    p = fl.flange("asme_b16_5", "300", "1/2", "slip_on")        # tablas 10 y 11
+    assert (p["od"], p["thickness"], p["bolt_circle"], p["bolts"], p["hole"]) == (95, 12.7, 66.7, 4, 15.88)
+    assert (p["hub_d"], p["hub_end_d"], p["length"], p["bore"]) == (38, 38, 23.0, 22.2)
+    p = fl.flange("asme_b16_5", "400", "2", "weld_neck")        # clase 400 pequeña: medidas de la 600
+    assert p["used_class"] == 600 and p["od"] == 165 and p["face_h"] == 7.0 and p["bore"] is None
+    assert "600" in fl.describe("asme_b16_5", "400", "2", "weld_neck", bore=50)[1]
+    p = fl.flange("asme_b16_5", "150", "4", "weld_neck", "flat")
+    assert p["face_h"] == 0 and p["face_d"] == 0 and p["thickness"] == 22.3 and p["length"] == 75
+    assert fl.flange("asme_b16_5", "2500", "12", "blind")["thickness"] == 184.2
+    p = fl.flange("en_1092_1", "16", "100", "weld_neck")        # tabla 13 y tabla 8
+    assert (p["od"], p["bolt_circle"], p["bolts"], p["hole"], p["bolt"]) == (220, 180, 8, 18, "M16")
+    assert (p["thickness"], p["face_h"], p["face_d"]) == (17.0, 3.0, 158)      # C2 = 20 incluye f1
+    assert (p["hub_d"], p["hub_end_d"], p["length"], p["neck_length"], p["bore"]) == (131, 114.3, 52, 12, 107.1)
+    assert fl.flange("en_1092_1", "16", "100", "weld_neck", "flat")["thickness"] == 20
+    p = fl.flange("en_1092_1", "6", "100", "plate")              # tabla 11
+    assert (p["od"], p["bolt_circle"], p["bolts"], p["bolt"], p["bore"], p["thickness"]) == (210, 170, 4, "M16",
+                                                                                            116.0, 15.0)
+    assert fl.flange("en_1092_1", "40", "100", "weld_neck", "flat")["thickness"] == 24   # celda C2/C3 unida
+    assert fl.flange("en_1092_1", "6", "100", "weld_neck", "flat")["thickness"] == 16    # columna C2/C3 de PN 6
+    assert [fl.en_face_height(dn) for dn in (32, 40, 250, 300, 500, 600)] == [2, 3, 3, 4, 4, 5]
+
+
+def test_bridas_solo_lo_que_da_la_norma():
+    """Ni tamaños ni tipos que la norma no tiene; sin agujero de la tabla, hay que darlo."""
+    from scadgui import flanges as fl
+    assert fl.available_sizes("asme_b16_5", "2500", "slip_on") == []
+    assert fl.available_sizes("asme_b16_5", "1500", "slip_on")[-1] == "2 1/2"
+    assert fl.available_sizes("asme_b16_5", "900", "weld_neck")[:2] == ["1/2", "3/4"]   # con las de la 1500
+    assert fl.available_sizes("asme_b16_5", "150", "blind")[:3] == ["1/2", "3/4", "1"]
+    assert "3 1/2" not in fl.available_sizes("asme_b16_5", "1500", "weld_neck")
+    assert "350" not in fl.available_sizes("en_1092_1", "6", "slip_on")
+    for bad in (lambda: fl.flange("asme_b16_5", "150", "22", "weld_neck"),
+                lambda: fl.flange("asme_b16_5", "2500", "2", "slip_on"),
+                lambda: fl.flange("asme_b16_5", "150", "4", "plate"),
+                lambda: fl.flange("en_1092_1", "16", "2200", "weld_neck"),
+                lambda: fl.create_flange_node("asme_b16_5", "600", "4", "weld_neck")):
+        try:
+            bad()
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("una brida que la norma no da no debe salir con otras medidas")
+    node = fl.create_flange_node("asme_b16_5", "600", "4", "weld_neck", bore=97.2)
+    assert node.kind == "pipe_flange" and node.params["bore"] == 97.2
+
+
+def test_bridas_todas_las_medidas_son_coherentes_y_vuelven_igual():
+    """Cada brida de las tablas tiene forma válida (los agujeros no tocan el cuello ni el borde) y su
+    código vuelve igual al abrirlo."""
+    from scadgui import flanges as fl
+    doc = Document()
+    count = 0
+    for std in fl.STANDARDS:
+        for rating in fl.ratings(std):
+            for ftype in fl.TYPES[std]:
+                for facing in fl.FACINGS:
+                    for size in fl.available_sizes(std, rating, ftype, facing):
+                        p = fl.flange(std, rating, size, ftype, facing)
+                        assert not fl.flange_warnings(p), (std, rating, ftype, size, fl.flange_warnings(p))
+                        bore = None if p["bore"] is not None else round(p["hub_end_d"] * 0.8, 1)
+                        doc.children.append(fl.create_flange_node(std, rating, size, ftype, facing, bore))
+                        count += 1
+    assert count > 1000
+    text = generate(doc).text
+    assert text.count("module pipe_flange(") == 1
+    again = parse(text)
+    assert [n.params for n in again.children] == [n.params for n in doc.children]
+    assert [n.name for n in again.children] == [n.name for n in doc.children]
+
+
+def test_bridas_avisos_y_pieza_por_defecto():
+    from scadgui import flanges as fl
+    good = {k: v for k, v in fl.flange("asme_b16_5", "150", "4", "weld_neck").items() if k in fl.MODULE_PARAMS}
+    assert not fl.flange_warnings(good)
+    checks = (({"bolt_circle": 150}, "cuello"), ({"bolt_circle": 220}, "borde"), ({"face_d": 180}, "resalte"),
+              ({"bolts": 40}, "tocan"), ({"bore": 120}, "pared"), ({"length": 20}, "largo"))
+    for change, word in checks:
+        assert any(word in w for w in fl.flange_warnings({**good, **change})), (change, fl.flange_warnings(
+            {**good, **change}))
+    doc = Document()
+    node = doc.add("pipe_flange")                      # el botón de la cinta: la misma brida de la tabla
+    assert node.params == {**good, "center": False}
 
 
 if __name__ == "__main__":
