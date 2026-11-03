@@ -198,9 +198,10 @@ issue with the part, its parameters and the source you checked against.
 
 ## Contributing
 
-Issues and pull requests are welcome, in English or Spanish. [CONTEXTO_PARA_IA.md](CONTEXTO_PARA_IA.md)
-(in Spanish) describes the architecture, the rules that keep `.scad` files lossless, and the lessons
-learned so far. Please run the tests before opening a pull request.
+Issues and pull requests are welcome, in English or Spanish. Start with [CONTRIBUTING.md](CONTRIBUTING.md):
+how the code is organised, the rules that keep `.scad` files lossless, how to add a part or a language,
+and how to run the tests. [CONTEXTO_PARA_IA.md](CONTEXTO_PARA_IA.md) (in Spanish) has the full
+architecture notes and the lessons learned so far.
 
 ## License
 
