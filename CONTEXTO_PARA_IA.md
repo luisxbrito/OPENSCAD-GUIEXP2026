@@ -415,7 +415,7 @@ python tests/simulacion/sim_ventana_visor_imagen.py
   y bajada independientes, `step` grados por punto). Las leyes son las de la leva de disco
   (`gears.cam_motion`); `gears.lobe_polygon` es el mismo perfil que el módulo. Grupo propio en la
   cinta («Árbol de levas»). Ejemplo: `examples/arbol_de_levas.scad`.
-  - Hecho: fase 1 (eje y lóbulo paramétrico) y fase 2 (perfiles). `profile` = "ley" (las leyes,
+  - Hecho: fase 1 (eje y lóbulo paramétrico), fase 2 (perfiles) y fase 3 (asistente). `profile` = "ley" (las leyes,
     con subida/reposo/bajada) o "circular", "excentrico", "eliptico" y "periforme" (`nose_r`):
     construcciones geométricas sin norma, todas con radio base y alzada exactos y hechas como
     envolvente convexa (`hull` de `circle`/`scale`, $fn = ceil(360/step)), así que no se cortan;
@@ -423,9 +423,15 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     por ley es polar con r > 0 y tampoco se corta; `lobe_concave` avisa de tramos cóncavos.
     `lobe_opening` da la apertura real de cualquier perfil (>1 % de la alzada). El módulo de la
     fase 1 está en PREVIOUS_VERSIONS (tenía una variable interna llamada `profile`).
+  - Fase 3: `camshaft.py` (sin Qt) reparte y comprueba; `ui/camshaft_dialog.py` es el asistente
+    (botón `camshaft_wizard` en el grupo Árbol de levas). Crea un `group()` con el eje y un
+    `cam_lobe` por lóbulo, con nombres traducidos (Eje, Admisión n, Escape n, Leva n) y sus
+    `position`/`angle` literales: no impone motor; el desfase entre cilindros se propone como
+    360°/cilindros y el orden («1-3-4-2») solo decide qué cilindro recibe cada desfase. El panel
+    del eje y de cada lóbulo avisa de solapes, lóbulos fuera del eje y radio base menor que el del
+    eje, mirando las piezas del mismo contenedor (`camshaft.siblings`).
   - Pendiente: personalizado por funciones (las leyes ya cubren lo habitual; una función de
-    OpenSCAD como parámetro sería un `Expr` sin vista aproximada); fase 3
-    (asistente de varias levas, reparto por cilindros, desfases); fase 4 (muñones, apoyos y
+    OpenSCAD como parámetro sería un `Expr` sin vista aproximada); fase 4 (muñones, apoyos y
     extremos, reutilizando chavetero y estriado; esos parámetros entran como opcionales en
     `camshaft_main_shaft` para no romper archivos ya guardados); fase 5 (exportar por piezas y
     colocar para imprimir); fase 6 (casos al azar en los dos motores). Sin animación ni cinemática.

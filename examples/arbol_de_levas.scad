@@ -1,6 +1,7 @@
 // Generado con OpenSCAD GUI Mejorada
 
-// Árbol de levas, fase 2: un lóbulo de cada perfil, girados 72° entre sí.
+// Árbol de levas, fase 3: hecho con el asistente (4 cilindros, admisión y escape, orden 1-3-4-2,
+// 90° entre cilindros y 110° de admisión a escape). Es un reparto de ejemplo, no el de un motor.
 //
 // Cada pieza es una llamada con sus medidas, y su definición va al final del archivo:
 //   camshaft_main_shaft(length, d)  eje a lo largo de Z, de z = 0 a z = length.
@@ -8,13 +9,17 @@
 //   profile = "ley" | "circular" | "excentrico" | "eliptico" | "periforme" (este usa nose_r).
 // Para cambiar las medidas desde otro programa, basta con reescribir los números de estas llamadas
 // (por ejemplo "position = 60") y abrir o renderizar el archivo: no hace falta tocar los módulos.
-// Para añadir un lóbulo, copie una línea de cam_lobe y cambie position y angle.
-camshaft_main_shaft(length = 250, d = 25);
-cam_lobe(base_r = 15, lift = 8, width = 12, rise_angle = 110, dwell_angle = 20, fall_angle = 110, motion = "cicloidal", angle = 0, position = 30, step = 1, profile = "ley");
-cam_lobe(base_r = 15, lift = 8, width = 12, rise_angle = 110, dwell_angle = 20, fall_angle = 110, motion = "cicloidal", angle = 72, position = 75, step = 1, profile = "circular"); // cam_lobe001
-cam_lobe(base_r = 15, lift = 8, width = 12, rise_angle = 110, dwell_angle = 20, fall_angle = 110, motion = "cicloidal", angle = 144, position = 120, step = 1, profile = "excentrico"); // cam_lobe002
-cam_lobe(base_r = 15, lift = 8, width = 12, rise_angle = 110, dwell_angle = 20, fall_angle = 110, motion = "cicloidal", angle = 216, position = 165, step = 1, profile = "eliptico"); // cam_lobe003
-cam_lobe(base_r = 15, lift = 8, width = 12, rise_angle = 110, dwell_angle = 20, fall_angle = 110, motion = "cicloidal", angle = 288, position = 210, step = 1, profile = "periforme", nose_r = 6); // cam_lobe004
+group() { // Árbol de levas
+  camshaft_main_shaft(length = 220, d = 25); // Eje
+  cam_lobe(base_r = 15, lift = 8, width = 12, rise_angle = 110, dwell_angle = 20, fall_angle = 110, motion = "cicloidal", angle = 0, position = 20, step = 1, profile = "ley"); // Admisión 1
+  cam_lobe(base_r = 15, lift = 8, width = 12, rise_angle = 110, dwell_angle = 20, fall_angle = 110, motion = "cicloidal", angle = 110, position = 40, step = 1, profile = "ley"); // Escape 1
+  cam_lobe(base_r = 15, lift = 8, width = 12, rise_angle = 110, dwell_angle = 20, fall_angle = 110, motion = "cicloidal", angle = 270, position = 70, step = 1, profile = "ley"); // Admisión 2
+  cam_lobe(base_r = 15, lift = 8, width = 12, rise_angle = 110, dwell_angle = 20, fall_angle = 110, motion = "cicloidal", angle = 20, position = 90, step = 1, profile = "ley"); // Escape 2
+  cam_lobe(base_r = 15, lift = 8, width = 12, rise_angle = 110, dwell_angle = 20, fall_angle = 110, motion = "cicloidal", angle = 90, position = 120, step = 1, profile = "ley"); // Admisión 3
+  cam_lobe(base_r = 15, lift = 8, width = 12, rise_angle = 110, dwell_angle = 20, fall_angle = 110, motion = "cicloidal", angle = 200, position = 140, step = 1, profile = "ley"); // Escape 3
+  cam_lobe(base_r = 15, lift = 8, width = 12, rise_angle = 110, dwell_angle = 20, fall_angle = 110, motion = "cicloidal", angle = 180, position = 170, step = 1, profile = "ley"); // Admisión 4
+  cam_lobe(base_r = 15, lift = 8, width = 12, rise_angle = 110, dwell_angle = 20, fall_angle = 110, motion = "cicloidal", angle = 290, position = 190, step = 1, profile = "ley"); // Escape 4
+}
 
 module camshaft_main_shaft(length = 250, d = 25) {
   // Main shaft of a camshaft (written by OpenSCAD GUI Mejorada): a plain cylinder along Z,

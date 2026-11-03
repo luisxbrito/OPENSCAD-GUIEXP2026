@@ -510,6 +510,27 @@ def test_lobulo_perfiles_geometricos_en_openscad():
     assert volume_of(f"intersection() {{ {pear.format(a=90)} {nose} }}\n{module}") < 1e-6
 
 
+def test_arbol_de_levas_completo_se_renderiza():
+    """El grupo del asistente (eje y 8 lóbulos de perfiles distintos) sale de OpenSCAD sin avisos y
+    pesa al menos lo que el eje más lo que sobresale cada lóbulo de él."""
+    import math
+    from scadgui import camshaft as cs, gears
+    from scadgui.geometry import _area
+    lobe = {"profile": "ley", "base_r": 15, "lift": 8, "width": 12, "motion": "cicloidal", "rise_angle": 110,
+            "dwell_angle": 20, "fall_angle": 110, "nose_r": 5, "step": 1}
+    doc = Document()
+    doc.children.append(cs.create_camshaft({"length": 220, "d": 25}, lobe, cs.layout(4, 2, 20, 50, 20, 90, 110)))
+    for n, profile in zip(doc.children[0].children[1:], ("ley", "excentrico", "eliptico", "periforme") * 2):
+        n.params["profile"] = profile
+        n.params["nose_r"] = 5
+    got = volume_of(generate(doc).text)
+    shaft = math.pi * 12.5 ** 2 * 220
+    lobes = sum(abs(_area(gears.lobe_polygon(15, 8, 110, 20, 110, "cicloidal", 0, 1, n.params["profile"], 5))) * 12
+                for n in doc.children[0].children[1:])
+    inside = 8 * math.pi * 12.5 ** 2 * 12
+    assert abs(got - (shaft + lobes - inside)) < 0.01 * shaft, (got, shaft + lobes - inside)
+
+
 if __name__ == "__main__":
     if not EXE:
         print("OpenSCAD no encontrado: se omiten estas pruebas (define OPENSCAD para indicar dónde está)")

@@ -228,6 +228,8 @@ class PropertyPanel(QScrollArea):
             self._cam_info(node)
         if node.kind == "cam_lobe":
             self._lobe_info(node)
+        if node.kind in ("cam_lobe", "camshaft_main_shaft") and self.doc is not None:
+            self._camshaft_info(node)
         if node.kind == "pipe_flange":
             self._flange_info(node)
         if spec and spec.hint:
@@ -437,6 +439,21 @@ class PropertyPanel(QScrollArea):
                 b=2 * base_r, o=2 * top, a=gears.lobe_opening(poly, base_r, lift)))
         self._hint(tr("Ocupa de z = {a:g} a z = {b:g} mm").format(a=position - width / 2, b=position + width / 2))
         for text, data in gears.lobe_warnings(base_r, lift, rise, dwell, fall, motion, profile, nose_r, step):
+            self._hint(tr(text).format(**data), "warnText")
+
+    def _camshaft_info(self, node: Node) -> None:
+        """Solapes, lóbulos fuera del eje y radios base menores que el del eje, mirando las piezas del
+        árbol que están en el mismo contenedor. En un lóbulo, solo los avisos que le tocan."""
+        from .. import camshaft
+        shaft, lobes = camshaft.siblings(self.doc, node)
+        problems = camshaft.shaft_problems(shaft.params if shaft is not None else None,
+                                           [(lobe.name or lobe.kind, lobe.params) for lobe in lobes])
+        if node.kind == "camshaft_main_shaft":
+            self._hint(tr("Lóbulos en este árbol: {n}").format(n=len(lobes)))
+        else:
+            mine = node.name or node.kind
+            problems = [(t, d) for t, d in problems if mine in (d.get("a"), d.get("b"))]
+        for text, data in problems:
             self._hint(tr(text).format(**data), "warnText")
 
     def _flange_info(self, node: Node) -> None:

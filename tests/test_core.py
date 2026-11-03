@@ -1777,6 +1777,74 @@ def test_lobulo_de_la_fase_1_se_actualiza_al_abrir():
     assert CAM_LOBE in text and old not in text
 
 
+def test_arbol_de_levas_reparto():
+    """Posición por cilindro, ángulo según el puesto en el orden, y escape desplazado en el eje y en
+    ángulo respecto a su admisión. Un orden que no nombra cada cilindro una vez es un error."""
+    from scadgui import camshaft as cs
+    assert cs.parse_order("", 3) == [1, 2, 3] and cs.parse_order("1-3-4-2", 4) == [1, 3, 4, 2]
+    assert cs.parse_order(" 1, 2 ,3 ", 3) == [1, 2, 3]
+    for bad in ("1-2-2", "1-2", "1-a-3", "1-2-3-5"):
+        try:
+            cs.parse_order(bad, 3 if bad != "1-2-3-5" else 4)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(bad)
+    items = cs.layout(4, 2, 20, 50, 20, 90, 110, [1, 3, 4, 2])
+    got = [(i["cylinder"], i["kind"], i["position"], i["angle"]) for i in items]
+    assert got == [(1, "intake", 20, 0), (1, "exhaust", 40, 110), (2, "intake", 70, 270), (2, "exhaust", 90, 20),
+                   (3, "intake", 120, 90), (3, "exhaust", 140, 200), (4, "intake", 170, 180),
+                   (4, "exhaust", 190, 290)]
+    single = cs.layout(3, 1, 10, 30, 0, 120, 0, start_angle=-30)
+    assert [(i["kind"], i["position"], i["angle"]) for i in single] == [("single", 10, 330), ("single", 40, 90),
+                                                                         ("single", 70, 210)]
+    assert cs.lobe_name(items[1]) == "Escape 1" and cs.lobe_name(single[2]) == "Leva 3"
+
+
+def test_arbol_de_levas_comprobaciones():
+    from scadgui import camshaft as cs
+    shaft = {"length": 100, "d": 20}
+    lobe = {"width": 12, "base_r": 15}
+    assert not cs.shaft_problems(shaft, [("a", {**lobe, "position": 10}), ("b", {**lobe, "position": 22})])
+    probs = cs.shaft_problems(shaft, [("a", {**lobe, "position": 10}), ("b", {**lobe, "position": 21})])
+    assert len(probs) == 1 and "solapan" in probs[0][0] and probs[0][1]["z0"] == 15 and probs[0][1]["z1"] == 16
+    probs = cs.shaft_problems(shaft, [("a", {**lobe, "position": 97})])
+    assert len(probs) == 1 and "se sale" in probs[0][0]
+    probs = cs.shaft_problems({"length": 100, "d": 40}, [("a", {**lobe, "position": 50})])
+    assert len(probs) == 1 and "radio del eje" in probs[0][0]
+    assert not cs.shaft_problems(None, [("a", {**lobe, "position": 500})])         # sin eje no hay límites
+    from scadgui.model import Expr
+    assert not cs.shaft_problems(shaft, [("a", {**lobe, "position": Expr("z")}), ("b", {**lobe, "position": 10})])
+
+
+def test_arbol_de_levas_del_asistente():
+    """El asistente crea un grupo con el eje y los lóbulos con nombre, posición y ángulo; cada lóbulo
+    lleva los parámetros comunes, el radio de punta solo si es periforme, y el archivo vuelve igual."""
+    from scadgui import camshaft as cs
+    lobe = {"profile": "periforme", "base_r": 15, "lift": 8, "width": 12, "motion": "cicloidal",
+            "rise_angle": 110, "dwell_angle": 20, "fall_angle": 110, "nose_r": 5, "step": 1}
+    items = cs.layout(2, 2, 20, 50, 20, 180, 110)
+    doc = Document()
+    group = cs.create_camshaft({"length": 120, "d": 25}, lobe, items, doc.unique_name)
+    doc.children.append(group)
+    assert group.kind == "group" and [n.name for n in group.children] == [
+        "Eje", "Admisión 1", "Escape 1", "Admisión 2", "Escape 2"]
+    assert group.children[0].params == {"length": 120, "d": 25}
+    assert [(n.params["position"], n.params["angle"]) for n in group.children[1:]] == [
+        (20, 0), (40, 110), (70, 180), (90, 290)]
+    assert all(n.params["nose_r"] == 5 and n.params["profile"] == "periforme" for n in group.children[1:])
+    plain = cs.create_camshaft({"length": 120, "d": 25}, {**lobe, "profile": "eliptico"}, items[:1])
+    assert "nose_r" not in plain.children[1].params
+    shaft, lobes = cs.siblings(doc, group.children[2])
+    assert shaft is group.children[0] and len(lobes) == 4
+    loose = make_node("cam_lobe")                       # aún fuera del documento: solo él
+    assert cs.siblings(doc, loose) == (None, [loose])
+    text = generate(doc).text
+    again = parse(text)
+    assert generate(again).text == text
+    assert [n.params for n in again.children[0].children] == [n.params for n in group.children]
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

@@ -122,6 +122,8 @@ class Ribbon(QTabWidget):
          "Tornillería ISO/DIN, tuercas, insertos térmicos, rodamientos y perfiles."),
         ("solid", "flange_wizard", "pipe_flange", "Bridas ·\nNormalizadas",
          "Bridas ASME B16.5 y EN 1092-1: de cuello, deslizantes, ciegas y planas, con sus medidas."),
+        ("solid", "camshaft_wizard", "cam_lobe", "Árbol ·\nde levas",
+         "Eje y lóbulos repartidos por cilindros, con sus desfases; luego se cambia cada lóbulo por separado."),
         ("shape2d", "sketch2d", "sketch", "Boceto 2D ·\nAsistente",
          "Perfiles paramétricos: rectángulos redondeados, ranuras, polígonos, estrellas, etc."),
         ("shape2d", "drawing2d", "projection", "Plano 2D ·\nTécnico",
@@ -134,7 +136,7 @@ class Ribbon(QTabWidget):
     # no esté en ningún grupo va al último, para que nunca se quede sin botón.
     GROUPS = {
         "solid": ((N_("Primitivas"), ("cube", "sphere", "cylinder", "polyhedron")), (N_("Mecánica"), ("spur_gear", "helical_gear", "bevel_gear", "rack", "pulley", "v_pulley", "spline", "cam", "pipe_flange")),
-                  (N_("Árbol de levas"), ("camshaft_main_shaft", "cam_lobe")),
+                  (N_("Árbol de levas"), ("camshaft_main_shaft", "cam_lobe", "camshaft_wizard")),
                   (N_("Asistentes"), ("hardware", "flange_wizard"))),
         "shape2d": ((N_("Primitivas 2D"), ("square", "circle", "polygon", "text")), (N_("Modificar"), ("offset",)),
                     (N_("Asistentes"), ("sketch2d", "drawing2d"))),
@@ -411,6 +413,8 @@ class MainWindow(QMainWindow):
                                     "Biblioteca de tornillería ISO/DIN, tuercas, insertos y rodamientos")
         self.a_flange = self._act("Insertar brida normalizada…", self.open_flange_dialog, None, "pipe_flange",
                                   "Bridas ASME B16.5 y EN 1092-1 con las medidas de sus tablas")
+        self.a_camshaft = self._act("Insertar árbol de levas…", self.open_camshaft_dialog, None, "cam_lobe",
+                                    "Eje y lóbulos repartidos por cilindros, con sus desfases")
         self.a_preview = self._act("Vista previa", lambda: self.render_view(False), "F5", "preview",
                                    "Vista previa rápida (resalta la selección)")
         self.a_render = self._act("Render", lambda: self.render_view(True), "F6", "render_action",
@@ -435,6 +439,7 @@ class MainWindow(QMainWindow):
         m.addAction(self.a_sketch)
         m.addAction(self.a_hardware)
         m.addAction(self.a_flange)
+        m.addAction(self.a_camshaft)
         m.addAction(self.a_drawing)
         m.addSeparator()
         m.addAction(self.a_preview)
@@ -1133,6 +1138,22 @@ class MainWindow(QMainWindow):
             self.mutate(change_add, select=[node.id])
             self.statusBar().showMessage(tr("Componente añadido: {name}").format(name=node.name or node.label), 4000)
 
+    def open_camshaft_dialog(self) -> None:
+        from ..camshaft import create_camshaft
+        from .camshaft_dialog import CamshaftDialog
+
+        dlg = CamshaftDialog(parent=self)
+        if not dlg.exec():
+            return
+        res = dlg.get_result()
+        try:
+            group = create_camshaft(res["shaft"], res["lobe"], dlg.items(), unique_fn=self.doc.unique_name)
+        except ValueError as exc:   # orden de cilindros que no vale
+            QMessageBox.warning(self, tr("Árbol de levas"), str(exc))
+            return
+        self.mutate(lambda: self.doc.children.append(group), select=[group.id])
+        self.statusBar().showMessage(tr("Componente añadido: {name}").format(name=group.name), 4000)
+
     def open_flange_dialog(self) -> None:
         from ..flanges import create_flange_node
         from .flange_dialog import FlangeDialog
@@ -1310,6 +1331,9 @@ class MainWindow(QMainWindow):
             return
         if kind == "flange_wizard":
             self.open_flange_dialog()
+            return
+        if kind == "camshaft_wizard":
+            self.open_camshaft_dialog()
             return
         if kind == "hardware":
             self.open_hardware_dialog()

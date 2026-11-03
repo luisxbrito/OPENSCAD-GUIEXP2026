@@ -862,6 +862,38 @@ def test_arbol_de_levas_desde_la_cinta():
     assert "module cam_lobe(" in code and "module camshaft_main_shaft(" in code
 
 
+def test_asistente_de_arbol_de_levas():
+    """El asistente propone 4 cilindros con admisión y escape, reparte el desfase al cambiar los
+    cilindros, no deja insertar con un orden que no vale y avisa de solapes; el panel del lóbulo
+    avisa si se solapa con otro."""
+    from PySide6.QtWidgets import QLabel
+    from scadgui import camshaft
+    from scadgui.i18n import set_language
+    from scadgui.model import Document
+    from scadgui.ui.camshaft_dialog import CamshaftDialog
+    set_language("es")
+    w = window()
+    assert "camshaft_wizard" in w.ribbon.buttons
+    dlg = CamshaftDialog(w)
+    assert len(dlg.items()) == 8 and dlg.btn_insert.isEnabled()
+    dlg.spin_cyl.setValue(3)
+    assert dlg.spin_offset.value() == 120 and len(dlg.items()) == 6
+    dlg.edit_order.setText("1-1-2")
+    assert not dlg.btn_insert.isEnabled() and "cilindro" in dlg.lbl_info.text()
+    dlg.edit_order.setText("1-3-2")
+    assert dlg.btn_insert.isEnabled()
+    dlg.spin_gap.setValue(5)
+    assert "solapan" in dlg.lbl_info.text()
+    res = dlg.get_result()
+    group = camshaft.create_camshaft(res["shaft"], res["lobe"], dlg.items(), w.doc.unique_name)
+    dlg.deleteLater()
+    w.set_document(Document())
+    w.mutate(lambda: w.doc.children.append(group), select=[group.children[1].id])
+    app.processEvents()
+    texts = [l.text() for l in w.props.findChildren(QLabel)]
+    assert any(t.startswith("Los lóbulos Admisión 1 y Escape 1 se solapan") for t in texts), texts
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):
