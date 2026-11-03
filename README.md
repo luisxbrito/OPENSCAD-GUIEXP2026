@@ -28,7 +28,8 @@ OpenSCAD code that you can read, edit by hand and open in regular OpenSCAD.
   at the end of the file, so the `.scad` opens on any OpenSCAD 2021.01 or newer.
 - **Dimensions come from cited sources.** Gears, pulleys, splines, keyways, retaining ring grooves,
   O-ring grooves and bearing fits use tables from *Machinery's Handbook* (27th ed.) and *Shigley's
-  Mechanical Engineering Design*. Each source is named in the code and in this README.
+  Mechanical Engineering Design*; pipe flanges use the tables of ASME B16.5 and EN 1092-1. Each
+  source is named in the code and in this README.
 - **The geometry is checked against OpenSCAD itself.** Each mechanical part has a test that renders
   it with the real OpenSCAD and compares its volume with the program's own calculation, so the
   quick preview and the exported part are the same shape.
@@ -76,6 +77,13 @@ All by module (metric). The panel shows the calculated dimensions and warns abou
   for 62xx, the shoulder diameters, plus a mask to subtract.
 - **Retaining ring grooves** (metric ANSI B27.7, series 3AM1 and 3BM1) and **O-ring grooves**
   (1.78 to 6.99 mm cross-sections) on a shaft, in a bore or on a flat face.
+- **Pipe flanges**: weld neck, slip-on and blind flanges from ASME B16.5-2013 (formerly ANSI B16.5),
+  NPS 1/2 to 24 in classes 150 to 2500 (tables 4, 7 to 22), and weld neck (type 11), hubbed slip-on
+  (type 12), blind (type 05) and plate (type 01) flanges from EN 1092-1:2018, DN 10 to 2000 in PN 6 to
+  PN 100 (tables 8 and 11 to 17). Raised or flat face. The wizard only offers the sizes each table
+  lists; where the standard leaves the bore to the purchaser (weld neck flanges), you enter the pipe
+  bore before inserting. The part is a `pipe_flange` module with plain numbers, so it can be edited
+  afterwards, and the panel warns if the bolt holes reach the hub or the rim.
 
 Masks are subtracted from the selected part in one step.
 
@@ -138,7 +146,11 @@ This produces `dist/OpenSCAD_GUI_Mejorada.exe` and a zip with the examples. Open
   dialog lists, not to the exported STL.
 - The 3D-printing allowances are starting points, not standards. Print a test piece first.
 - Parts are modelled for fit-checking and drawings: no threads, flat roots instead of fillet radii,
-  and no tolerance classes on gears.
+  and no tolerance classes on gears. Flanges have no fillet radii, weld bevel or facing finish.
+- The flange tables are those of the editions listed above (ASME B16.5-2013 and EN 1092-1:2018).
+  Newer editions exist; check them, or your supplier's catalog, before ordering or machining.
+- The standards themselves are copyrighted and are not part of this repository; only the dimension
+  values are used, each one with the table it comes from.
 
 ## Known limitations
 

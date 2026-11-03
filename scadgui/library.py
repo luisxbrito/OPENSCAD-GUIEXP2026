@@ -453,9 +453,38 @@ CAM = '''module cam(base_d = 40, lift = 10, rise_angle = 90, dwell_angle = 30, f
   }
 }'''
 
+PIPE_FLANGE = '''module pipe_flange(od = 230, thickness = 22.3, bolt_circle = 190.5, bolts = 8, hole = 19.05, bore = 0, face_d = 0, face_h = 0, hub_d = 0, hub_end_d = 0, length = 0, neck_length = 0, center = false) {
+  // Pipe flange (written by OpenSCAD GUI Mejorada).
+  // Gasket face at z = 0 and the body towards +Z: the raised face (face_d x face_h), then the
+  // flange ring (od x thickness) and the hub, which narrows from hub_d at the back face to
+  // hub_end_d and ends in a straight run of neck_length; length is measured from the gasket
+  // face. Without a hub (hub_d = 0) it is a plate or blind flange; without a bore, a blind one.
+  // The flange wizard fills in the sizes of ASME B16.5-2013 or EN 1092-1:2018. As both standards
+  // draw them, the bolt holes straddle the X and Y axes. No fillet radii or weld bevel.
+  fh = max(0, face_h);
+  back = fh + thickness;
+  he = hub_end_d > 0 ? hub_end_d : hub_d;
+  top = hub_d > 0 ? max(length, back) : back;
+  cone = max(back, top - max(0, neck_length));
+  rb = max(0, bore) / 2;
+  profile = concat(
+    [[rb, 0]],
+    fh > 0 ? [[face_d / 2, 0], [face_d / 2, fh]] : [],
+    [[od / 2, fh], [od / 2, back]],
+    hub_d > 0 ? concat([[hub_d / 2, back], [he / 2, cone]], cone < top ? [[he / 2, top]] : []) : [],
+    [[rb, top]]);
+  translate([0, 0, center ? -top / 2 : 0]) difference() {
+    rotate_extrude() polygon(profile);
+    if (bolts > 0 && hole > 0)
+      for (k = [0 : bolts - 1]) rotate(180 / bolts + 360 * k / bolts)
+        translate([bolt_circle / 2, 0, -1]) cylinder(h = back + 2, d = hole);
+  }
+}'''
+
 LIBRARY = {"cube_edges": CUBE_EDGES, "cylinder_edges": CYLINDER_EDGES, "spur_gear": SPUR_GEAR,
            "helical_gear": HELICAL_GEAR, "rack": RACK, "bevel_gear": BEVEL_GEAR, "pulley": PULLEY,
-           "v_pulley": V_PULLEY, "spline": SPLINE, "cam": CAM, "shaft_bore": SHAFT_BORE}
+           "v_pulley": V_PULLEY, "spline": SPLINE, "cam": CAM, "shaft_bore": SHAFT_BORE,
+           "pipe_flange": PIPE_FLANGE}
 
 # Versiones anteriores que ya pueden estar en archivos guardados. Al abrir el archivo se
 # reconocen como nuestras y se sustituyen por la versión actual (no se conservan como código

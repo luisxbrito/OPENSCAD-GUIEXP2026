@@ -816,6 +816,19 @@ def cam(p) -> Optional[Tris]:
     return prism(poly, t, z0)
 
 
+def pipe_flange(p, ctx) -> Optional[Tris]:
+    """Brida: el perfil de flanges.flange_profile girado (vista aproximada: sin los agujeros de
+    los tornillos, que los hace OpenSCAD)."""
+    from . import flanges
+    vals = [_num(p.get(k, 0), 0.0) for k in ("od", "thickness", "face_h", "hub_d", "length", "bore")]
+    if None in vals or vals[0] <= 0 or vals[1] <= 0:
+        return None
+    prof = np.array(flanges.flange_profile(p), dtype=float)
+    if p.get("center") is True:
+        prof[:, 1] -= prof[:, 1].max() / 2
+    return revolve(prof, ctx)
+
+
 def rack(p) -> Optional[Tris]:
     """Cremallera, recta o helicoidal (el dentado inclinado sale sesgando el prisma)."""
     from . import gears
@@ -1226,6 +1239,8 @@ def solid(node, ctx) -> dict:
         mesh = spline(p, ctx)
     elif k == "cam":
         mesh = cam(p)
+    elif k == "pipe_flange":
+        mesh = pipe_flange(p, ctx)
     elif k == "cylinder_edges":
         mesh = cylinder_edges(p, ctx)
     elif k in ("square", "circle", "polygon"):
