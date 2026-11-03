@@ -32,6 +32,9 @@ scadgui/                   lógica SIN Qt (se prueba sin PySide6)
   geometry.py              numpy: mallas aproximadas, STL/OFF, aristas, rayos, colores,
                            iluminación y vista explosionada
   hardware.py              tablas de tornillería/rodamientos/perfiles, constructores y describe()
+  gears.py                 engranajes, poleas, estriado, chaveteros, leva de disco y perfiles de lóbulo
+  flanges.py               bridas ASME B16.5 / EN 1092-1: tablas, medidas, avisos y constructor
+  camshaft.py              árbol de levas: reparto de lóbulos por cilindros y avisos del conjunto
   sketches.py              perfiles 2D paramétricos
   drawing.py               lámina técnica 2D (vistas en sistema europeo)
   operations.py            textos y ajustes rápidos de la guía de cada operación
@@ -48,6 +51,7 @@ scadgui/ui/                solo ventanas y diálogos (PySide6)
   codeview.py              editor de código
   properties.py, editors.py, boolean_dialog.py, hardware_dialog.py, sketch.py,
   drawing_dialog.py, module_dialog.py, operation_helper.py, preferences_dialog.py,
+  flange_dialog.py, camshaft_dialog.py (asistentes de bridas y de árbol de levas),
   variables.py, style.py, icons.py
 examples/                  rueda_con_eje_giratorio.scad, placa_agujeros.scad (menú Archivo; se arranca en blanco)
 tests/test_core.py         modelo, parser, generador, tornillería, plano técnico, módulos…
@@ -57,6 +61,7 @@ tests/test_openscad.py     pasa el código generado por el OpenSCAD real (se omi
 tests/test_ventana_qt.py   eventos de ratón reales en la vista 3D con el Qt real (sin ventana)
 tests/simulacion/          Qt/pyqtgraph simulados + 2 scripts que recorren la ventana
 build_portable.py, OpenSCAD_GUI_Mejorada.spec   ejecutable portable con PyInstaller
+CONTRIBUTING.md            guía en inglés para quien quiera modificar la aplicación (resumen de este archivo)
 ```
 
 ## 3. Arquitectura y reglas que NO se deben romper
@@ -75,7 +80,7 @@ build_portable.py, OpenSCAD_GUI_Mejorada.spec   ejecutable portable con PyInstal
    `cube001`...), nunca con un nombre traducido; si el nombre es igual a la palabra no se
    escribe comentario. Los botones de la cinta muestran solo esa palabra.
 4. **Añadir un comando = añadir un `Spec` en `catalog.py`** (y su malla aproximada en
-   `geometry.solid()`/`flat()` si tiene geometría). Un test exige 33 specs con icono.
+   `geometry.solid()`/`flat()` si tiene geometría). Un test exige 46 specs con icono (`test_catalogo_completo`).
    Las matrices (`linear_array`, `polar_array`, `grid_array`) son specs con
    `keyword="for"`: no son módulos de OpenSCAD. `model.array_head` escribe la cabecera del
    for y `parser.array_head` la reconoce; si se cambia una, hay que cambiar la otra (los
@@ -160,6 +165,19 @@ build_portable.py, OpenSCAD_GUI_Mejorada.spec   ejecutable portable con PyInstal
   se podía deseleccionar con un clic en el vacío. Pulsar un eje sin arrastrar cuenta como clic.
 - **Elegir aristas:** se gana la candidata más cercana a la cámara, no la más cercana al ratón
   en ángulo; si no, desde arriba junto a un borde se elegía la arista de abajo.
+- **Cambio de idioma:** todo widget que escribe un texto con `tr()` en su `__init__` necesita
+  volver a escribirlo en un `retranslate_ui()` que la ventana llame. La barra del visor no lo
+  tenía y se quedaba en el idioma anterior hasta reiniciar (arreglado en Viewer3D y Viewport;
+  `test_barra_del_visor_cambia_de_idioma`).
+- **Fines de línea:** los `.py` están en el repositorio con LF; README.md, los `.bat` y
+  library_old.py con CRLF. En Windows, Python en modo texto escribe CRLF: al tocar archivos con un
+  script, leer y escribir con `io.open(..., newline="")`, y comprobar con `git ls-files --eol`
+  antes de confirmar (un diff de miles de líneas es eso). Un script de Python pasado por la
+  entrada estándar de bash se lee en cp1252 y no encuentra los textos con tildes: mejor escribir
+  el script en un archivo UTF-8 y ejecutarlo.
+- **Traducciones nuevas:** se insertan en los 5 archivos de locales en su sitio alfabético sin
+  reordenar el resto (los archivos no están estrictamente ordenados). Una traducción idéntica al
+  español solo la rechaza `test_i18n` si el texto «parece español»; «Escape», «Uno», «Volume» valen.
 
 ## 5. Cómo comprobar que no se rompe nada
 
@@ -234,7 +252,7 @@ python tests/simulacion/sim_ventana_visor_imagen.py
   lo aplica al visor OpenGL (fondo, color de piezas sin color(), rejilla y textos oscuros si el fondo
   es claro: `VIEWER_ON_LIGHT_STYLES`) y al de imágenes (`--colorscheme`). Los colores de las
   piezas (muestra del panel) NO pasan por `themed()`.
-- Dentados (Sólidos 3D › Mecánica): `spur_gear`, `helical_gear` y `rack`. Cada uno es un módulo
+- Dentados (pestaña Mecánica): `spur_gear`, `helical_gear` y `rack`. Cada uno es un módulo
   propio en library.py (como cube_edges) con las MISMAS fórmulas repetidas en `scadgui/gears.py`
   para la vista aproximada, los datos del panel y los avisos. Si se cambia una, cambiar la otra:
   `test_openscad` compara el volumen de OpenSCAD con el de Python para los tres.
@@ -370,6 +388,10 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     impresión (+0.2, +0.35, +0.5) tampoco es de ninguna norma.
 - Contraste del tema oscuro: `tests/test_tema.py` mide letra/fondo en cada regla. Un color que en
   claro es letra (DARK lo aclara) y alguna regla usa de fondo va en `DARK_BACKGROUND`.
+- Pestaña **Mecánica** (categoría `"mech"` en catalog.CATEGORIES): grupos Engranajes, Transmisión,
+  Levas (cam, camshaft_main_shaft, cam_lobe), Uniones (pipe_flange) y Asistentes (tornillería,
+  bridas, árbol de levas). Sólidos 3D solo tiene las primitivas. La categoría solo decide la
+  pestaña: no cambia el código guardado. Las piezas nuevas de la fase 4 van en Levas.
 - Cinta: `Ribbon.GROUPS` reparte los botones de cada pestaña en grupos con título (marcados con
   `N_()` para que `test_i18n` exija su traducción); un comando nuevo sin grupo va al último.
 - Atajos de vista como Blender (`viewer3d.VIEW_KEYS`), solo en el visor OpenGL: valen con el
@@ -424,7 +446,7 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     `lobe_opening` da la apertura real de cualquier perfil (>1 % de la alzada). El módulo de la
     fase 1 está en PREVIOUS_VERSIONS (tenía una variable interna llamada `profile`).
   - Fase 3: `camshaft.py` (sin Qt) reparte y comprueba; `ui/camshaft_dialog.py` es el asistente
-    (botón `camshaft_wizard` en el grupo Árbol de levas). Crea un `group()` con el eje y un
+    (botón `camshaft_wizard`, en Mecánica › Asistentes). Crea un `group()` con el eje y un
     `cam_lobe` por lóbulo, con nombres traducidos (Eje, Admisión n, Escape n, Leva n) y sus
     `position`/`angle` literales: no impone motor; el desfase entre cilindros se propone como
     360°/cilindros y el orden («1-3-4-2») solo decide qué cilindro recibe cada desfase. El panel
@@ -445,6 +467,20 @@ python tests/simulacion/sim_ventana_visor_imagen.py
 - El asistente 2D es un formulario de perfiles; no hay croquis con restricciones.
 - Licencia: GPL-3.0-or-later, la misma GPLv3 con que se publicó la primera versión (archivo `LICENSE`).
 - Posibles mejoras: malla aproximada para `import` (STL/OFF), croquis 2D con restricciones.
+- Árbol de levas, fase 4 (plan acordado): muñones como piezas propias (`camshaft_bearings`, una
+  por muñón, con posición, Ø y longitud de apoyo) y extremos (`camshaft_ends`, uno por punta:
+  liso, chavetero BS 4235-1 con la profundidad en el eje t1 de KEY_TABLE, estriado ANSI B92.2M
+  reutilizando `spline`, o plato de arrastre geométrico sin norma). El asistente añade muñones
+  (por defecto entre cilindros y en las puntas) y el tipo de cada extremo, y una opción de
+  cojinetes enteros/partidos: con enteros, avisar si un muñón es menor que el lóbulo más alto
+  (radio base + alzada), porque el árbol no pasaría. Avisos de solapes muñón-lóbulo y de muñones
+  fuera del eje. Sin roscas, rodamientos (ya están en tornillería) ni cálculos.
+- Traducir al inglés los comentarios y docstrings del código (~1 100 comentarios y ~1 000
+  líneas de docstrings en 59 archivos) y este archivo: después de la fase 4, por zonas, un commit
+  por zona, con una comprobación automática de que el árbol sintáctico de cada archivo, sin
+  comentarios ni docstrings, no cambia. Se quedan en español a propósito los textos de `tr()` (son
+  las claves de las traducciones) y los valores que ya se escriben en los `.scad` ("cicloidal",
+  "periforme"…), salvo que el programa aprenda a aceptar las dos formas.
 - Bridas pendientes: MSS SP-44 / ASME B16.47 serie A (NPS 26 a 60), B16.47 serie B (sin fuente),
   EN 1092-1 PN 2,5 y PN 160 a 400, tipos roscado, socket weld y lap joint, y los nombres DIN
   antiguos (DIN 2633, 2576…) como alias: la tabla de correspondencias está en el anexo nacional
