@@ -898,6 +898,32 @@ def test_lobulo_perfiles_en_la_vista_aproximada():
     assert g.cam_lobe({"profile": "cuadrado"}) is None
 
 
+def test_modos_de_visualizacion():
+    _, gh = ghosts_of("cube(10);")
+    cube = only(gh)
+    wire = g.mesh_edges(cube)
+    assert len(cube) == 12 and len(wire) == 18     # 12 aristas del cubo + 6 diagonales, sin repetir
+    assert wire.shape == (18, 2, 3)
+    assert len(g.mesh_edges(np.zeros((0, 3, 3)))) == 0
+    _, gh = ghosts_of("cylinder(h = 5, r = 3, $fn = 32);")
+    cyl = only(gh)
+    # malla cerrada: cada arista la comparten dos caras (Euler: A = 3C/2)
+    assert len(g.mesh_edges(cyl)) == len(cyl) * 3 // 2
+    keys = [k for k, _ in g.DISPLAY_MODES]
+    assert keys[0] == "shaded" and len(set(keys)) == len(keys)
+    assert [g.next_display_mode(keys[-1]), g.next_display_mode(keys[0], -1)] == [keys[0], keys[-1]]
+    assert g.next_display_mode("desconocido") == keys[1]
+    assert g.display_style("desconocido") == g.display_style("shaded")
+    assert not g.display_style("wireframe")["faces"] and g.display_style("wireframe")["wire"]
+    assert g.display_style("hidden_line")["outline"] and g.display_style("hidden_line")["flat"]
+    cols = np.ones((3, 4))
+    xr = g.xray_colors(cols)
+    assert np.all(xr[:, 3] == g.XRAY_ALPHA) and np.all(cols[:, 3] == 1)   # no toca el original
+    from scadgui.locales import de, en, fr, it, pt
+    for _, label in g.DISPLAY_MODES:                # se traducen con tr(label): no los ve el escáner
+        assert all(label in m.STRINGS for m in (de, en, fr, it, pt)), label
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

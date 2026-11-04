@@ -1002,6 +1002,42 @@ def test_malla_ya_calculada_sale_de_la_cache():
     assert w.viewer.real is first and "en caché" in w.viewer.status.text()
 
 
+def test_modos_de_visualizacion_del_visor():
+    w = window()
+    v = w.viewer
+    tris = np.array([[[0, 0, 0], [10, 0, 0], [0, 10, 0]], [[10, 0, 0], [10, 10, 0], [0, 10, 0]]], float)
+    v.set_mesh(tris)
+    saved = w.settings.value("display_mode", "shaded", str)
+    try:
+        v.set_display_mode("shaded")
+        assert v.model.visible() and not v.wire.visible()
+        v.set_display_mode("wireframe")
+        assert not v.model.visible() and v.wire.visible()
+        assert w.display_actions["wireframe"].isChecked()
+        assert w.settings.value("display_mode", "", str) == "wireframe"
+        assert v.mode_combo.currentData() == "wireframe"
+        v.set_display_mode("shaded_wire")
+        assert v.model.visible() and v.wire.visible()
+        v.set_display_mode("xray")
+        assert v.model.visible() and not v.wire.visible()
+        assert np.allclose(v.model.opts["meshdata"].vertexColors(indexed="faces")[..., 3], 0.28)
+        v.edges_check.setChecked(False)
+        v.set_display_mode("hidden_line")
+        assert v.edges.visible()                  # los contornos salen aunque la casilla esté apagada
+        v.set_display_mode("shaded")
+        assert not v.edges.visible()
+        v.edges_check.setChecked(True)
+        assert v.edges.visible()
+        QTest.keyClick(v.view, Qt.Key.Key_Z)      # Z: el modo siguiente
+        assert v.display_mode == "shaded_wire"
+        w.display_actions["xray"].trigger()       # desde el menú Ver › Visualización
+        assert v.display_mode == "xray" and v.mode_combo.currentData() == "xray"
+        v.mode_combo.setCurrentIndex(0)           # y desde la barra del visor
+        assert v.display_mode == "shaded" and w.display_actions["shaded"].isChecked()
+    finally:
+        w.settings.setValue("display_mode", saved)
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

@@ -4,7 +4,8 @@ from pyqtgraph import Vector
 
 class GLViewWidget(QWidget):
     def __init__(self, parent=None):
-        self.opts = {"center": Vector(0, 0, 0), "distance": 10.0, "elevation": 30.0, "azimuth": 45.0, "fov": 60}
+        self.opts = {"center": Vector(0, 0, 0), "distance": 10.0, "elevation": 30.0, "azimuth": 45.0, "fov": 60,
+                     "bgcolor": (0.15, 0.17, 0.2, 1.0)}
         self.items = []
     def setCameraPosition(self, pos=None, distance=None, elevation=None, azimuth=None):
         if pos is not None: self.opts["center"] = pos
@@ -22,6 +23,7 @@ class _Item:
     def setVisible(self, v): self._vis = bool(v)
     def visible(self): return self._vis
     def setDepthValue(self, d): pass
+    def setGLOptions(self, o): self.kw["glOptions"] = o
     def setData(self, **k): self.data = k
     def setMeshData(self, meshdata=None): self.data = meshdata
     def resetTransform(self): pass
@@ -43,7 +45,8 @@ class MeshData:
 class GLMeshItem(_Item): pass
 class GLLinePlotItem(_Item):
     def setData(self, **k):
-        assert k["pos"].ndim == 2 and k["pos"].shape[1] == 3
-        self.data = k
+        if "pos" in k:                      # como en pyqtgraph: solo cambia lo que se pasa
+            assert k["pos"].ndim == 2 and k["pos"].shape[1] == 3
+        self.data = {**(self.data or {}), **k}
 class GLScatterPlotItem(_Item): pass
 class GLGridItem(_Item): pass

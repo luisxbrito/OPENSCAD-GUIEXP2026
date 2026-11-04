@@ -94,6 +94,68 @@ def feature_edges(tris: Tris, angle_deg: float = 25.0) -> np.ndarray:
     return verts[edges[sel]]
 
 
+def mesh_edges(tris: Tris) -> np.ndarray:
+    """Todas las aristas de los triángulos, cada una una sola vez: segmentos (K, 2, 3).
+
+    Para la vista alámbrica. Una arista compartida por dos caras se dibuja una vez, así que hay unas
+    1,5 por triángulo en vez de 3.
+    """
+    if len(tris) == 0:
+        return np.zeros((0, 2, 3))
+    pts = tris.reshape(-1, 3)
+    scale = max(float(np.abs(pts).max()), 1.0)
+    keys = np.round(pts / (scale * 1e-7)).astype(np.int64)
+    _, index, inverse = np.unique(keys, axis=0, return_index=True, return_inverse=True)
+    faces = inverse.reshape(-1, 3)
+    edges = np.concatenate([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]])
+    edges.sort(axis=1)
+    edges = edges[edges[:, 0] != edges[:, 1]]               # caras degeneradas
+    edges = np.unique(edges, axis=0)
+    return pts[index][edges]
+
+
+# Modos de visualización de la malla en el visor 3D: (clave, nombre que ve el usuario)
+DISPLAY_MODES = (
+    ("shaded", "Sombreado"),
+    ("shaded_wire", "Sombreado con malla"),
+    ("wireframe", "Alámbrica"),
+    ("xray", "Rayos X"),
+    ("hidden_line", "Sin líneas ocultas"),
+)
+XRAY_ALPHA = 0.28          # opacidad de las caras en rayos X
+
+
+_STYLES = {
+    "shaded": dict(faces=True, wire=False, outline=False, flat=False, xray=False),
+    "shaded_wire": dict(faces=True, wire=True, outline=False, flat=False, xray=False),
+    "wireframe": dict(faces=False, wire=True, outline=False, flat=False, xray=False),
+    "xray": dict(faces=True, wire=False, outline=False, flat=False, xray=True),
+    "hidden_line": dict(faces=True, wire=False, outline=True, flat=True, xray=False),
+}
+
+
+def display_style(mode: str) -> dict:
+    """Qué dibuja cada modo (uno desconocido se dibuja sombreado).
+
+    faces: caras visibles · wire: todas las aristas de los triángulos · outline: contornos
+    forzados (aunque la casilla Aristas esté apagada) · flat: caras de un solo color, el del fondo
+    (dibujo de líneas sin las ocultas) · xray: caras semitransparentes, sin tapar lo de detrás.
+    """
+    return dict(_STYLES.get(mode, _STYLES["shaded"]))
+
+
+def next_display_mode(mode: str, step: int = 1) -> str:
+    keys = [k for k, _ in DISPLAY_MODES]
+    i = keys.index(mode) if mode in keys else 0
+    return keys[(i + step) % len(keys)]
+
+
+def xray_colors(colors: np.ndarray) -> np.ndarray:
+    out = np.array(colors, dtype=np.float64, copy=True)
+    out[:, 3] = XRAY_ALPHA
+    return out
+
+
 # --------------------------------------------------------------------------- rayos
 
 def ray_hits(origin, direction, tris: Tris) -> np.ndarray:

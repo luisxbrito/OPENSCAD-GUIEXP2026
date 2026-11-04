@@ -98,6 +98,7 @@ Masks are subtracted from the selected part in one step.
 - Click a part in the view to select it, including the wall of a hole, which selects the cylinder
   that was subtracted.
 - Move gizmo with snapping, measuring tool, colours from `color()`, exploded view, axis ruler and grid.
+- Display modes: shaded, shaded with mesh, wireframe, X-ray and hidden lines removed (Z key).
 - Blender-style view keys (1, 3, 7, 0, 5…) and OpenSCAD colour schemes.
 - Works without OpenSCAD too: you then see an approximate model, without the boolean operations.
 

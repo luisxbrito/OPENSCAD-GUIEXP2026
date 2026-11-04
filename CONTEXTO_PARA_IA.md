@@ -228,6 +228,13 @@ python tests/simulacion/sim_ventana_visor_imagen.py
   la cámara), al parar de girar. `_AxisTriad`: indicador de ejes abajo a la izquierda.
 - Rejilla: menú Ver › Rejilla o tecla G en el visor (sin botón), se guarda en `grid`. El menú Ver
   se rellena en `_fill_view_menu()`, también al cambiar de idioma (antes se quedaba vacío).
+- Modos de visualización (`geometry.DISPLAY_MODES` / `display_style`): sombreado, con malla,
+  alámbrica, rayos X y sin líneas ocultas. Desplegable en la barra del visor, Ver › Visualización y
+  tecla Z (siguiente; no hay Ctrl+Z porque es Deshacer). Se guarda en `display_mode`.
+  `Viewport3D._draw_styled` dibuja cada malla según el modo; las aristas de la malla
+  (`geometry.mesh_edges`, sin repetir) se calculan una vez por malla (`_wire_cache`). Las caras
+  opacas usan `MODEL_SOLID` (glPolygonOffset) para que las líneas a su misma profundidad se vean
+  enteras. «Sin líneas ocultas» pinta las caras del color del fondo y fuerza los contornos.
 - Gizmo: puntas en cono (`geometry.arrow_cone`), dibujado siempre encima de las piezas
   (`SEE_THROUGH` / `ON_TOP_SOLID`: sin profundidad y sin caras traseras). Ver › Flechas de
   arrastre (gizmo) y Preferencias usan la misma opción `gizmo_enabled`.

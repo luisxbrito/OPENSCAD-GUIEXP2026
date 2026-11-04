@@ -13,7 +13,7 @@ from typing import Optional
 
 import numpy as np
 from PySide6.QtCore import QItemSelectionModel, QProcess, QSettings, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence
+from PySide6.QtGui import QAction, QActionGroup, QColor, QIcon, QKeySequence
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QDockWidget, QFileDialog, QFrame,
                                QHBoxLayout,
                                QHeaderView, QLabel, QMainWindow, QMenu, QMessageBox, QPlainTextEdit,
@@ -528,7 +528,18 @@ class MainWindow(QMainWindow):
         self.a_gizmo.setChecked(self.settings.value("gizmo_enabled", True, bool))
         self.a_gizmo.setEnabled(self.gl)
         self.a_gizmo.toggled.connect(self._toggle_gizmo)
+        self.display_group = QActionGroup(self)        # Ver › Visualización (exclusivas)
+        self.display_actions: dict[str, QAction] = {}
+        for key, label in geo.DISPLAY_MODES:
+            a = QAction(tr(label), self)
+            a.setCheckable(True)
+            a.setChecked(key == "shaded")
+            a.setEnabled(self.gl)
+            a.triggered.connect(lambda _=False, k=key: self.viewer.set_display_mode(k) if self.gl else None)
+            self.display_group.addAction(a)
+            self.display_actions[key] = a
         if self.gl:
+            self.viewer.displayModeChanged.connect(self._display_mode_changed)
             self.viewer.gridToggled.connect(self._grid_changed)
             self.viewer.treeOverlayToggled.connect(self.a_tree_overlay.setChecked)
             self.viewer.ruler_btn.toggled.connect(lambda on: self.settings.setValue("ruler", on))
@@ -664,6 +675,14 @@ class MainWindow(QMainWindow):
         m.addAction(self.a_grid)
         self.a_gizmo.setText(tr("Flechas de arrastre (gizmo)"))
         m.addAction(self.a_gizmo)
+        sub = m.addMenu(tr("Visualización"))
+        for key, label in geo.DISPLAY_MODES:
+            a = self.display_actions[key]
+            a.setText(tr(label))
+            sub.addAction(a)
+        sub.addSeparator()
+        hint = sub.addAction(tr("Z con el ratón sobre el visor: siguiente modo"))
+        hint.setEnabled(False)
         m.addSeparator()
         for d in (self.dock_model, self.dock_vars, self.dock_code, self.dock_console):
             m.addAction(d.toggleViewAction())
@@ -672,6 +691,11 @@ class MainWindow(QMainWindow):
         """Ver › Flechas de arrastre: la misma opción que en Preferencias."""
         self.settings.setValue("gizmo_enabled", bool(on))
         self._update_highlight()
+
+    def _display_mode_changed(self, mode: str) -> None:
+        if mode in self.display_actions:
+            self.display_actions[mode].setChecked(True)
+        self.settings.setValue("display_mode", mode)
 
     def _grid_changed(self, on: bool) -> None:
         self.a_grid.blockSignals(True)
@@ -729,6 +753,7 @@ class MainWindow(QMainWindow):
         if self.gl:
             self.viewer.set_ruler(self.settings.value("ruler", True, bool))
             self.viewer.set_grid(self.settings.value("grid", True, bool))
+            self.viewer.set_display_mode(self.settings.value("display_mode", "shaded", str))
         version = self.runner.version()
         if self.runner.exe:
             self.runner.check_backend_support(version)

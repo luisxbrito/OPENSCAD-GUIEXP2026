@@ -288,6 +288,9 @@ QLabel#viewHint { color: #8C97A8; font-size: 8pt; background: transparent; }
 QLabel#viewName { color: #C9D1DC; font-size: 9pt; font-weight: 600; background: transparent; }
 QLabel#measureBadge { background: #12384A; color: #BFEFFF; border-radius: 6px; padding: 5px 10px; font-family: "IBM Plex Mono", Consolas, monospace; font-size: 9pt; }
 QPushButton#viewButton:checked { background: #12384A; border-color: #5BD3FF; color: #FFFFFF; }
+QComboBox#viewCombo { background: transparent; border: 1px solid #5A6372; color: #FFFFFF; padding: 2px 6px; font-size: 9pt; min-height: 0; }
+QComboBox#viewCombo:hover { background: #343A44; }
+QComboBox#viewCombo QAbstractItemView { background: #262B33; color: #FFFFFF; selection-background-color: #12384A; }
 QLabel#selectionBadge { background: #343A44; color: #E8ECF1; border-radius: 6px; padding: 5px 10px; font-size: 9pt; }
 QFrame#treeOverlay { background: transparent; border: 0; }
 QFrame#treeOverlay QLabel#sectionTitle { background: transparent; color: #C9D1DB; }

@@ -16,7 +16,7 @@ import pyqtgraph.opengl as gl
 from OpenGL import GL
 from PySide6.QtCore import QPointF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
-from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QCheckBox, QDoubleSpinBox, QFrame, QHBoxLayout,
+from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout,
                                QLabel, QLineEdit, QPlainTextEdit, QPushButton, QSlider, QTextEdit, QVBoxLayout,
                                QWidget)
 
@@ -54,6 +54,7 @@ VIEW_KEYS = {
     ".": ("frame_selected", "frame_selected"),
     "R": ("ruler", "ruler"),
     "G": ("grid", "grid"),
+    "Z": ("display_next", "display_next"),   # modo de visualización (Ctrl+Z es Deshacer)
     "home": ("frame_all", "frame_all"),
 }
 SHORTCUT_OF = {"Isométrica": "0", "Frontal": "1", "Superior": "7", "Derecha": "3"}
@@ -78,6 +79,15 @@ SEE_THROUGH = {
 }
 # El gizmo se dibuja siempre encima de las piezas. Sus conos son cerrados y con las caras hacia
 # fuera: sin prueba de profundidad, basta con no pintar las caras traseras para que se vean bien.
+# Caras opacas un poco «empujadas» hacia el fondo: las líneas de la malla y los contornos, que están
+# a la misma profundidad, se ven enteras en lugar de a trozos.
+MODEL_SOLID = {
+    GL.GL_DEPTH_TEST: True,
+    GL.GL_BLEND: False,
+    GL.GL_CULL_FACE: False,
+    GL.GL_POLYGON_OFFSET_FILL: True,
+    "glPolygonOffset": (1.0, 1.0),
+}
 ON_TOP_SOLID = {
     GL.GL_DEPTH_TEST: False,
     GL.GL_BLEND: False,
@@ -85,6 +95,10 @@ ON_TOP_SOLID = {
 }
 
 EDGE_COLOR = (0.10, 0.12, 0.16, 0.85)
+EDGE_ON_DARK = (0.82, 0.86, 0.92, 0.95)     # contornos de «Sin líneas ocultas» sobre fondo oscuro
+WIRE_ON_DARK = (0.78, 0.84, 0.95, 0.55)     # aristas de la vista alámbrica
+WIRE_ON_LIGHT = (0.12, 0.15, 0.22, 0.55)
+WIRE_OVER_FACES = (0.05, 0.07, 0.10, 0.32)  # malla sobre las caras sombreadas
 SELECT_COLOR = (1.0, 0.55, 0.14, 0.38)
 SELECT_EDGE = (1.0, 0.62, 0.25, 1.0)
 HASH_COLOR = (1.0, 0.35, 0.55, 0.30)      # piezas con #
@@ -363,6 +377,7 @@ class Viewer3D(QWidget):
     edgeFinish = Signal(str, float, list)  # "round" | "chamfer" | "none", valor, [(id, clave)]
     gridToggled = Signal(bool)             # rejilla del suelo mostrada u ocultada (tecla G)
     treeOverlayToggled = Signal(bool)      # el usuario pide (o quita) el árbol sobre el visor
+    displayModeChanged = Signal(str)       # modo de visualización (clave de geo.DISPLAY_MODES)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -431,8 +446,17 @@ class Viewer3D(QWidget):
         self.edges_check = QCheckBox(tr("Aristas"))
         self.edges_check.setObjectName("viewCheck")
         self.edges_check.setChecked(True)
-        self.edges_check.toggled.connect(lambda on: self.edges.setVisible(on and self.real is not None))
+        self.edges_check.toggled.connect(lambda _on: self._show_model())
         row.addWidget(self.edges_check)
+        self.display_mode = "shaded"
+        self.mode_combo = QComboBox()
+        self.mode_combo.setObjectName("viewCombo")
+        for key, label in geo.DISPLAY_MODES:
+            self.mode_combo.addItem(tr(label), key)
+        self.mode_combo.setToolTip(tr("Modo de visualización de la malla (tecla Z: el siguiente)"))
+        self.mode_combo.currentIndexChanged.connect(
+            lambda i: self.set_display_mode(self.mode_combo.itemData(i)))
+        row.addWidget(self.mode_combo)
         self.explosion_label = QLabel(tr("Explosión:"))
         row.addWidget(self.explosion_label)
         self.explosion_slider = QSlider(Qt.Orientation.Horizontal)
@@ -491,8 +515,10 @@ class Viewer3D(QWidget):
         for item in self.ruler_pos + self.ruler_neg:
             self.view.addItem(item)
 
-        self.model = _mesh_item(geo.DEFAULT_COLOR, "opaque", 0)
-        self.approx = _mesh_item(geo.DEFAULT_COLOR, "opaque", 0)
+        self.model = _mesh_item(geo.DEFAULT_COLOR, MODEL_SOLID, 0)
+        self.approx = _mesh_item(geo.DEFAULT_COLOR, MODEL_SOLID, 0)
+        self.wire = _line_item(WIRE_ON_DARK, 1.0, "translucent", 1)   # vista alámbrica / con malla
+        self._wire_cache = (None, None)   # (triángulos, sus aristas): no se recalculan al girar
         self.colors: dict = {}
         self._face_colors = None  # colores que trae el .off de OpenSCAD
         self._owner = None        # pieza (id de nodo) de cada cara de la malla real
@@ -526,7 +552,7 @@ class Viewer3D(QWidget):
 
         self.gizmo_tips = _mesh_item((1.0, 1.0, 1.0, 1.0), ON_TOP_SOLID, 31)   # puntas de flecha (conos)
 
-        for item in (self.model, self.approx, self.edges, self.background, self.hashed, self.highlight,
+        for item in (self.model, self.approx, self.wire, self.edges, self.background, self.hashed, self.highlight,
                      self.highlight_edges, self.measure_line, self.measure_dots,
                      self.edge_picked_lines, self.edge_hover_line, self.gizmo_lines, self.gizmo_tips):
             self.view.addItem(item)
@@ -714,13 +740,12 @@ class Viewer3D(QWidget):
                 offsets = geo.explosion_offsets(tris, parts, amount)
                 tris = geo.apply_offsets(tris, parts, offsets)
                 ghosts = self._move_ghosts(offsets)
-            _set_mesh(self.model, tris, self._model_cols)
-            _set_lines(self.edges, geo.feature_edges(tris))
-            self.edges.setVisible(self.edges_check.isChecked())
+            self._draw_styled(self.model, tris, self._model_cols, outline=True)
             self.approx.setVisible(False)
         else:
             self.model.setVisible(False)
             self.edges.setVisible(False)
+            self.wire.setVisible(False)
             visible = {k: v for k, v in self.ghosts.items() if k not in self.subtracted} if amount > 0 else self.ghosts
             if visible:
                 tris, cols = geo.ghost_colors(visible, self.colors)
@@ -729,7 +754,7 @@ class Viewer3D(QWidget):
                     offsets = geo.explosion_offsets(tris, parts, amount)
                     tris = geo.apply_offsets(tris, parts, offsets)
                     ghosts = self._move_ghosts(offsets)
-                _set_mesh(self.approx, tris, cols)
+                self._draw_styled(self.approx, tris, cols, outline=False)
             else:
                 self.approx.setVisible(False)
         self._display_ghosts = ghosts
@@ -744,6 +769,62 @@ class Viewer3D(QWidget):
         """Aplica a las mallas aproximadas el mismo desplazamiento que a su pieza (para seleccionar)."""
         return {k: (t + offsets[self.part_of[k]] if self.part_of.get(k) in offsets else t)
                 for k, t in self.ghosts.items()}
+
+    # ------------------------------------------------------------- modos de visualización
+    def set_display_mode(self, mode: str) -> None:
+        """Sombreado, con malla, alámbrica, rayos X o sin líneas ocultas (geo.DISPLAY_MODES)."""
+        keys = [k for k, _ in geo.DISPLAY_MODES]
+        if mode not in keys:
+            mode = "shaded"
+        changed = mode != self.display_mode
+        self.display_mode = mode
+        if self.mode_combo.currentIndex() != keys.index(mode):
+            self.mode_combo.blockSignals(True)
+            self.mode_combo.setCurrentIndex(keys.index(mode))
+            self.mode_combo.blockSignals(False)
+        self._show_model()
+        self.view.update()
+        if changed:
+            self.displayModeChanged.emit(mode)
+
+    def _wire_of(self, tris: np.ndarray) -> np.ndarray:
+        cached, segs = self._wire_cache
+        if cached is not tris:
+            segs = geo.mesh_edges(tris)
+            self._wire_cache = (tris, segs)
+        return segs
+
+    def _draw_styled(self, item, tris: np.ndarray, cols, outline: bool) -> None:
+        """Dibuja una malla según el modo de visualización. ``outline``: también los contornos
+        (la malla real; la aproximada no los lleva)."""
+        style = geo.display_style(self.display_mode)
+        if not style["faces"]:
+            item.setVisible(False)
+        else:
+            if style["flat"]:
+                r, g, b = self.view.opts["bgcolor"][:3]          # del color del fondo: solo se ven las líneas
+                cols = np.tile(np.array([r, g, b, 1.0]), (len(tris), 1))
+            elif style["xray"]:
+                if cols is None:
+                    base = np.tile(np.array(item.base_color, dtype=np.float64), (len(tris), 1))
+                    cols = geo.shade(geo.face_normals(tris), base)
+                cols = geo.xray_colors(cols)
+            item.setGLOptions(SEE_THROUGH if style["xray"] else MODEL_SOLID)
+            _set_mesh(item, tris, cols)
+        if style["wire"]:
+            on_faces = style["faces"]
+            color = WIRE_OVER_FACES if on_faces else (WIRE_ON_LIGHT if self.light_background else WIRE_ON_DARK)
+            self.wire.setData(color=color)
+            _set_lines(self.wire, self._wire_of(tris))
+        else:
+            self.wire.setVisible(False)
+        if outline:
+            if style["outline"] or (self.edges_check.isChecked() and style["faces"]):
+                dark = style["flat"] and not self.light_background
+                self.edges.setData(color=EDGE_ON_DARK if dark else EDGE_COLOR)
+                _set_lines(self.edges, geo.feature_edges(tris))
+            else:
+                self.edges.setVisible(False)
 
     def set_highlight(self, tris: Optional[np.ndarray]) -> None:
         self._highlight_tris = tris if tris is not None and len(tris) else None
@@ -828,6 +909,8 @@ class Viewer3D(QWidget):
             self.ruler_btn.toggle()
         elif action == "grid":
             self.set_grid(not self.grid.visible())
+        elif action == "display_next":
+            self.set_display_mode(geo.next_display_mode(self.display_mode))
 
     # ------------------------------------------------------------- rejilla
     def set_render_delay(self, ms: int) -> None:
@@ -944,6 +1027,9 @@ class Viewer3D(QWidget):
         self.ruler_btn.setText(tr("Regla"))
         self.ruler_btn.setToolTip(tr("Regla graduada en los ejes, como la de OpenSCAD (tecla R)"))
         self.edges_check.setText(tr("Aristas"))
+        for i, (_, label) in enumerate(geo.DISPLAY_MODES):
+            self.mode_combo.setItemText(i, tr(label))
+        self.mode_combo.setToolTip(tr("Modo de visualización de la malla (tecla Z: el siguiente)"))
         self.explosion_label.setText(tr("Explosión:"))
         self.explosion_slider.setToolTip(tr("Separa las piezas para visualización explosionada"))
         self.auto.setText(tr("Actualizar sola"))
