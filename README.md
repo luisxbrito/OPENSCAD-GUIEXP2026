@@ -214,6 +214,8 @@ This produces `dist/OpenSCAD_GUI_Mejorada.exe` and a zip with the examples. Open
 - A mesh cannot hold a tolerance of hundredths of a millimetre. For fits, machine to the values the
   dialog lists, not to the exported STL.
 - The 3D-printing allowances are starting points, not standards. Print a test piece first.
+- Belt drives: pick the final belt from a maker's catalogue. The V-belt length the calculator gives is
+  the pitch (datum) length; some catalogues name belts by their inside or outside length instead.
 - Parts are modelled for fit-checking and drawings: no threads, flat roots instead of fillet radii,
   and no tolerance classes on gears. Flanges have no fillet radii, weld bevel or facing finish.
 - The flange tables are those of the editions listed above (ASME B16.5-2013 and EN 1092-1:2018).
