@@ -1078,6 +1078,7 @@ STRINGS: dict[str, str] = {
     'Transformar': 'Transformar',
     'Transparente (%)': 'Transparente (%)',
     'Trasera': 'Traseira',
+    'en caché': 'em cache',
     'triángulos': 'triângulos',
     'Tuerca Autoblocante (DIN 985)': 'Porca autotravante (DIN 985)',
     'Tuerca hexagonal autoblocante {size} DIN 985': 'Porca sextavada autotravante {size} DIN 985',

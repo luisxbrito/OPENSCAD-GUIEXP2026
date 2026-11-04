@@ -1078,6 +1078,7 @@ STRINGS: dict[str, str] = {
     'Transformar': 'Transform',
     'Transparente (%)': 'Transparent (%)',
     'Trasera': 'Back',
+    'en caché': 'cached',
     'triángulos': 'triangles',
     'Tuerca Autoblocante (DIN 985)': 'Lock nut (DIN 985)',
     'Tuerca hexagonal autoblocante {size} DIN 985': 'Self-locking hex nut {size} DIN 985',

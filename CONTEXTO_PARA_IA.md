@@ -44,6 +44,8 @@ scadgui/                   lógica SIN Qt (se prueba sin PySide6)
   radii.py                 r/d/r1/d1/r2/d2 sin choques (las reglas de prioridad de OpenSCAD)
   code_assist.py           plantillas, fragmentos y ayuda de parámetros del editor
   runner.py                QProcess que llama a openscad (única pieza de Qt fuera de ui/)
+  meshcache.py             caché LRU de mallas del visor por huella SHA-256 (código + opciones CLI + motor
+                           + exe + carpeta); no guarda código con include/use/import/surface (archivos externos)
   i18n.py, locales/*.py    tr() y un diccionario por idioma (español → idioma)
 scadgui/ui/                solo ventanas y diálogos (PySide6)
   mainwindow.py            ventana: cinta, árbol, propiedades, código, consola, deshacer, gizmo

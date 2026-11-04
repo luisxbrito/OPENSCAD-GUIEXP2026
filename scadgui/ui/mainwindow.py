@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QDock
 from .. import __version__
 from .. import colorschemes
 from .. import geometry as geo
+from .. import meshcache
 from ..catalog import CATEGORIES, SPECS, specs_in
 from ..edges import finish_edges
 from ..i18n import get_language, set_language, tr
@@ -348,6 +349,8 @@ class MainWindow(QMainWindow):
         self._gizmo_initial_v = [0.0, 0.0, 0.0]
 
         self.runner = OpenScadRunner(self)
+        self.mesh_cache = meshcache.MeshCache()   # mallas ya calculadas: no se repite OpenSCAD
+        self._mesh_key: Optional[str] = None      # huella de la malla pedida a OpenSCAD
         self.runner.exe = find_openscad(self.settings.value("openscad_path", "", str))
         self.runner.backend = self.settings.value("backend", "", str)
 
@@ -1762,6 +1765,18 @@ class MainWindow(QMainWindow):
         code = generate(self.doc, header=False).text
         self.runner.extra_args = self._openscad_args()
         base = os.path.dirname(self.path) if self.path else ""
+        self._mesh_key = None
+        if meshcache.cacheable(code):
+            key = meshcache.mesh_key(code, self.runner.extra_args, self.runner.backend, self.runner.exe, base)
+            cached = self.mesh_cache.get(key)
+            if cached is not None:
+                self.runner.cancel_preview()      # un cálculo anterior ya no debe llegar al visor
+                if cached == meshcache.EMPTY:
+                    self.on_mesh_empty()
+                else:
+                    self._show_mesh(*cached, tr("en caché"))
+                return
+            self._mesh_key = key
         self.runner.export_mesh(code, base)
 
     def on_mesh(self, path: str, seconds: float) -> None:
@@ -1775,10 +1790,19 @@ class MainWindow(QMainWindow):
                 os.remove(path)
             except OSError:
                 pass
+        if self._mesh_key is not None:
+            self.mesh_cache.put(self._mesh_key, (tris, face_colors))
+            self._mesh_key = None
+        self._show_mesh(tris, face_colors, f"{seconds:.1f} s")
+
+    def _show_mesh(self, tris, face_colors, timing: str) -> None:
         self.viewer.set_mesh(tris, face_colors)
-        self.viewer.status.setText(f"{tr('Listo')} · {seconds:.1f} s · {len(tris):,} {tr('triángulos')}".replace(",", "."))
+        self.viewer.status.setText(f"{tr('Listo')} · {timing} · {len(tris):,} {tr('triángulos')}".replace(",", "."))
 
     def on_mesh_empty(self) -> None:
+        if self._mesh_key is not None:
+            self.mesh_cache.put(self._mesh_key, meshcache.EMPTY)
+            self._mesh_key = None
         self.viewer.set_mesh(None)
         self.viewer.status.setText(tr("Sin geometría"))
 

@@ -1876,6 +1876,45 @@ def test_arbol_de_levas_del_asistente():
     assert [n.params for n in again.children[0].children] == [n.params for n in group.children]
 
 
+def test_mesh_cache():
+    import numpy as np
+    from scadgui import meshcache as mc
+    code = "cube(10);"
+    key = mc.mesh_key(code, ["--enable=roof"], "manifold", "openscad.exe", "C:/a")
+    assert key == mc.mesh_key(code, ["--enable=roof"], "manifold", "openscad.exe", "C:/a")
+    # cualquier cosa que cambie la forma o cómo se calcula cambia la huella
+    for other in (mc.mesh_key("cube(11);", ["--enable=roof"], "manifold", "openscad.exe", "C:/a"),
+                  mc.mesh_key(code, [], "manifold", "openscad.exe", "C:/a"),
+                  mc.mesh_key(code, ["--enable=roof"], "cgal", "openscad.exe", "C:/a"),
+                  mc.mesh_key(code, ["--enable=roof"], "manifold", "otro.exe", "C:/a"),
+                  mc.mesh_key(code, ["--enable=roof"], "manifold", "openscad.exe", "C:/b")):
+        assert other != key
+    assert mc.mesh_key("a", ["b"]) != mc.mesh_key("ab", [])     # los campos no se mezclan
+    # lo que lee archivos de disco no se guarda
+    assert mc.cacheable("cube(10);")
+    for ext in ('include <lib.scad>', 'use <x.scad>', 'import("a.stl");', 'surface(file = "h.dat");'):
+        assert not mc.cacheable("cube(1);\n" + ext)
+    tri = np.zeros((10, 3, 3))                                   # 720 bytes
+    cache = mc.MeshCache(max_bytes=2000, max_entries=5)
+    assert cache.get("a") is None
+    cache.put("a", (tri, None))
+    cache.put("b", (tri.copy(), np.zeros((10, 4))))              # 720 + 320
+    assert len(cache) == 2 and cache.bytes == 1760
+    assert cache.get("a")[0] is tri                              # "a" pasa a ser la más reciente
+    cache.put("c", (tri.copy(), None))                           # se pasa de 2000: sale "b"
+    assert cache.get("b") is None and cache.get("a") is not None and cache.bytes == 1440
+    cache.put("vacio", mc.EMPTY)
+    assert cache.get("vacio") == mc.EMPTY
+    cache.put("enorme", (np.zeros((100, 3, 3)), None))           # más grande que toda la caché
+    assert cache.get("enorme") is None and cache.get("a") is not None
+    small = mc.MeshCache(max_entries=2)
+    for k in "xyz":
+        small.put(k, mc.EMPTY)
+    assert len(small) == 2 and small.get("x") is None
+    cache.clear()
+    assert len(cache) == 0 and cache.bytes == 0
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

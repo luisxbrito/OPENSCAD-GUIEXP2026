@@ -962,6 +962,46 @@ def test_barra_del_visor_cambia_de_idioma():
         w.retranslate_ui()
 
 
+def _wait_mesh(w, seconds=60):
+    import time
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        app.processEvents()
+        if not w.runner.busy() and w.runner._pending is None:
+            app.processEvents()
+            return
+        time.sleep(0.02)
+    raise AssertionError("OpenSCAD no terminó")
+
+
+def test_malla_ya_calculada_sale_de_la_cache():
+    w = window()
+    if not w.runner.exe:
+        print("     (sin OpenSCAD: se omite)")
+        return
+    cube = w.doc.children[0].children[0]
+    w.viewer._render_timer.stop()          # el cálculo del arranque se lanza aquí mismo
+    w._render_mesh()
+    _wait_mesh(w)
+    w.mesh_cache.clear()
+    w._render_mesh()                      # primera vez: lo calcula OpenSCAD
+    assert w.runner.busy()
+    _wait_mesh(w)
+    first = w.viewer.real
+    assert first is not None and len(w.mesh_cache) == 1
+    assert "en caché" not in w.viewer.status.text()
+    size = cube.params["size"]
+    cube.params["size"] = [s + 2 for s in size]
+    w._render_mesh()                       # modelo distinto: otra vez OpenSCAD
+    assert w.runner.busy()
+    _wait_mesh(w)
+    assert len(w.mesh_cache) == 2 and w.viewer.real is not first
+    cube.params["size"] = size
+    w._render_mesh()                       # vuelve al estado de antes: sin llamar a OpenSCAD
+    assert not w.runner.busy()
+    assert w.viewer.real is first and "en caché" in w.viewer.status.text()
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

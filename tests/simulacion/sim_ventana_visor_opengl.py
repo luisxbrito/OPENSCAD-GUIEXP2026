@@ -149,6 +149,7 @@ QProcess.started_args.clear()
 r._proc = None
 r.export("cube(1);", "", "/tmp/x.stl")
 r.busy = lambda: True
+w.mesh_cache.clear()        # el mismo cuadrado ya quedó guardado como vacío: hay que pedirlo de nuevo
 w.render_view(False)
 assert len(QProcess.started_args) == 1 and r._pending is not None
 r.busy = lambda: False
