@@ -1129,6 +1129,50 @@ def test_calculadora_de_transmision():
     assert w.doc.children == []
 
 
+def test_calculadora_de_correas():
+    """En modo correa la calculadora cambia los campos y la tabla, y genera las poleas con su correa."""
+    from scadgui.i18n import set_language
+    from scadgui.model import Document
+    from scadgui.ui import transmission_dialog as td
+    set_language("es")
+    w = window()
+    dlg = td.TransmissionDialog(w)
+    dlg.combo_drive.setCurrentIndex(1)                      # correa dentada
+    dlg.refresh()
+    assert dlg.box_timing.isVisibleTo(dlg) and not dlg.box_gears.isVisibleTo(dlg)
+    assert dlg.table.columnCount() == 6 and dlg.btn_insert.text() == "Generar poleas"
+    sol = dlg.selected()
+    assert sol.kind == "pulley" and "dientes" in dlg.table.item(0, 4).text() and "Correa XL" in dlg.lbl_info.text()
+    dlg.combo_drive.setCurrentIndex(2)                      # en V
+    dlg.refresh()
+    assert dlg.box_v.isVisibleTo(dlg) and dlg.selected().kind == "v_pulley"
+    assert "catálogo" in dlg.lbl_info.text()
+    dlg.spin_vlength.setValue(1500)
+    dlg.refresh()
+    assert dlg.selected().length == 1500 and "catálogo" not in dlg.lbl_info.text()
+    dlg.spin_dmax.setValue(20)                              # nada cabe: avisa y no deja generar
+    dlg.refresh()
+    assert dlg.table.rowCount() == 0 and not dlg.btn_insert.isEnabled()
+    dlg.deleteLater()
+    w.set_document(Document())
+    real, td.TransmissionDialog.exec = td.TransmissionDialog.exec, lambda d: True
+    real_init = td.TransmissionDialog.__init__
+
+    def init(d, parent=None):
+        real_init(d, parent)
+        d.combo_drive.setCurrentIndex(2)
+        d.spin_grooves.setValue(2)
+        d.refresh()
+    td.TransmissionDialog.__init__ = init
+    try:
+        w.run_command("transmission_wizard")
+    finally:
+        td.TransmissionDialog.exec, td.TransmissionDialog.__init__ = real, real_init
+    group = w.doc.children[0]
+    assert [c.kind for c in group.children] == ["v_pulley", "translate", "color", "color"]
+    assert group.children[0].params["grooves"] == 2
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

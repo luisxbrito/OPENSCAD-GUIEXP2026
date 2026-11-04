@@ -36,7 +36,7 @@ scadgui/                   lógica SIN Qt (se prueba sin PySide6)
   flanges.py               bridas ASME B16.5 / EN 1092-1: tablas, medidas, avisos y constructor
   camshaft.py              árbol de levas: reparto de lóbulos por cilindros y avisos del conjunto
   transmission.py          calculadora de transmisiones: dientes para una relación (1 o 2 etapas,
-                           tren revertido) y el tren ya colocado en un group()
+                           tren revertido) o poleas y correa (dentada o en V), y todo colocado en un group()
   sketches.py              perfiles 2D paramétricos
   drawing.py               lámina técnica 2D (vistas en sistema europeo)
   operations.py            textos y ajustes rápidos de la guía de cada operación
@@ -494,8 +494,8 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     `camshaft_main_shaft` para no romper archivos ya guardados); fase 5 (exportar por piezas y
     colocar para imprimir); fase 6 (casos al azar en los dos motores). Sin animación ni cinemática.
 
-- **Calculadora de transmisión** (fase 1 de un encargo en dos: la 2 son poleas dentadas y en V,
-  con la longitud de correa estándar; el dimensionado por potencia y par quedó para más tarde).
+- **Calculadora de transmisión** (encargo en dos fases, las dos hechas; el dimensionado por potencia
+  y par quedó para más tarde).
   `transmission.py` (sin Qt): `search()` recorre los dientes de z_min a z_max y, en dos etapas,
   cada pareja de la primera con el conducido de la segunda más cercano a la relación que falta
   (unas décimas de segundo con 12..120). Relación = velocidad de entrada/salida = z2/z1·z4/z3; las
@@ -508,6 +508,18 @@ python tests/simulacion/sim_ventana_visor_imagen.py
   dos del eje intermedio, la misma (sus empujes se restan). `test_openscad` comprueba con OpenSCAD
   que ninguna pareja se toca y, en los rectos, que medio diente girada sí choca (chocar
   helicoidales tarda minutos en CGAL).
+  - Fase 2, correas (`search_timing`, `search_v`, `create_belt_drive`, `BeltSolution`): correa
+    abierta, L = 2C + π(d1 + d2)/2 + (d2 − d1)²/(4C) y su inversa para C. Dentada: relación exacta
+    z2/z1, la correa se redondea a un número entero de pasos y C se recalcula; aviso con menos de 6
+    dientes abrazados en la polea pequeña. En V: Ø datum múltiplos del paso desde el mínimo de la
+    sección (V_BELT_SECTIONS), el conducido redondeado a 0.5 mm, sin deslizamiento; la longitud
+    que sale es la primitiva y el usuario mete la de su catálogo para recalcular C (no se
+    incluyen tablas de longitudes comerciales: cambian según el fabricante). Avisos: abrazamiento
+    < 120°, más de 30 m/s y los de cada polea. La correa es opcional y va como `color("DimGray")`
+    con una banda lisa (hull de dos círculos menos otro hull), sin dientes; en la dentada sale
+    0.1 mm por fuera del Ø exterior y en la en V es rectangular, del ancho del fondo de la ranura
+    menos 0.4 mm, para que no se meta en la polea (`test_openscad` lo comprueba). No se usa `%`
+    porque OpenSCAD lo deja fuera de la malla exportada y el visor no la vería.
 
 ## 7. Limitaciones conocidas y siguientes pasos posibles
 

@@ -31,7 +31,7 @@ SAME_AS_SPANISH = {
            "Número de lados:", "Polígono", "Polígono regular", "Rápido (300 ms)", "Sólidos 3D",
            "Tipo de componente normalizado", "Tipo de perfil 2D", "código", "de",
            "Círculo 1", "Círculo 2", "Hexágono", "Polígono de {n} lados", "Ortográfica", "Módulo (m)",
-           "Módulo normal (mn)", "parabólica"},
+           "Módulo normal (mn)", "parabólica", "automática", "Ø máximo", "Ø mínimo"},
 }
 
 

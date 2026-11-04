@@ -992,6 +992,53 @@ def test_calculadora_de_transmisiones():
     generate(Document(children=[group]))
 
 
+def test_calculadora_de_correas():
+    import math as m
+    from scadgui import gears, transmission as tm
+    from scadgui.model import Document, generate
+    # Longitud de correa abierta y la distancia que le corresponde (la una deshace la otra)
+    assert m.isclose(tm.belt_length(50, 50, 100), 200 + 50 * m.pi)
+    assert m.isclose(tm.belt_center(40, 120, tm.belt_length(40, 120, 150)), 150)
+    assert tm.belt_center(40, 120, 100) is None                     # no da la vuelta a las dos
+    assert tm.wrap_angle(50, 50, 100) == 180 and tm.wrap_angle(40, 120, 80) < 180
+    # Dentada: relación exacta, correa de un número entero de dientes y su distancia, recalculada
+    sols = tm.search_timing(2.5, 0, "XL", 10, 80)
+    assert sols and all(s.ratio == 2.5 and s.driven / s.driver == 2.5 for s in sols)
+    p = gears.PULLEY_SECTIONS["XL"][0]
+    for s in sols:
+        d1, d2 = s.diameters
+        assert m.isclose(s.length, s.belt_teeth * p) and m.isclose(tm.belt_length(d1, d2, s.center), s.length)
+    assert sols[0].mesh_teeth >= tm.MIN_MESH_TEETH                  # primero las que no avisan
+    near = tm.search_timing(2.5, 0, "XL", 10, 80, center=200)
+    assert all(abs(s.center - 200) < p for s in near)               # cerca de la pedida (medio paso de correa)
+    weak = tm.BeltSolution("pulley", "XL", 10, 25, 2.5, 0, 56, tm.belt_length(
+        gears.pulley_dims("XL", 10)["pitch_d"], gears.pulley_dims("XL", 25)["pitch_d"], 56), 0)
+    assert any("abraza" in t for t, _ in tm.belt_notes(weak))
+    # En V: Ø redondos (múltiplos del paso) desde el mínimo de la sección; los dos dentro de los límites
+    vs = tm.search_v(2.5, 1, "A", 0, 300, 5)
+    assert vs[0].driver == 80 and vs[0].driven == 200 and m.isclose(vs[0].center, 280)
+    assert all(s.driver % 5 == 0 and 76.2 <= min(s.driver, s.driven) and max(s.driver, s.driven) <= 300
+               for s in vs)
+    fixed = tm.search_v(2.5, 1, "A", 0, 300, 5, length=1200)
+    assert fixed and all(s.length == 1200 and m.isclose(tm.belt_length(s.driver, s.driven, s.center), 1200)
+                         for s in fixed)
+    over = tm.search_v(0.5, 1, "B", 0, 400, 5)                      # multiplicadora: la motriz es la grande
+    assert over and all(s.driver > s.driven >= 137.16 for s in over)
+    texts = [t for t, _ in tm.belt_notes(tm.BeltSolution("v_pulley", "A", 80, 300, 3.75, 0, 160, 0), 9000)]
+    assert any("abrazamiento" in t for t in texts) and any("m/s" in t for t in texts)
+    # Generado: motriz en el origen, conducida a la distancia y la correa como una pieza aparte
+    s = sols[0]
+    g = tm.create_belt_drive(s, {"width": 8, "bore": 5, "flange": "ambas"})
+    assert [c.kind for c in g.children] == ["pulley", "translate", "color"]
+    assert g.children[0].params["teeth"] == s.driver and g.children[1].children[0].params["teeth"] == s.driven
+    assert g.children[1].params["v"][0] == round(s.center, 6) and g.children[0].params["flange"] == "ambas"
+    g = tm.create_belt_drive(vs[0], {"grooves": 3, "bore": 0}, belt=True)
+    assert len(g.children) == 5 and "bore" not in g.children[0].params   # una correa por ranura
+    assert g.children[1].children[0].params["datum_d"] == 200
+    assert len(tm.create_belt_drive(vs[0], {"grooves": 3}, belt=False).children) == 2
+    generate(Document(children=[g]))
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

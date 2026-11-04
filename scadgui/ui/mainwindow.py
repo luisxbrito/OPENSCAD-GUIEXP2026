@@ -124,7 +124,8 @@ class Ribbon(QTabWidget):
         ("mech", "flange_wizard", "pipe_flange", "Bridas ·\nNormalizadas",
          "Bridas ASME B16.5 y EN 1092-1: de cuello, deslizantes, ciegas y planas, con sus medidas."),
         ("mech", "transmission_wizard", "transmission", "Calculadora ·\nde transmisión",
-         "Busca los dientes de los engranajes para una relación o unas velocidades, y los genera ya engranados."),
+         "Busca los engranajes, o las poleas y la correa, para una relación o unas velocidades, y los genera "
+         "ya colocados."),
         ("mech", "camshaft_wizard", "cam_lobe", "Árbol ·\nde levas",
          "Eje y lóbulos repartidos por cilindros, con sus desfases; luego se cambia cada lóbulo por separado."),
         ("shape2d", "sketch2d", "sketch", "Boceto 2D ·\nAsistente",
@@ -478,8 +479,8 @@ class MainWindow(QMainWindow):
         self.a_camshaft = self._act("Insertar árbol de levas…", self.open_camshaft_dialog, None, "cam_lobe",
                                     "Eje y lóbulos repartidos por cilindros, con sus desfases")
         self.a_transmission = self._act("Calculadora de transmisión…", self.open_transmission_dialog, None,
-                                        "transmission", "Dientes de los engranajes para una relación, y las ruedas "
-                                        "ya colocadas")
+                                        "transmission", "Engranajes, o poleas y correa, para una relación, ya "
+                                        "colocados")
         self.a_preview = self._act("Vista previa", lambda: self.render_view(False), "F5", "preview",
                                    "Vista previa rápida (resalta la selección)")
         self.a_render = self._act("Render", lambda: self.render_view(True), "F6", "render_action",
@@ -1269,7 +1270,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(tr("Componente añadido: {name}").format(name=group.name), 4000)
 
     def open_transmission_dialog(self) -> None:
-        from ..transmission import create_train
+        from ..transmission import create_belt_drive, create_train
         from .transmission_dialog import TransmissionDialog
 
         dlg = TransmissionDialog(parent=self)
@@ -1278,8 +1279,11 @@ class MainWindow(QMainWindow):
         res = dlg.get_result()
         if res["solution"] is None:
             return
-        group = create_train(res["solution"], res["kind"], res["params"], res["stage_gap"], res["coaxial"],
-                             unique_fn=self.doc.unique_name)
+        if res["drive"] == "gears":
+            group = create_train(res["solution"], res["kind"], res["params"], res["stage_gap"], res["coaxial"],
+                                 unique_fn=self.doc.unique_name)
+        else:
+            group = create_belt_drive(res["solution"], res["params"], res["belt"], unique_fn=self.doc.unique_name)
         self.mutate(lambda: self.doc.children.append(group), select=[group.id])
         self.statusBar().showMessage(tr("Componente añadido: {name}").format(name=group.name), 4000)
 

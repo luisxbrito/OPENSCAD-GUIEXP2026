@@ -591,6 +591,25 @@ def test_calculadora_de_transmisiones_engrana():
             inter.children = [copy.deepcopy(group.children[a]), wrong]
             assert volume_of(generate(Document(children=[inter])).text) > 1, (kind, sol.stages, a, b)
 
+def test_calculadora_de_correas_en_openscad():
+    """Las dos poleas y la correa de referencia se renderizan, y la correa no se mete en ninguna polea
+    (ni en la dentada ni en las ranuras de la en V)."""
+    import copy
+    from scadgui import transmission as tm
+    timing = tm.search_timing(3, 1, "XL", 10, 80)[0]
+    for sol, params in ((timing, {"width": 8, "bore": 5}),
+                        (timing, {"width": 8, "flange": "ambas", "flange_height": 2}),
+                        (timing, {"width": 8, "flange": "inferior"}),
+                        (tm.search_v(2.5, 1, "A", 0, 300, 5)[0], {"grooves": 2, "bore": 12})):
+        g = tm.create_belt_drive(sol, params)
+        render(generate(Document(children=[g])).text)
+        for i in (0, 1):
+            for belt in g.children[2:]:
+                inter = make_node("intersection")
+                inter.children = [copy.deepcopy(g.children[i]), copy.deepcopy(belt)]
+                assert volume_of(generate(Document(children=[inter])).text) == 0, (sol.kind, i)
+
+
 if __name__ == "__main__":
     if not EXE:
         print("OpenSCAD no encontrado: se omiten estas pruebas (define OPENSCAD para indicar dónde está)")

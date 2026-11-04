@@ -62,7 +62,7 @@ All by module (metric). The panel shows the calculated dimensions and warns abou
 | Involute spline | Shaft and hub (ANSI B92.2M / ISO 4156), 30°, 37.5° and 45°; the hub is added in place, already meshing |
 | Keyways | On gears and pulleys, sized by bore from BS 4235-1 / ISO R773 |
 | Plate cam | Rise, dwell and fall with the cycloidal, harmonic, parabolic or constant-velocity law (*Machinery's Handbook*, «Cams and Cam Design») |
-| Gear train calculator | Tooth counts for a ratio or a pair of speeds, in one or two stages, and the gears created already meshing ([see below](#gear-train-calculator)) |
+| Transmission calculator | Gear tooth counts, or timing and V-belt pulleys with the belt length, for a ratio or a pair of speeds, created already in place ([see below](#transmission-calculator)) |
 | Camshaft (in progress) | Main shaft and lobes as separate parts: each lobe has its own axial position, nose angle, law, lift and rise/fall angles (asymmetric lobes allowed) |
 
 ![Spur gear pair with keyways](docs/images/gears_spur_pair.png)
@@ -72,12 +72,16 @@ All by module (metric). The panel shows the calculated dimensions and warns abou
 | ![Helical rack and gear](docs/images/gears_helical_rack.png) | ![Bevel gear pair](docs/images/gears_bevel_pair.png) |
 | ![Spline shaft in its hub](docs/images/spline_shaft_hub.png) | ![Timing and V-belt pulleys](docs/images/pulleys.png) |
 
-#### Gear train calculator
-*Mechanical › Wizards › Gear train calculator*, or *Design › Gear train calculator…*. Tell it what you
-need and it finds the gears:
+#### Transmission calculator
+*Mechanical › Wizards › Transmission calculator*, or *Design › Transmission calculator…*. Tell it what you
+need and it finds the gears, or the pulleys and the belt:
 
 - **Input**: a speed ratio (3.75 means the output turns 3.75 times slower) or the input and output
   speeds in rpm, with a tolerance in %. A ratio below 1 is a speed-up.
+- **Drive by**: gears, a timing belt or a V-belt.
+
+**Gears**
+
 - **Layout**: one stage, two stages (compound train, for large ratios without tiny pinions) or a
   reverted train, with the input and output shafts on the same axis.
 - **Limits**: minimum and maximum teeth (the minimum starts at the undercut limit for the gear type and
@@ -90,11 +94,33 @@ need and it finds the gears:
   phase. Gears that mesh get opposite helix hands; the two on the intermediate shaft get the same hand,
   so their axial thrusts cancel. Each gear stays a normal part you can edit afterwards.
 
-The search is exact kinematics only: it does not size the module from power or torque.
+**Timing belt** (MXL, XL, L, H, XH)
+
+- Finds the tooth counts of both pulleys for the ratio, which is exact. The belt must have a whole
+  number of teeth, so its length is rounded to the nearest tooth for the centre distance you give (or
+  an automatic one) and the real centre distance is worked out from it.
+- Shows the belt (teeth and length), the wrap angle, and how many teeth of the small pulley the belt
+  wraps. Fewer than 6 is flagged, since the belt can jump, and such combinations are listed last.
+
+**V-belt** (A, B, C, D)
+
+- Tries round datum diameters (multiples of the step you choose, from the section's recommended
+  minimum) and gives the belt's pitch length. Enter the length of a belt from your catalogue and the
+  centre distance is recalculated for it. Catalogue lengths are not built in, because they vary by
+  maker. Slip (1–2 %) is not included in the ratio.
+- Warns about a wrap angle below 120°, a belt speed above 30 m/s, and the pulley warnings (diameter
+  below the recommended minimum, bore too large).
+
+**Create pulleys** adds the two pulleys at the calculated distance and, if you want, the belt as a
+plain grey band along its path (no teeth; one per groove on a V-belt) to check clearances. It is a
+normal part you can hide or delete.
+
+The search is exact kinematics only: it does not size the module or the belt from power or torque.
 
 | | |
 |---|---|
 | ![Gear train calculator: 1500 to 75 rpm in two stages](docs/images/gear_train_calculator.png) | ![A two-stage helical train created by the calculator](docs/images/gear_train.png) |
+| ![Timing belt mode of the calculator](docs/images/belt_calculator.png) | ![Timing pulleys and belt created by the calculator](docs/images/belt_drive.png) |
 
 ### Standard parts and fits
 - Screws (ISO 4762, DIN 933, DIN 7991, ISO 7380), nuts (DIN 934, DIN 985), washers (DIN 125),
