@@ -1095,7 +1095,7 @@ STRINGS: dict[str, str] = {
     'Calculadora de transmisión…': 'Gear train calculator…',
     'Calculadora ·\nde transmisión': 'Gear train ·\nCalculator',
     'Conducido': 'Driven',
-    'Dato': 'Input',
+    'Dato': 'Given as',
     'Dientes': 'Teeth',
     'Dientes con divisores comunes: el desgaste no se reparte': 'Teeth with common factors: the wear is not spread out',
     'Dientes de los engranajes para una relación, y las ruedas ya colocadas': 'Gear teeth for a ratio, and the gears already in place',

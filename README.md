@@ -62,7 +62,7 @@ All by module (metric). The panel shows the calculated dimensions and warns abou
 | Involute spline | Shaft and hub (ANSI B92.2M / ISO 4156), 30°, 37.5° and 45°; the hub is added in place, already meshing |
 | Keyways | On gears and pulleys, sized by bore from BS 4235-1 / ISO R773 |
 | Plate cam | Rise, dwell and fall with the cycloidal, harmonic, parabolic or constant-velocity law (*Machinery's Handbook*, «Cams and Cam Design») |
-| Gear train calculator | Give a ratio or input and output speeds; it lists the tooth counts (one stage, two-stage compound or reverted train with input and output on one axis) sorted by error, with centre distances, hunting-tooth and undercut warnings, and creates the spur, helical or herringbone gears already placed and meshing |
+| Gear train calculator | Tooth counts for a ratio or a pair of speeds, in one or two stages, and the gears created already meshing ([see below](#gear-train-calculator)) |
 | Camshaft (in progress) | Main shaft and lobes as separate parts: each lobe has its own axial position, nose angle, law, lift and rise/fall angles (asymmetric lobes allowed) |
 
 ![Spur gear pair with keyways](docs/images/gears_spur_pair.png)
@@ -71,6 +71,30 @@ All by module (metric). The panel shows the calculated dimensions and warns abou
 |---|---|
 | ![Helical rack and gear](docs/images/gears_helical_rack.png) | ![Bevel gear pair](docs/images/gears_bevel_pair.png) |
 | ![Spline shaft in its hub](docs/images/spline_shaft_hub.png) | ![Timing and V-belt pulleys](docs/images/pulleys.png) |
+
+#### Gear train calculator
+*Mechanical › Wizards › Gear train calculator*, or *Design › Gear train calculator…*. Tell it what you
+need and it finds the gears:
+
+- **Input**: a speed ratio (3.75 means the output turns 3.75 times slower) or the input and output
+  speeds in rpm, with a tolerance in %. A ratio below 1 is a speed-up.
+- **Layout**: one stage, two stages (compound train, for large ratios without tiny pinions) or a
+  reverted train, with the input and output shafts on the same axis.
+- **Limits**: minimum and maximum teeth (the minimum starts at the undercut limit for the gear type and
+  helix angle) and, optionally, a maximum centre distance per stage.
+- **Results**: every tooth combination within the tolerance, sorted by error, then by hunting-tooth
+  pairs (no common factor, so the wear is spread over all the teeth), then by size. Each row shows the
+  actual ratio, the error, the centre distances and the pitch diameters; the selected one also shows
+  the output speed and any warning.
+- **Create gears**: adds a group with the spur, helical or herringbone gears already placed and in
+  phase. Gears that mesh get opposite helix hands; the two on the intermediate shaft get the same hand,
+  so their axial thrusts cancel. Each gear stays a normal part you can edit afterwards.
+
+The search is exact kinematics only: it does not size the module from power or torque.
+
+| | |
+|---|---|
+| ![Gear train calculator: 1500 to 75 rpm in two stages](docs/images/gear_train_calculator.png) | ![A two-stage helical train created by the calculator](docs/images/gear_train.png) |
 
 ### Standard parts and fits
 - Screws (ISO 4762, DIN 933, DIN 7991, ISO 7380), nuts (DIN 934, DIN 985), washers (DIN 125),
@@ -96,14 +120,26 @@ Masks are subtracted from the selected part in one step.
 ### 3D view
 - OpenSCAD computes the final mesh only when the model changes; rotating, selecting and highlighting
   are instant.
+- **Mesh cache**: a model that was already computed is not sent to OpenSCAD again. Undo, redo, or
+  changing a value and putting it back shows the mesh at once (up to 24 models or 256 MB). Code that
+  reads other files (`include`, `use`, `import`, `surface`) is always recomputed, because those files
+  may have changed.
 - Click a part in the view to select it, including the wall of a hole, which selects the cylinder
   that was subtracted.
 - Move gizmo with snapping, measuring tool, colours from `color()`, exploded view, axis ruler and grid.
-- Display modes: shaded, shaded with mesh, wireframe, X-ray and hidden lines removed (Z key).
-- Compact mode (*View › Compact mode*, Ctrl+Shift+F): icon-only ribbon, no Model, Variables or Console
-  panels, with the tree and properties floating over the 3D view; F11 for full screen.
+- **Display modes** (*View › Display mode* or the list in the view bar; Z over the view goes to the next
+  one): shaded, shaded with mesh, wireframe, X-ray (see-through, to check holes and inner parts) and
+  hidden lines removed. The choice is remembered.
+- **Compact mode** (*View › Compact mode*, Ctrl+Shift+F) to give the 3D view as much screen as
+  possible: the ribbon shows icons only (61 px high instead of 169, names in the tooltips), the main
+  toolbar becomes a row of icons beside the ribbon tabs, the Model, Variables and Console panels are
+  hidden, and the tree and properties float over the view. Leaving it restores your panels exactly as
+  they were, and it is remembered between sessions. **F11** toggles full screen.
 - Blender-style view keys (1, 3, 7, 0, 5…) and OpenSCAD colour schemes.
 - Works without OpenSCAD too: you then see an approximate model, without the boolean operations.
+- **Faster renders for big models**: OpenSCAD's default engine (CGAL) can take tens of seconds on
+  models with tens of thousands of triangles, such as gear trains. With an OpenSCAD development
+  snapshot, choose *Manifold (fast)* in *Edit › Preferences*: the same model renders many times faster.
 
 ### Code, drawings and export
 - Code editor in sync with the tree: click a line to select the part, edit by hand and apply with
@@ -179,7 +215,7 @@ This produces `dist/OpenSCAD_GUI_Mejorada.exe` and a zip with the examples. Open
   tested without a window.
 
 ### Tests
-About 160 automated tests:
+About 200 automated tests:
 
 ```bash
 python tests/test_core.py        # model, generator, parser round trip, standard parts, tables
