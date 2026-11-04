@@ -210,6 +210,10 @@ QTabWidget#ribbon QTabBar { background: #262B33; qproperty-drawBase: 0; }
 QTabWidget#ribbon QTabBar::tab { padding: 8px 16px; border: 0; border-bottom: 2px solid transparent; color: #FFFFFF; background: #262B33; }
 QTabWidget#ribbon QTabBar::tab:selected { color: #FFFFFF; border-bottom: 2px solid #5B9BFF; background: #343A44; font-weight: 600; }
 QTabWidget#ribbon QTabBar::tab:hover:!selected { background: #2F3540; }
+QTabWidget#ribbon[compact="true"] QTabBar::tab { padding: 4px 12px; }
+QToolBar#ribbonCorner { background: #262B33; border: 0; spacing: 1px; padding: 0 6px; }
+QToolBar#ribbonCorner QToolButton { border: 1px solid transparent; border-radius: 4px; padding: 2px; }
+QToolBar#ribbonCorner QToolButton:hover { background: #343A44; border-color: #5A6372; }
 QFrame#propsOverlay { background: #FFFFFF; border: 1px solid #CBD1DA; border-radius: 8px; }
 QWidget#ribbonPage { background: #FFFFFF; }
 QToolButton#ribbonButton { background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 4px 6px; font-size: 9pt; }

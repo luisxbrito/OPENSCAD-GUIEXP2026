@@ -99,6 +99,8 @@ Masks are subtracted from the selected part in one step.
   that was subtracted.
 - Move gizmo with snapping, measuring tool, colours from `color()`, exploded view, axis ruler and grid.
 - Display modes: shaded, shaded with mesh, wireframe, X-ray and hidden lines removed (Z key).
+- Compact mode (*View › Compact mode*, Ctrl+Shift+F): icon-only ribbon, no Model, Variables or Console
+  panels, with the tree and properties floating over the 3D view; F11 for full screen.
 - Blender-style view keys (1, 3, 7, 0, 5…) and OpenSCAD colour schemes.
 - Works without OpenSCAD too: you then see an approximate model, without the boolean operations.
 

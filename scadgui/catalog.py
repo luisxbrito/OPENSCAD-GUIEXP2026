@@ -558,6 +558,8 @@ ICONS = {
     "grid_array": "M3 3h3.5v3.5h-3.5z M10.25 3h3.5v3.5h-3.5z M17.5 3h3.5v3.5h-3.5z M3 10.25h3.5v3.5h-3.5z M10.25 10.25h3.5v3.5h-3.5z M17.5 10.25h3.5v3.5h-3.5z M3 17.5h3.5v3.5h-3.5z M10.25 17.5h3.5v3.5h-3.5z M17.5 17.5h3.5v3.5h-3.5z",
     # Iconos de interfaz
     "raw": "M8 7l-5 5 5 5 M16 7l5 5-5 5",
+    "compact": "M9 3v6H3 M15 3v6h6 M9 21v-6H3 M15 21v-6h6",          # flechas hacia dentro
+    "fullscreen": "M3 9V3h6 M21 9V3h-6 M3 15v6h6 M21 15v6h-6",       # esquinas hacia fuera
     "comment": "M4 5h16v11H9l-5 4z",
     "new": "M6 3h8l4 4v14H6z M14 3v4h4",
     "open": "M3 7h6l2 2h10v10H3z",

@@ -1038,6 +1038,40 @@ def test_modos_de_visualizacion_del_visor():
         w.settings.setValue("display_mode", saved)
 
 
+def test_modo_compacto():
+    w = window()
+    saved = w.settings.value("compact", False, bool)
+    try:
+        if w._compact_saved is not None:         # la configuración guardada arrancó en compacto
+            w.set_compact(False)
+        w.set_tree_overlay(False)
+        w.dock_console.show()
+        app.processEvents()
+        before = {d: d.isVisible() for d in (w.dock_model, w.dock_vars, w.dock_console, w.dock_code)}
+        cube = w.ribbon.buttons["cube"]
+        tall = cube.height()
+        w.a_compact.trigger()                    # Ver › Modo compacto (Ctrl+Shift+F)
+        app.processEvents()
+        assert w.a_compact.isChecked() and w.settings.value("compact", False, bool)
+        assert not any(d.isVisible() for d in (w.dock_model, w.dock_vars, w.dock_console))
+        assert w.dock_code.isVisible() == before[w.dock_code]       # Código no se toca
+        assert w.tree_box is not None            # el árbol flota sobre el visor
+        assert not w.main_toolbar.isVisible() and w.ribbon_corner.isVisible()
+        assert cube.toolButtonStyle() == Qt.ToolButtonStyle.ToolButtonIconOnly and cube.height() < tall
+        assert "<b>" in w.ribbon.buttons["hardware"].toolTip()     # sin texto: el nombre va en el tooltip
+        assert "cube" in cube.toolTip()
+        w.set_compact(True)                      # repetirlo no pisa la disposición guardada
+        w.a_compact.trigger()                    # y salir lo deja todo como estaba
+        app.processEvents()
+        assert not w.a_compact.isChecked() and not w.settings.value("compact", True, bool)
+        assert {d: d.isVisible() for d in before} == before
+        assert w.tree_box is None and w.main_toolbar.isVisible() and not w.ribbon_corner.isVisible()
+        assert cube.toolButtonStyle() == Qt.ToolButtonStyle.ToolButtonTextUnderIcon and cube.height() == tall
+        assert "<b>" not in w.ribbon.buttons["hardware"].toolTip()
+    finally:
+        w.settings.setValue("compact", saved)
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

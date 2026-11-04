@@ -235,6 +235,13 @@ python tests/simulacion/sim_ventana_visor_imagen.py
   (`geometry.mesh_edges`, sin repetir) se calculan una vez por malla (`_wire_cache`). Las caras
   opacas usan `MODEL_SOLID` (glPolygonOffset) para que las líneas a su misma profundidad se vean
   enteras. «Sin líneas ocultas» pinta las caras del color del fondo y fuerza los contornos.
+- Modo compacto (`MainWindow.set_compact`, Ver › Modo compacto, Ctrl+Shift+F, se guarda en
+  `compact`): guarda `saveState()` y si el árbol estaba sobre el visor, pone el árbol encima del
+  visor, oculta Modelo/Variables/Consola y la barra principal (sus botones pasan a `ribbon_corner`,
+  junto a las pestañas) y llama a `Ribbon.set_compact` (solo iconos de 20 px, sin rótulos ni ayuda).
+  Al salir, `restoreState()`. Ojo: `QTabWidget.sizeHint` usa la pestaña más alta, también las ocultas,
+  que no recalculan su tamaño hasta mostrarse; en compacto `Ribbon.sizeHint` mide solo la visible.
+  F11: pantalla completa (al cerrar se sale de ella antes de guardar la geometría).
 - Gizmo: puntas en cono (`geometry.arrow_cone`), dibujado siempre encima de las piezas
   (`SEE_THROUGH` / `ON_TOP_SOLID`: sin profundidad y sin caras traseras). Ver › Flechas de
   arrastre (gizmo) y Preferencias usan la misma opción `gizmo_enabled`.

@@ -161,6 +161,8 @@ class Ribbon(QTabWidget):
         self.buttons: dict[str, QToolButton] = {}
         self._hints: list[QLabel] = []
         self._group_titles: list[tuple[QLabel, str]] = []
+        self._pages: list[QWidget] = []
+        self.compact = False
         wizards = {command: icon_name for tab, command, icon_name, _t, _tip in self.EXTRA_BUTTONS}
         for key, _title, _hint in CATEGORIES:
             page = QWidget()
@@ -191,8 +193,29 @@ class Ribbon(QTabWidget):
             tip.setMaximumWidth(340)
             row.addWidget(tip)
             self._hints.append(tip)
+            self._pages.append(page)
             self.addTab(page, "")
+        self.currentChanged.connect(self._fit_current_page)
+        self._fit_current_page()
         self.retranslate_ui()
+
+    def _fit_current_page(self, _index: int = 0) -> None:
+        self.updateGeometry()
+
+    def _height_for_current(self, size: QSize) -> QSize:
+        """QTabWidget toma la altura de la pestaña más alta, también de las ocultas. En modo normal es lo
+        que conviene (la cinta no cambia de alto al cambiar de pestaña), pero en compacto las ocultas
+        guardan el tamaño de antes: entonces cuenta solo la visible (todas miden igual)."""
+        current = self.currentWidget()
+        if self.compact and current is not None:
+            size.setHeight(self.tabBar().sizeHint().height() + current.sizeHint().height() + 2)
+        return size
+
+    def sizeHint(self) -> QSize:
+        return self._height_for_current(super().sizeHint())
+
+    def minimumSizeHint(self) -> QSize:
+        return self._height_for_current(super().minimumSizeHint())
 
     def _group(self, title: str, commands, wizards: dict) -> QWidget:
         box = QWidget()
@@ -230,6 +253,32 @@ class Ribbon(QTabWidget):
         self.buttons[command] = b
         return b
 
+    def set_compact(self, on: bool) -> None:
+        """Cinta mínima: solo iconos pequeños, sin rótulos de grupo ni ayuda, pestañas más bajas.
+        El nombre de cada botón sigue en su tooltip."""
+        on = bool(on)
+        self.compact = on
+        for b in self.buttons.values():
+            b.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly if on
+                                 else Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
+            b.setIconSize(QSize(20, 20) if on else QSize(26, 26))
+            b.setMinimumWidth(32 if on else 76)
+            b.setFixedHeight(32 if on else 66)
+        for label, _title in self._group_titles:
+            label.setVisible(not on)
+        for tip in self._hints:
+            tip.setVisible(not on)
+        for page in self._pages:
+            page.layout().setContentsMargins(*((6, 2, 6, 2) if on else (8, 6, 10, 4)))
+            # las páginas que aún no se han mostrado guardan el tamaño de antes: se recalcula
+        self._fit_current_page()
+        self.setProperty("compact", on)
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self.tabBar().style().unpolish(self.tabBar())
+        self.tabBar().style().polish(self.tabBar())
+        self.retranslate_ui()
+
     def retranslate_ui(self) -> None:
         for idx, (_key, title, hint) in enumerate(CATEGORIES):
             self.setTabText(idx, tr(title))
@@ -242,8 +291,11 @@ class Ribbon(QTabWidget):
             self.buttons[name].setText(self.button_text(spec))
             self.buttons[name].setToolTip(self._tooltip(spec))
         for _tab, command, _icon, text, tip in self.EXTRA_BUTTONS:
-            self.buttons[command].setText(tr(text).replace(" ·", ""))   # sin la marca antigua «·»
-            self.buttons[command].setToolTip(tr(tip))
+            label = tr(text).replace(" ·", "")                          # sin la marca antigua «·»
+            self.buttons[command].setText(label)
+            # en la cinta compacta el botón no lleva texto: el nombre va en el tooltip
+            name = f"<b>{html.escape(label.replace(chr(10), ' '))}</b><br>" if self.compact else ""
+            self.buttons[command].setToolTip(name + html.escape(tr(tip)))
 
     @staticmethod
     def button_text(spec) -> str:
@@ -358,6 +410,8 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(icon("cube", "#2563EB"))
         self.resize(1440, 900)
         self._action_defs: list[tuple[QAction, str, Optional[str]]] = []
+        self._compact_saved = None    # (disposición, árbol sobre el visor) de antes del modo compacto
+        self._was_maximized = False
         self._build_actions()
         self._build_menus()
         self._build_toolbars()
@@ -426,6 +480,13 @@ class MainWindow(QMainWindow):
         self.a_render = self._act("Render", lambda: self.render_view(True), "F6", "render_action",
                                   "Render final: geometría exacta, sin resaltados")
         self.a_about = self._act("Acerca de", self.about)
+        self.a_compact = self._act("Modo compacto", lambda on: self.set_compact(on), "Ctrl+Shift+F", None,
+                                   "Cinta solo con iconos y sin paneles Modelo, Variables ni Consola: "
+                                   "el árbol y las propiedades flotan sobre el visor")
+        self.a_compact.setCheckable(True)
+        self.a_compact.setIcon(icon("compact"))
+        self.a_fullscreen = self._act("Pantalla completa", lambda on: self.set_fullscreen(on), "F11", "fullscreen")
+        self.a_fullscreen.setCheckable(True)
         self.a_del.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
 
     def _build_menus(self) -> None:
@@ -456,6 +517,7 @@ class MainWindow(QMainWindow):
 
     def _build_toolbars(self) -> None:
         tb = QToolBar(tr("Principal"))
+        self.main_toolbar = tb
         tb.setObjectName("mainToolbar")
         tb.setMovable(False)
         tb.setIconSize(QSize(18, 18))
@@ -483,6 +545,16 @@ class MainWindow(QMainWindow):
         rb.setMovable(False)
         self.ribbon = Ribbon()
         rb.addWidget(self.ribbon)
+        corner = QToolBar()
+        corner.setObjectName("ribbonCorner")
+        corner.setIconSize(QSize(16, 16))
+        corner.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+        for a in (self.a_new, self.a_open, self.a_save, None, self.a_undo, self.a_redo, None,
+                  self.a_preview, self.a_render, self.a_export, None, self.a_fullscreen, self.a_compact):
+            corner.addSeparator() if a is None else corner.addAction(a)
+        corner.hide()                                # en el modo compacto sustituye a la barra principal
+        self.ribbon.setCornerWidget(corner, Qt.Corner.TopRightCorner)
+        self.ribbon_corner = corner
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, rb)
         self.ribbon_bar = rb
 
@@ -671,6 +743,9 @@ class MainWindow(QMainWindow):
                              (self.a_tree_overlay, "Árbol sobre el visor 3D")):
             action.setText(tr(text))
             m.addAction(action)
+        m.addAction(self.a_compact)
+        m.addAction(self.a_fullscreen)
+        m.addSeparator()
         self.a_grid.setText(tr("Rejilla") + "\tG")    # G con el ratón sobre el visor (no es atajo global)
         m.addAction(self.a_grid)
         self.a_gizmo.setText(tr("Flechas de arrastre (gizmo)"))
@@ -754,6 +829,8 @@ class MainWindow(QMainWindow):
             self.viewer.set_ruler(self.settings.value("ruler", True, bool))
             self.viewer.set_grid(self.settings.value("grid", True, bool))
             self.viewer.set_display_mode(self.settings.value("display_mode", "shaded", str))
+        if self.settings.value("compact", False, bool):
+            self.set_compact(True)
         version = self.runner.version()
         if self.runner.exe:
             self.runner.check_backend_support(version)
@@ -1848,6 +1925,43 @@ class MainWindow(QMainWindow):
         if item is not None:
             self.tree.scrollToItem(item)
 
+    def set_compact(self, on: bool) -> None:
+        """Modo compacto: cinta mínima, sin barra principal (sus botones van junto a las pestañas)
+        y sin los paneles Modelo, Variables y Consola; con el visor OpenGL, el árbol y las
+        propiedades flotan sobre él. Al salir, todo vuelve a como estaba."""
+        on = bool(on)
+        if on == (self._compact_saved is not None):
+            return
+        if on:
+            self._compact_saved = (self.saveState(), self.tree_box is not None)
+            self.set_tree_overlay(True)              # oculta el panel Modelo y lleva sus piezas al visor
+            for dock in (self.dock_model, self.dock_vars, self.dock_console):
+                dock.hide()
+            self.main_toolbar.hide()
+        else:
+            state, tree_was_on = self._compact_saved
+            self._compact_saved = None
+            self.set_tree_overlay(tree_was_on)
+            self.restoreState(state)
+        self.ribbon.set_compact(on)
+        self.ribbon_corner.setVisible(on)
+        self.a_compact.blockSignals(True)
+        self.a_compact.setChecked(on)
+        self.a_compact.blockSignals(False)
+        self.settings.setValue("compact", on)
+
+    def set_fullscreen(self, on: bool) -> None:
+        if on:
+            self._was_maximized = self.isMaximized()
+            self.showFullScreen()
+        elif self._was_maximized:
+            self.showMaximized()
+        else:
+            self.showNormal()
+        self.a_fullscreen.blockSignals(True)
+        self.a_fullscreen.setChecked(bool(on))
+        self.a_fullscreen.blockSignals(False)
+
     def set_tree_overlay(self, on: bool) -> None:
         """Mueve el árbol (con su barra de herramientas) encima del visor 3D, o lo devuelve al panel.
 
@@ -2144,6 +2258,8 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         if self.maybe_save():
+            if self.a_fullscreen.isChecked():
+                self.set_fullscreen(False)
             self.settings.setValue("geometry", self.saveGeometry())
             self.runner.cancel()
             event.accept()
