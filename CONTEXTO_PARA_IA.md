@@ -35,6 +35,8 @@ scadgui/                   lógica SIN Qt (se prueba sin PySide6)
   gears.py                 engranajes, poleas, estriado, chaveteros, leva de disco y perfiles de lóbulo
   flanges.py               bridas ASME B16.5 / EN 1092-1: tablas, medidas, avisos y constructor
   camshaft.py              árbol de levas: reparto de lóbulos por cilindros y avisos del conjunto
+  transmission.py          calculadora de transmisiones: dientes para una relación (1 o 2 etapas,
+                           tren revertido) y el tren ya colocado en un group()
   sketches.py              perfiles 2D paramétricos
   drawing.py               lámina técnica 2D (vistas en sistema europeo)
   operations.py            textos y ajustes rápidos de la guía de cada operación
@@ -53,7 +55,8 @@ scadgui/ui/                solo ventanas y diálogos (PySide6)
   codeview.py              editor de código
   properties.py, editors.py, boolean_dialog.py, hardware_dialog.py, sketch.py,
   drawing_dialog.py, module_dialog.py, operation_helper.py, preferences_dialog.py,
-  flange_dialog.py, camshaft_dialog.py (asistentes de bridas y de árbol de levas),
+  flange_dialog.py, camshaft_dialog.py, transmission_dialog.py (asistentes de bridas, árbol de
+  levas y calculadora de transmisión),
   variables.py, style.py, icons.py
 examples/                  rueda_con_eje_giratorio.scad, placa_agujeros.scad (menú Archivo; se arranca en blanco)
 tests/test_core.py         modelo, parser, generador, tornillería, plano técnico, módulos…
@@ -422,8 +425,8 @@ python tests/simulacion/sim_ventana_visor_imagen.py
 - Contraste del tema oscuro: `tests/test_tema.py` mide letra/fondo en cada regla. Un color que en
   claro es letra (DARK lo aclara) y alguna regla usa de fondo va en `DARK_BACKGROUND`.
 - Pestaña **Mecánica** (categoría `"mech"` en catalog.CATEGORIES): grupos Engranajes, Transmisión,
-  Levas (cam, camshaft_main_shaft, cam_lobe), Uniones (pipe_flange) y Asistentes (tornillería,
-  bridas, árbol de levas). Sólidos 3D solo tiene las primitivas. La categoría solo decide la
+  Levas (cam, camshaft_main_shaft, cam_lobe), Uniones (pipe_flange) y Asistentes (calculadora de
+  transmisión, tornillería, bridas, árbol de levas). Sólidos 3D solo tiene las primitivas. La categoría solo decide la
   pestaña: no cambia el código guardado. Las piezas nuevas de la fase 4 van en Levas.
 - Cinta: `Ribbon.GROUPS` reparte los botones de cada pestaña en grupos con título (marcados con
   `N_()` para que `test_i18n` exija su traducción); un comando nuevo sin grupo va al último.
@@ -490,6 +493,21 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     extremos, reutilizando chavetero y estriado; esos parámetros entran como opcionales en
     `camshaft_main_shaft` para no romper archivos ya guardados); fase 5 (exportar por piezas y
     colocar para imprimir); fase 6 (casos al azar en los dos motores). Sin animación ni cinemática.
+
+- **Calculadora de transmisión** (fase 1 de un encargo en dos: la 2 son poleas dentadas y en V,
+  con la longitud de correa estándar; el dimensionado por potencia y par quedó para más tarde).
+  `transmission.py` (sin Qt): `search()` recorre los dientes de z_min a z_max y, en dos etapas,
+  cada pareja de la primera con el conducido de la segunda más cercano a la relación que falta
+  (unas décimas de segundo con 12..120). Relación = velocidad de entrada/salida = z2/z1·z4/z3; las
+  dos etapas van en el mismo sentido y las mismas etapas en otro orden no se repiten. Tren
+  revertido: z1 + z2 = z3 + z4 (mismo módulo). Orden: error, luego parejas con diente de caza
+  (mcd = 1), luego menos dientes. `create_train()` hace un `group()` con las ruedas (recto,
+  helicoidal o espina de pescado): motriz en el origen, pareja en +X girada `mesh_rotation`, la
+  segunda etapa subida grueso + separación; en el revertido esa pareja va girada 180° sobre el eje
+  intermedio y la salida cae en −X, sobre la entrada. Hélices: las que engranan, contrarias; las
+  dos del eje intermedio, la misma (sus empujes se restan). `test_openscad` comprueba con OpenSCAD
+  que ninguna pareja se toca y, en los rectos, que medio diente girada sí choca (chocar
+  helicoidales tarda minutos en CGAL).
 
 ## 7. Limitaciones conocidas y siguientes pasos posibles
 

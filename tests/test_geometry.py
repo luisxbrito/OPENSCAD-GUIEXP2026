@@ -924,6 +924,74 @@ def test_modos_de_visualizacion():
         assert all(label in m.STRINGS for m in (de, en, fr, it, pt)), label
 
 
+def test_calculadora_de_transmisiones():
+    import math as m
+    from scadgui import transmission as tm
+    from scadgui.model import Document, Node, generate
+    assert tm.ratio_from_speeds(1500, 400) == 3.75
+    # Una etapa: 3.75 exacto con el mínimo sin socavado de un recto (18 dientes)
+    sols = tm.search(3.75, 1, 1, 18, 100)
+    assert sols[0].stages == [(20, 75)] and sols[0].error == 0 and sols[0].centers == [47.5]
+    assert all(abs(s.error) <= 0.01 for s in sols)
+    assert all(min(s.stages[0]) >= 18 and max(s.stages[0]) <= 100 for s in sols)
+    errs = [abs(s.error) for s in sols]
+    assert errs == sorted(errs)                          # ordenadas por error
+    assert sols[0].hunting == [False]                    # 20 y 75 comparten el 5
+    # Multiplicadora: la relación menor que 1 pone al conducido más pequeño
+    s = tm.search(0.5, 0, 1, 18, 60)[0]
+    assert s.stages == [(36, 18)] and s.ratio == 0.5
+    # Distancia máxima entre centros
+    assert all(c <= 40 + 1e-9 for s in tm.search(3.75, 2, 1, 12, 100, max_center=40) for c in s.centers)
+    # Helicoidal: la distancia lleva el cos ψ
+    h = tm.search(2, 0, 1, 20, 40, "helical_gear", 1, 20)[0]
+    assert m.isclose(h.centers[0], (h.stages[0][0] + h.stages[0][1]) / (2 * m.cos(m.radians(20))))
+    # Dos etapas: 20:1 imposible en una con 12..60 dientes, sí en dos; las etapas reducen las dos
+    assert tm.search(20, 0, 1, 12, 60) == []
+    two = tm.search(20, 0, 2, 12, 60)
+    assert two and all(s.error == 0 for s in two)
+    for s in two:
+        (a, b), (c, d) = s.stages
+        assert b / a >= 1 and d / c >= 1 and m.isclose(b / a * d / c, 20)
+    keys = [tuple(sorted(s.stages)) for s in two]
+    assert len(keys) == len(set(keys))                    # sin la misma solución en el otro orden
+    # Tren revertido: las dos etapas con la misma distancia (z1 + z2 = z3 + z4)
+    rev = tm.search(9, 1, 2, 12, 80, coaxial=True)
+    assert rev and all(sum(s.stages[0]) == sum(s.stages[1]) for s in rev)
+    try:
+        tm.search(0, 1)
+        raise AssertionError("relación 0")
+    except ValueError:
+        pass
+    # Avisos: pocos dientes y divisores comunes
+    sol = tm.Solution([(10, 40)], 4, 0, [25])
+    texts = [t for t, _ in tm.notes(sol, "spur_gear")]
+    assert len(texts) == 2
+    # El tren generado: grupo con las ruedas colocadas a su distancia y con las hélices contrarias
+    sol = tm.search(12, 1, 2, 12, 60, "helical_gear", 1.5, 20)[0]
+    group = tm.create_train(sol, "helical_gear", {"mod": 1.5, "helix_angle": 20, "thickness": 8, "bore": 5},
+                            stage_gap=2)
+    wheels = []
+    for top in group.children:
+        n, x, z = top, 0.0, 0.0
+        while n.kind in ("translate", "rotate"):
+            if n.kind == "translate":
+                x, z = n.params["v"][0], n.params["v"][2]
+            n = n.children[0]
+        wheels.append((n, x, z))
+    (g1, x1, h1), (g2, x2, h2), (g3, x3, h3), (g4, x4, h4) = wheels
+    assert [g.params["teeth"] for g, _, _ in wheels] == [z for st in sol.stages for z in st]
+    assert x1 == 0 and m.isclose(x2, sol.centers[0], abs_tol=1e-6) and x3 == x2
+    assert m.isclose(x4, x3 + sol.centers[1], abs_tol=1e-6) and h1 == h2 == 0 and h3 == h4 == 10
+    assert g1.params["left_hand"] != g2.params["left_hand"] == g3.params["left_hand"] != g4.params["left_hand"]
+    assert g1.params["mod"] == 1.5 and g1.params["bore"] == 5
+    rev = tm.search(9, 1, 2, 12, 80, coaxial=True)[0]
+    group = tm.create_train(rev, "spur_gear", {"mod": 1, "thickness": 5, "helix_angle": 20}, coaxial=True)
+    last = group.children[3]
+    assert m.isclose(last.params["v"][0], 0, abs_tol=1e-6)       # la salida, sobre la entrada
+    assert "helix_angle" not in last.children[0].children[0].params  # un recto no lleva hélice
+    generate(Document(children=[group]))
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

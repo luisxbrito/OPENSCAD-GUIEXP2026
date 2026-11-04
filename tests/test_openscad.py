@@ -19,7 +19,7 @@ sys.path.insert(0, ROOT)
 from scadgui.edges import finish_edges  # noqa: E402
 from scadgui.geometry import load_stl, signed_volume  # noqa: E402
 from scadgui.library import CUBE_EDGE_KEYS  # noqa: E402
-from scadgui.model import Document, generate, make_node  # noqa: E402
+from scadgui.model import Document, Node, generate, make_node  # noqa: E402
 from scadgui.parser import parse  # noqa: E402
 
 
@@ -560,6 +560,36 @@ def test_arbol_de_levas_completo_se_renderiza():
     inside = 8 * math.pi * 12.5 ** 2 * 12
     assert abs(got - (shaft + lobes - inside)) < 0.01 * shaft, (got, shaft + lobes - inside)
 
+
+def test_calculadora_de_transmisiones_engrana():
+    """Los trenes de la calculadora engranan: cada pareja no se toca (con la holgura de serie), en
+    recto, helicoidal y espina de pescado, en una etapa, en dos y en un tren revertido."""
+    import copy
+    from scadgui import transmission as tm
+    cases = (("spur_gear", 3.75, 1, False, {}),
+             ("helical_gear", 12, 2, False, {"helix_angle": 20, "thickness": 8}),
+             ("herringbone_gear", 9, 2, True, {"helix_angle": 25, "thickness": 12}))
+    for kind, ratio, stages, coaxial, extra in cases:
+        sol = tm.search(ratio, 1, stages, 12, 60, kind, 1, extra.get("helix_angle", 0), coaxial=coaxial)[0]
+        params = dict(mod=1, backlash=0.1, bore=4, **extra)
+        group = tm.create_train(sol, kind, params, coaxial=coaxial)
+        doc = Document(children=[group])
+        render(generate(doc).text)
+        for a, b in ((0, 1), (2, 3))[:stages]:
+            inter = make_node("intersection")
+            inter.children = [copy.deepcopy(group.children[a]), copy.deepcopy(group.children[b])]
+            assert volume_of(generate(Document(children=[inter])).text) == 0, (kind, sol.stages, a, b)
+            if kind != "spur_gear":           # chocar dos helicoidales tarda minutos en CGAL
+                continue
+            # Medio diente girado, la misma pareja choca: están a la distancia justa, no separadas.
+            wrong = copy.deepcopy(group.children[b])
+            holder = wrong
+            while holder.children and holder.children[0].kind in ("translate", "rotate"):
+                holder = holder.children[0]
+            z = sol.stages[a // 2][1]
+            holder.children = [Node(kind="rotate", params={"a": [0, 0, 180 / z]}, children=holder.children)]
+            inter.children = [copy.deepcopy(group.children[a]), wrong]
+            assert volume_of(generate(Document(children=[inter])).text) > 1, (kind, sol.stages, a, b)
 
 if __name__ == "__main__":
     if not EXE:

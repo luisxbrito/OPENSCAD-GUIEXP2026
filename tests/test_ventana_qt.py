@@ -1072,6 +1072,63 @@ def test_modo_compacto():
         w.settings.setValue("compact", saved)
 
 
+def test_calculadora_de_transmision():
+    """La calculadora busca al cambiar los datos, admite velocidades, avisa si no hay solución y, al
+    aceptar, añade el tren como un grupo (que se deshace de una vez)."""
+    from scadgui.i18n import set_language
+    from scadgui.model import Document
+    from scadgui.ui import transmission_dialog as td
+    set_language("es")
+    w = window()
+    assert "transmission_wizard" in w.ribbon.buttons
+    dlg = td.TransmissionDialog(w)
+    assert dlg.table.rowCount() > 0 and dlg.selected().stages == [(20, 75)] and dlg.btn_insert.isEnabled()
+    assert not dlg.spin_helix.isVisibleTo(dlg) and not dlg.check_coaxial.isEnabled()
+    dlg.combo_mode.setCurrentIndex(1)                       # por velocidades: 1500 → 400 rpm es 3.75
+    dlg.refresh()
+    assert dlg.ratio() == 3.75 and "400 rpm" in dlg.lbl_info.text()
+    dlg.spin_out.setValue(75)                               # 20:1: en una etapa no cabe con 18..100
+    dlg.refresh()
+    assert dlg.table.rowCount() == 0 and not dlg.btn_insert.isEnabled()
+    dlg.combo_stages.setCurrentIndex(1)
+    dlg.check_coaxial.setChecked(True)
+    dlg.combo_kind.setCurrentIndex(2)                       # espina de pescado: más grueso y menos dientes
+    assert dlg.spin_thick.value() == 16 and dlg.spin_zmin.value() < 18 and dlg.spin_helix.isVisibleTo(dlg)
+    dlg.refresh()
+    sol = dlg.selected()
+    assert sol is not None and sum(sol.stages[0]) == sum(sol.stages[1])
+    assert "eje de la entrada" in dlg.lbl_info.text()
+    w.set_document(Document())
+    real, td.TransmissionDialog.exec = td.TransmissionDialog.exec, lambda d: True
+    made = {}
+    real_init = td.TransmissionDialog.__init__
+
+    def init(d, parent=None):
+        real_init(d, parent)
+        d.combo_stages.setCurrentIndex(1)
+        d.combo_kind.setCurrentIndex(1)
+        d.refresh()
+        made["sol"] = d.selected()
+    td.TransmissionDialog.__init__ = init
+    try:
+        w.run_command("transmission_wizard")
+    finally:
+        td.TransmissionDialog.exec, td.TransmissionDialog.__init__ = real, real_init
+    dlg.deleteLater()
+    assert len(w.doc.children) == 1
+    group = w.doc.children[0]
+    assert group.kind == "group" and group.name.startswith("Transmisión") and len(group.children) == 4
+    kinds = set()
+    for top in group.children:
+        n = top
+        while n.kind in ("translate", "rotate"):
+            n = n.children[0]
+        kinds.add(n.kind)
+    assert kinds == {"helical_gear"}
+    w.undo()
+    assert w.doc.children == []
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

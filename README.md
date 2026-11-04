@@ -62,6 +62,7 @@ All by module (metric). The panel shows the calculated dimensions and warns abou
 | Involute spline | Shaft and hub (ANSI B92.2M / ISO 4156), 30°, 37.5° and 45°; the hub is added in place, already meshing |
 | Keyways | On gears and pulleys, sized by bore from BS 4235-1 / ISO R773 |
 | Plate cam | Rise, dwell and fall with the cycloidal, harmonic, parabolic or constant-velocity law (*Machinery's Handbook*, «Cams and Cam Design») |
+| Gear train calculator | Give a ratio or input and output speeds; it lists the tooth counts (one stage, two-stage compound or reverted train with input and output on one axis) sorted by error, with centre distances, hunting-tooth and undercut warnings, and creates the spur, helical or herringbone gears already placed and meshing |
 | Camshaft (in progress) | Main shaft and lobes as separate parts: each lobe has its own axial position, nose angle, law, lift and rise/fall angles (asymmetric lobes allowed) |
 
 ![Spur gear pair with keyways](docs/images/gears_spur_pair.png)
