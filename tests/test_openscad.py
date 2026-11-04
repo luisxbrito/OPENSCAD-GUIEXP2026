@@ -610,6 +610,63 @@ def test_calculadora_de_correas_en_openscad():
                 assert volume_of(generate(Document(children=[inter])).text) == 0, (sol.kind, i)
 
 
+
+def test_plano_tecnico_queda_dentro_de_la_hoja():
+    """OpenSCAD dibuja la lámina sin avisos y todo lo que dibuja (vistas y rótulos) queda dentro de
+    la hoja, también con la pieza lejos del origen."""
+    import re
+    from scadgui.drawing import plan_sheet, generate_technical_drawing_code
+    model = ("translate([40, 30, 0]) difference() { cube([120, 60, 40]); "
+             "translate([60, 30, -1]) cylinder(h = 50, d = 30); }")
+    box = ((40, 30, 0), (160, 90, 40))
+    for border in (True, False):
+        code = generate_technical_drawing_code(model, box=box, include_border=border)
+        folder = tempfile.mkdtemp()
+        src, out = os.path.join(folder, "p.scad"), os.path.join(folder, "p.svg")
+        with open(src, "w", encoding="utf-8") as fh:
+            fh.write(code)
+        run = subprocess.run([EXE, "-o", out, src], capture_output=True, text=True, timeout=600)
+        log = run.stdout + run.stderr
+        assert run.returncode == 0 and "WARNING" not in log and "ERROR" not in log, log[-1500:]
+        svg = open(out, encoding="utf-8").read()
+        pts = [(float(a), -float(b)) for a, b in re.findall(r"(-?[\d.]+),(-?[\d.]+)", svg.split("<path", 1)[1])]
+        xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+        if border:                                # el borde de la hoja es lo más exterior
+            assert abs(min(xs)) < 1e-3 and abs(min(ys)) < 1e-3
+            assert abs(max(xs) - 297) < 1e-3 and abs(max(ys) - 210) < 1e-3
+        else:                                     # sin marco: lo dibujado cae en las casillas previstas
+            _, place, _ = plan_sheet(box, "A4", 0.0, include_border=False)
+            rects = [r for _, _, r in place.values()]
+            assert min(r[0] for r in rects) - 1 <= min(xs) and max(xs) <= max(r[2] for r in rects) + 1
+            assert min(r[1] for r in rects) - 1 <= min(ys) and max(ys) <= max(r[3] for r in rects) + 1
+
+
+def test_plano_tecnico_en_pdf_del_tamano_de_la_hoja():
+    """El PDF de la lámina no es el A4 vertical de OpenSCAD: la página mide lo que la hoja (A4 o A3
+    apaisados), el dibujo va en trazo fino sin relleno y conserva todos los contornos."""
+    import re
+    from PySide6.QtGui import QGuiApplication
+    from scadgui.drawing import generate_technical_drawing_code
+    from scadgui.pdfsheet import line_drawing, svg_to_pdf, view_box
+    app = QGuiApplication.instance() or QGuiApplication([])  # noqa: F841
+    for sheet, (w, h) in (("A4", (297, 210)), ("A3", (420, 297))):
+        code = generate_technical_drawing_code("spur_gear_like(); module spur_gear_like() cylinder(h = 10, d = 60);",
+                                               sheet_size=sheet, box=((-30, -30, 0), (30, 30, 10)))
+        folder = tempfile.mkdtemp()
+        src, svg, pdf = (os.path.join(folder, n) for n in ("p.scad", "p.svg", "p.pdf"))
+        with open(src, "w", encoding="utf-8") as fh:
+            fh.write(code)
+        run = subprocess.run([EXE, "-o", svg, src], capture_output=True, text=True, timeout=600)
+        assert run.returncode == 0, run.stderr[-800:]
+        text = open(svg, encoding="utf-8").read()
+        assert view_box(text) == (0, -h, w, h)
+        lined = line_drawing(text)
+        assert 'fill="none"' in lined and "lightgray" not in lined and lined.count(" z") == text.count(" z")
+        svg_to_pdf(svg, pdf, w, h, "Lámina")
+        data = open(pdf, "rb").read()
+        box = [float(v) for v in re.search(rb"/MediaBox \[([\d. ]+)\]", data).group(1).split()]
+        assert abs(box[2] - w * 72 / 25.4) < 1 and abs(box[3] - h * 72 / 25.4) < 1, (sheet, box)
+
 if __name__ == "__main__":
     if not EXE:
         print("OpenSCAD no encontrado: se omiten estas pruebas (define OPENSCAD para indicar dónde está)")

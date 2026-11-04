@@ -1440,6 +1440,33 @@ def collect(doc: Document, ghosts: dict, ids) -> Tris:
     return np.concatenate(parts) if parts else EMPTY
 
 
+def model_box(doc: Document, ghosts: dict, ids=None):
+    """Caja (mínimo, máximo) de lo que queda en el resultado: de un difference() solo cuenta la
+    primera pieza (lo que se resta no añade tamaño), de un intersection() el cruce de las cajas, y
+    las piezas con % o * no cuentan. Con ids, solo esas piezas; sin ellas, todo el documento."""
+    def box(node):
+        if not isinstance(node, Node) or node.modifier in ("%", "*"):
+            return None
+        if node.id in ghosts:
+            return bbox(ghosts[node.id])
+        kids = [c for c in node.children if isinstance(c, Node) and c.modifier not in ("%", "*")]
+        if node.kind == "difference":
+            return box(kids[0]) if kids else None
+        boxes = [b for b in (box(c) for c in kids) if b is not None]
+        if not boxes:
+            return None
+        if node.kind == "intersection":
+            lo, hi = np.max([b[0] for b in boxes], axis=0), np.min([b[1] for b in boxes], axis=0)
+            return (lo, hi) if np.all(lo <= hi) else None
+        return np.min([b[0] for b in boxes], axis=0), np.max([b[1] for b in boxes], axis=0)
+
+    nodes = doc.children if ids is None else [doc.find(i) for i in ids]
+    boxes = [b for b in (box(n) for n in nodes if n is not None) if b is not None]
+    if not boxes:
+        return None
+    return np.min([b[0] for b in boxes], axis=0), np.max([b[1] for b in boxes], axis=0)
+
+
 def with_modifier(doc: Document, ghosts: dict, mod: str) -> Tris:
     ids = [n.id for n, _, _ in doc.walk() if isinstance(n, Node) and n.modifier == mod]
     return collect(doc, ghosts, ids)

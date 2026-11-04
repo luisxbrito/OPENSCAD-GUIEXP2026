@@ -171,7 +171,9 @@ Masks are subtracted from the selected part in one step.
 - Code editor in sync with the tree: click a line to select the part, edit by hand and apply with
   Ctrl+Enter, autocompletion, parameter hints and snippets.
 - Technical drawing on A4/A3 with first-angle (ISO E) front, top, side and isometric views, border
-  and title block; export to SVG, DXF or PDF.
+  and title block; export to SVG, DXF or PDF. Each view is centred in its place wherever the part
+  sits, labels and the title block are kept clear, and the automatic scale picks the largest
+  standard one (ISO 5455) that fits the sheet.
 - Export to STL, 3MF, OBJ, OFF, AMF, SVG, DXF, PDF and PNG through OpenSCAD.
 - Interface in English, Spanish, French, German, Italian and Portuguese, with a light and a dark theme.
 

@@ -674,6 +674,25 @@ def test_pareja_de_conicos_engrana_al_girar():
     assert interferes(2, 20, 20, 90, 8, -0.4)                      # con holgura negativa
 
 
+def test_caja_del_modelo_para_el_plano():
+    """Lo restado en un difference() no agranda la caja, un intersection() se queda con el cruce y
+    las piezas con % no cuentan."""
+    from scadgui.parser import parse
+    from scadgui import geometry as geo
+    doc = parse("translate([40, 30, 0]) difference() { cube([120, 60, 40]); "
+                "translate([60, 30, -1]) cylinder(h = 50, d = 30); }\n"
+                "%sphere(300);\n"
+                "intersection() { cube(10); translate([5, 5, 5]) cube(10); }\n")
+    ghosts = geo.build_ghosts(doc)
+    lo, hi = geo.model_box(doc, ghosts)
+    assert np.allclose(lo, (5, 5, 0)) and np.allclose(hi, (160, 90, 40))
+    lo, hi = geo.model_box(doc, ghosts, [doc.children[0].id])
+    assert np.allclose(lo, (40, 30, 0)) and np.allclose(hi, (160, 90, 40))
+    lo, hi = geo.model_box(doc, ghosts, [doc.children[2].id])
+    assert np.allclose(lo, (5, 5, 5)) and np.allclose(hi, (10, 10, 10))
+    assert geo.model_box(doc, ghosts, [doc.children[1].id]) is None
+
+
 def test_conico_en_la_vista_aproximada():
     from scadgui.parser import parse
     from scadgui import geometry as geo, gears

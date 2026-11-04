@@ -1072,6 +1072,66 @@ def test_modo_compacto():
         w.settings.setValue("compact", saved)
 
 
+def test_plano_tecnico_desde_la_ventana_encuadra_el_modelo():
+    """El plano usa la caja de lo que se dibuja (sin lo restado), elige la escala sola y avisa si
+    una escala fija no cabe."""
+    from PySide6.QtWidgets import QMessageBox
+    from scadgui.i18n import set_language
+    from scadgui.model import RawCode
+    from scadgui.parser import parse
+    from scadgui.ui import drawing_dialog as dd
+    set_language("es")
+    w = window()
+    w.set_document(parse("translate([40, 30, 0]) difference() { cube([120, 60, 40]); "
+                         "translate([60, 30, -1]) cylinder(h = 50, d = 30); }\n"
+                         "translate([300, 0, 0]) cube(10);\n"))
+    lo, hi = w.drawing_box(None)
+    assert lo[0] == 40 and lo[2] == 0 and hi[0] == 310 and hi[2] == 40     # sin el cilindro que perfora
+    assert w.drawing_box([w.doc.children[1].id]) == ((300.0, 0.0, 0.0), (310.0, 10.0, 10.0))
+    choice = {"scale": 0.0}
+    real_exec, real_cfg = dd.DrawingDialog.exec, dd.DrawingDialog.get_config
+
+    def cfg(d):
+        d.action = "insert"
+        return {**real_cfg(d), "scale": choice["scale"], "action": "insert"}
+    warned = []
+    real_warn = QMessageBox.warning
+    dd.DrawingDialog.exec, dd.DrawingDialog.get_config = (lambda d: True), cfg
+    QMessageBox.warning = staticmethod(lambda *a, **k: warned.append(a[2]))
+    try:
+        w.run_command("drawing2d")
+        sheet = w.doc.children[-1]
+        assert isinstance(sheet, RawCode) and "Escala: 1:5  ·  A4" in sheet.text and not warned
+        choice["scale"] = 1.0                       # 310 mm a 1:1 no cabe en un A4: se avisa
+        w.run_command("drawing2d")
+        assert "Escala: 1:1  ·" in w.doc.children[-1].text and warned and "1:1" in warned[0]
+        if w.runner.exe:                            # exportar a PDF: página apaisada del tamaño de la hoja
+            import re
+            import tempfile
+            import time
+            from PySide6.QtWidgets import QApplication, QFileDialog
+            pdf = os.path.join(tempfile.mkdtemp(), "lamina.pdf")
+            choice["scale"] = 0.0
+            real_cfg2 = dd.DrawingDialog.get_config
+            dd.DrawingDialog.get_config = lambda d: {**real_cfg2(d), "action": "export"}
+            real_save = QFileDialog.getSaveFileName
+            QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (pdf, "PDF (*.pdf)"))
+            try:
+                w.run_command("drawing2d")
+                end = time.monotonic() + 120
+                while w._drawing_pdf is not None and time.monotonic() < end:
+                    QApplication.processEvents()
+                    time.sleep(0.02)
+            finally:
+                QFileDialog.getSaveFileName = real_save
+            data = open(pdf, "rb").read()
+            box = [float(v) for v in re.search(rb"/MediaBox \[([\d. ]+)\]", data).group(1).split()]
+            assert abs(box[2] - 842) < 1 and abs(box[3] - 595) < 1
+    finally:
+        dd.DrawingDialog.exec, dd.DrawingDialog.get_config = real_exec, real_cfg
+        QMessageBox.warning = real_warn
+
+
 def test_calculadora_de_transmision():
     """La calculadora busca al cambiar los datos, admite velocidades, avisa si no hay solución y, al
     aceptar, añade el tren como un grupo (que se deshace de una vez)."""

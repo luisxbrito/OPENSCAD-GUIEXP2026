@@ -48,6 +48,7 @@ class DrawingDialog(QDialog):
         if idx_sh >= 0:
             self.sheet_combo.setCurrentIndex(idx_sh)
         self.scale_combo = QComboBox()
+        self.scale_combo.addItem(tr("Automática (la mayor que cabe)"), 0.0)
         for label, val in (("1:1 (Real)", 1.0), ("1:2 (Reducción 50%)", 0.5),
                            ("1:5 (Reducción 20%)", 0.2), ("2:1 (Ampliación 2x)", 2.0)):
             self.scale_combo.addItem(label, val)
@@ -107,7 +108,7 @@ class DrawingDialog(QDialog):
         self.accept()
 
     def get_config(self) -> dict:
-        scale_val = float(self.scale_combo.currentData() or 1.0)
+        scale_val = float(self.scale_combo.currentData() or 0.0)
         sheet_key = str(self.sheet_combo.currentData() or "A4")
         return {
             "action": self.action,

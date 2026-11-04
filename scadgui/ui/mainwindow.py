@@ -6,6 +6,7 @@ import html
 import os
 import re
 import shlex
+import shutil
 import sys
 import tempfile
 import time
@@ -570,6 +571,7 @@ class MainWindow(QMainWindow):
         self.gl = False
         self._gl_error = ""
         self.ghosts: dict = {}
+        self._drawing_pdf = None   # (svg temporal, pdf, ancho, alto, título) de una lámina en PDF
         if self.settings.value("viewer", "gl", str) != "image":
             try:
                 from .viewer3d import Viewer3D
@@ -1314,8 +1316,28 @@ class MainWindow(QMainWindow):
         self.mutate(change, select=[node.id])
         self.statusBar().showMessage(tr("Componente añadido: {name}").format(name=node.name), 4000)
 
+    def drawing_box(self, ids):
+        """Caja (mínimo, máximo) de lo que va al plano: las piezas indicadas o, con None, todo.
+        Para todo el modelo usa la malla de OpenSCAD si la caché la tiene al día (es la exacta,
+        con las restas hechas); si no, y para una selección, la vista aproximada."""
+        found = None
+        if ids is None:
+            code = generate(self.doc, header=False).text
+            if meshcache.cacheable(code) and self.runner.exe:
+                base = os.path.dirname(self.path) if self.path else ""
+                key = meshcache.mesh_key(code, self._openscad_args(), self.runner.backend, self.runner.exe, base)
+                cached = self.mesh_cache.get(key)
+                if cached is not None and cached != meshcache.EMPTY and len(cached[0]):
+                    found = geo.bbox(cached[0])
+        if found is None:
+            found = geo.model_box(self.doc, geo.build_ghosts(self.doc), ids)
+        if found is None:
+            return None
+        lo, hi = found
+        return tuple(float(v) for v in lo), tuple(float(v) for v in hi)
+
     def open_drawing_dialog(self) -> None:
-        from ..drawing import generate_technical_drawing_code
+        from ..drawing import SHEET_SIZES, generate_technical_drawing_code, plan_sheet, scale_label
         from .drawing_dialog import DrawingDialog
 
         sel = self.selected_ids()
@@ -1327,18 +1349,28 @@ class MainWindow(QMainWindow):
             if cfg.get("use_selection") and sel:
                 nodes = [self.doc.find(i) for i in sel if self.doc.find(i) is not None]
                 target_code = "\n".join(generate(n, header=False).text.strip() for n in nodes)
+                box = self.drawing_box([n.id for n in nodes])
             else:
                 target_code = generate(self.doc, header=False).text
+                box = self.drawing_box(None)
 
+            sheet, views = cfg.get("sheet_size", "A4"), cfg.get("views")
+            border = bool(cfg.get("include_border", True))
+            scale, _, fits = plan_sheet(box, sheet, float(cfg.get("scale", 0.0)), views, border)
             drawing_code = generate_technical_drawing_code(
                 target_code=target_code,
                 title=cfg.get("title", ""),
                 author=cfg.get("author", ""),
-                sheet_size=cfg.get("sheet_size", "A4"),
-                scale=float(cfg.get("scale", 1.0)),
-                views=cfg.get("views"),
-                include_border=bool(cfg.get("include_border", True)),
+                sheet_size=sheet,
+                scale=scale,
+                views=views,
+                include_border=border,
+                box=box,
             )
+            if not fits:
+                QMessageBox.warning(self, tr("Generar plano técnico 2D"),
+                                    tr("Las vistas no caben en la hoja a escala {s}: elige una escala menor, "
+                                       "la automática o una hoja más grande.").format(s=scale_label(scale)))
 
             if cfg.get("action") == "export":
                 if not self.runner.exe:
@@ -1358,7 +1390,14 @@ class MainWindow(QMainWindow):
                     elif "*.pdf" in chosen:
                         ext = ".pdf"
                     path += ext
-                self.runner.export(drawing_code, os.path.dirname(self.path) if self.path else "", path)
+                target = path
+                if path.lower().endswith(".pdf"):
+                    # El PDF de OpenSCAD 2021 es siempre un A4 vertical con regla: la lámina sale
+                    # cortada. Se exporta a SVG y se pasa a PDF del tamaño de la hoja al terminar.
+                    target = os.path.join(tempfile.mkdtemp(prefix="scadgui_pdf_"), "lamina.svg")
+                    w, h = SHEET_SIZES.get(sheet, SHEET_SIZES["A4"])
+                    self._drawing_pdf = (target, path, w, h, cfg.get("title", ""))
+                self.runner.export(drawing_code, os.path.dirname(self.path) if self.path else "", target)
             elif cfg.get("action") == "insert":
                 def change():
                     raw = RawCode(drawing_code)
@@ -2174,6 +2213,18 @@ class MainWindow(QMainWindow):
         self.runner.export(code, os.path.dirname(self.path) if self.path else "", path)
 
     def on_exported(self, path: str, ok: bool) -> None:
+        pending = self._drawing_pdf
+        if pending is not None and path == pending[0]:
+            self._drawing_pdf = None
+            svg, path, w, h, title = pending
+            if ok:
+                from ..pdfsheet import svg_to_pdf
+                try:
+                    svg_to_pdf(svg, path, w, h, title)
+                except (OSError, ValueError, RuntimeError) as exc:
+                    self.log(tr("No se pudo crear el PDF: {error}").format(error=exc), "error")
+                    ok = False
+            shutil.rmtree(os.path.dirname(svg), ignore_errors=True)
         if ok:
             self.log(tr("Exportado: {path}").format(path=path), "info")
             self.statusBar().showMessage(f"{tr('Exportado')}: {path}", 6000)

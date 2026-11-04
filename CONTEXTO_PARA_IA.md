@@ -121,7 +121,12 @@ CONTRIBUTING.md            guía en inglés para quien quiera modificar la aplic
     constantes que la pieza.
 13. **Plano técnico en sistema europeo** (ISO E): alzado arriba a la izquierda, planta debajo,
     perfil izquierdo a la derecha. Las rotaciones están en `drawing.VIEW_TRANSFORMS` y un test
-    comprueba la orientación de cada vista.
+    comprueba la orientación de cada vista. La maquetación (`plan_sheet`) parte de la caja del
+    modelo (`geometry.model_box`: sin lo restado ni las piezas %; para todo el modelo, la malla de
+    OpenSCAD si la caché la tiene al día): centra cada vista en su casilla, reserva debajo el
+    rótulo (y su ancho), sube la vista que pisaría el cajetín y, con escala 0, coge la mayor
+    escala normalizada que cabe. Alzado y planta comparten centro horizontal y alzado y perfil el
+    vertical, así que siguen alineados.
 14. **Módulos propios (`library.py`).** Si el modelo usa `cube_edges` o `cylinder_edges`,
     `generate()` añade su definición al final del archivo (también si la llamada quedó dentro
     de un `module` del usuario); `parse()` la quita si no se modificó, y si se modificó la

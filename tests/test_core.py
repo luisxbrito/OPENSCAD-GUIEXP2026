@@ -808,6 +808,58 @@ def test_plano_tecnico_saca_use_del_modulo_y_escapa_textos():
     assert 'text("Pieza \\"A\\" \\\\ 2", size = 4.5);' in code
 
 
+def test_plano_tecnico_encuadra_las_vistas_sin_pisar_rotulos_ni_cajetin():
+    """Con la caja del modelo, cada vista se centra en su sitio a la mayor escala normalizada que
+    cabe: dentro del recuadro, sin solaparse entre ellas, con su rótulo debajo y sin tocar el
+    cajetín, esté donde esté la pieza y tenga la forma que tenga."""
+    from scadgui.drawing import (FRAME, SHEET_SIZES, STANDARD_SCALES, TITLE_H, TITLE_W, generate_technical_drawing_code,
+                                 plan_sheet, view_extent)
+    names = {"front": "ALZADO", "top": "PLANTA", "side": "PERFIL IZQUIERDO", "isometric": "ISOMÉTRICA"}
+    boxes = (((40, 30, 0), (160, 90, 40)),           # pieza lejos del origen
+             ((-250, -10, -10), (250, 10, 10)),      # eje largo y fino
+             ((0, 0, 0), (20, 20, 300)),             # columna alta
+             ((0, 0, 0), (3, 2, 1)),                 # pieza diminuta
+             ((-100, -75, 0), (100, 75, 3)))         # chapa
+    subsets = (None, {"front": True, "top": True, "side": False, "isometric": False},
+               {"front": True, "top": False, "side": False, "isometric": False})
+    for box in boxes:
+        for sheet in ("A4", "A3"):
+            for views in subsets:
+                w, h = SHEET_SIZES[sheet]
+                scale, place, fits = plan_sheet(box, sheet, 0.0, views)
+                assert fits, (box, sheet, views)
+                k = STANDARD_SCALES.index(scale)
+                if k:                                   # la escala mayor siguiente ya no cabe
+                    assert not plan_sheet(box, sheet, STANDARD_SCALES[k - 1], views)[2], (box, sheet)
+                code = generate_technical_drawing_code("cube(1);", sheet_size=sheet, views=views, box=box)
+                found = _view_blocks(code)
+                drawn = {}
+                for key in place:
+                    x, y = found[names[key]][0][:2]
+                    e = view_extent(box, key)
+                    drawn[key] = (x + e[0] * scale, y + e[1] * scale, x + e[2] * scale, y + e[3] * scale)
+                    r = place[key][2]                   # vista + rótulo
+                    assert r[0] <= drawn[key][0] + 1e-3 and drawn[key][2] <= r[2] + 1e-3
+                    assert r[1] < drawn[key][1] and abs(drawn[key][3] - r[3]) < 1e-3
+                    assert FRAME < r[0] and r[2] < w - FRAME and FRAME < r[1] and r[3] < h - FRAME
+                    title = (w - FRAME - TITLE_W, FRAME, w - FRAME, FRAME + TITLE_H)
+                    assert r[2] <= title[0] or r[3] <= title[1] or r[1] >= title[3], (key, box, sheet)
+                rects = [place[key][2] for key in place]
+                for i, a in enumerate(rects):
+                    for b in rects[i + 1:]:
+                        assert a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1], (box, sheet)
+                center = {key: ((d[0] + d[2]) / 2, (d[1] + d[3]) / 2) for key, d in drawn.items()}
+                if "top" in center:                     # alzado y planta en la misma vertical
+                    assert abs(center["front"][0] - center["top"][0]) < 1e-3
+                if "side" in center:                    # alzado y perfil a la misma altura
+                    assert abs(center["front"][1] - center["side"][1]) < 1e-3
+                label = f"{scale:g}:1" if scale >= 1 else f"1:{1 / scale:g}"
+                assert f"Escala: {label}  ·" in code
+    # Una escala fija que no cabe se respeta, pero se avisa
+    assert not plan_sheet(((-250, -10, -10), (250, 10, 10)), "A4", 1.0)[2]
+    assert plan_sheet(((0, 0, 0), (40, 30, 20)), "A4", 1.0)[2]
+
+
 def test_tornilleria_medidas_y_metricas_validas():
     from scadgui import hardware as hw
     # solo se ofrecen las métricas que existen en cada norma, y una inexistente es un error
