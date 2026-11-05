@@ -38,7 +38,13 @@ scadgui/                   lógica SIN Qt (se prueba sin PySide6)
   transmission.py          calculadora de transmisiones: dientes para una relación (1 o 2 etapas,
                            tren revertido) o poleas y correa (dentada o en V), y todo colocado en un group()
   sketches.py              perfiles 2D paramétricos
-  drawing.py               lámina técnica 2D (vistas en sistema europeo)
+  drawing.py               maquetación de la lámina (plan_sheet / plan_views) y la versión OpenSCAD
+                           (projection) que se inserta en el modelo
+  drawing_lines.py         líneas de cada vista desde la malla: aristas vivas y contorno, visibles
+                           u ocultas con un z-buffer (sin Qt)
+  drawing_sheet.py         lámina exportada: marco ISO 5457, cajetín ISO 7200, notas, cotas generales,
+                           ejes; salida SVG y DXF (sin Qt)
+  pdfsheet.py              SVG de la lámina a PDF del tamaño de la hoja (Qt)
   operations.py            textos y ajustes rápidos de la guía de cada operación
   library.py               módulos propios (cube_edges, cylinder_edges) que se escriben en el .scad
   library_old.py           los mismos con los comentarios en español, para reconocer archivos viejos
@@ -127,6 +133,15 @@ CONTRIBUTING.md            guía en inglés para quien quiera modificar la aplic
     rótulo (y su ancho), sube la vista que pisaría el cajetín y, con escala 0, coge la mayor
     escala normalizada que cabe. Alzado y planta comparten centro horizontal y alzado y perfil el
     vertical, así que siguen alineados.
+    El archivo exportado (PDF, SVG, DXF) ya no sale de OpenSCAD: se pide a OpenSCAD la malla final
+    (la de la caché si está al día) y `drawing_lines` saca las aristas vivas (> 25° entre caras),
+    los bordes y el contorno aparente, y decide la visibilidad con un z-buffer de la vista: un
+    punto se ve si en su entorno de 3×3 píxeles algo no está claramente por delante (con el
+    máximo fallaban los contornos de los cilindros, cuya cara vecina está casi de canto). Las
+    ocultas bajo una visible y las aristas que se proyectan en el mismo sitio se dibujan una vez.
+    El cajetín ISO 7200 mide 180 mm y pisa las dos columnas en A4: `_layout` prueba primero a
+    subir solo la vista que lo pisa y, si no cabe, reparte las filas por encima del cajetín; la
+    isométrica puede ir a una escala menor (sale en su rótulo) si es lo único que estorba.
 14. **Módulos propios (`library.py`).** Si el modelo usa `cube_edges` o `cylinder_edges`,
     `generate()` añade su definición al final del archivo (también si la llamada quedó dentro
     de un `module` del usuario); `parse()` la quita si no se modificó, y si se modificó la

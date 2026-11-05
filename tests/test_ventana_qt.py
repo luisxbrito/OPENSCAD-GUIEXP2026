@@ -1090,6 +1090,8 @@ def test_plano_tecnico_desde_la_ventana_encuadra_el_modelo():
     assert w.drawing_box([w.doc.children[1].id]) == ((300.0, 0.0, 0.0), (310.0, 10.0, 10.0))
     choice = {"scale": 0.0}
     real_exec, real_cfg = dd.DrawingDialog.exec, dd.DrawingDialog.get_config
+    # El plano recuerda sus datos en los ajustes: se dejan como estaban al terminar.
+    saved = {k: w.settings.value(k) for k in w.settings.allKeys() if k.startswith("drawing_")}
 
     def cfg(d):
         d.action = "insert"
@@ -1101,7 +1103,7 @@ def test_plano_tecnico_desde_la_ventana_encuadra_el_modelo():
     try:
         w.run_command("drawing2d")
         sheet = w.doc.children[-1]
-        assert isinstance(sheet, RawCode) and "Escala: 1:5  ·  A4" in sheet.text and not warned
+        assert isinstance(sheet, RawCode) and "Escala: 1:2  ·  A4" in sheet.text and not warned
         choice["scale"] = 1.0                       # 310 mm a 1:1 no cabe en un A4: se avisa
         w.run_command("drawing2d")
         assert "Escala: 1:1  ·" in w.doc.children[-1].text and warned and "1:1" in warned[0]
@@ -1119,7 +1121,7 @@ def test_plano_tecnico_desde_la_ventana_encuadra_el_modelo():
             try:
                 w.run_command("drawing2d")
                 end = time.monotonic() + 120
-                while w._drawing_pdf is not None and time.monotonic() < end:
+                while w._drawing_job is not None and time.monotonic() < end:
                     QApplication.processEvents()
                     time.sleep(0.02)
             finally:
@@ -1127,9 +1129,30 @@ def test_plano_tecnico_desde_la_ventana_encuadra_el_modelo():
             data = open(pdf, "rb").read()
             box = [float(v) for v in re.search(rb"/MediaBox \[([\d. ]+)\]", data).group(1).split()]
             assert abs(box[2] - 842) < 1 and abs(box[3] - 595) < 1
+            # SVG y DXF salen de la misma lámina (con la malla de la caché, ya calculada)
+            for ext in (".svg", ".dxf"):
+                out = pdf[:-4] + ext
+                QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (out, ""))
+                try:
+                    w.run_command("drawing2d")
+                    end = time.monotonic() + 120
+                    while w._drawing_job is not None and time.monotonic() < end:
+                        QApplication.processEvents()
+                        time.sleep(0.02)
+                finally:
+                    QFileDialog.getSaveFileName = real_save
+                text = open(out, encoding="utf-8").read()
+                assert ("<svg" in text) if ext == ".svg" else ("OCULTAS" in text and "VISIBLES" in text)
+            assert w.settings.value("drawing_notes", "", str)          # los datos se recuerdan
     finally:
         dd.DrawingDialog.exec, dd.DrawingDialog.get_config = real_exec, real_cfg
         QMessageBox.warning = real_warn
+        for k in [k for k in w.settings.allKeys() if k.startswith("drawing_")]:
+            if k in saved:
+                w.settings.setValue(k, saved[k])
+            else:
+                w.settings.remove(k)
+        w.settings.sync()
 
 
 def test_calculadora_de_transmision():

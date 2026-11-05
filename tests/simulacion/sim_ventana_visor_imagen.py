@@ -179,7 +179,9 @@ out_svg = os.path.join(tempfile.mkdtemp(), "plano")
 QFileDialog.next_save = out_svg
 w.open_drawing_dialog()
 exe, args = QProcess.started_args[-1]
-assert args[:2] == ["-o", out_svg + ".svg"], args
+# primero se pide a OpenSCAD la malla de la pieza; la lámina se dibuja al llegar
+assert args[0] == "-o" and args[1].endswith("pieza.stl"), args
+assert w._drawing_job[1] == out_svg + ".pdf", w._drawing_job
 # 15. componentes estándar industriales (hardware)
 w.select_ids([])
 w.run_command("hardware")

@@ -693,6 +693,113 @@ def test_caja_del_modelo_para_el_plano():
     assert geo.model_box(doc, ghosts, [doc.children[1].id]) is None
 
 
+def _two_boxes():
+    """Un cubo de 40 y, detrás de él mirando de frente (Y mayor), uno de 10 que no asoma."""
+    from scadgui import geometry as geo
+    big = geo.cube({"size": [40, 40, 40]})
+    small = geo.cube({"size": [10, 10, 10]}) + np.array([10.0, 50.0, 10.0])
+    return np.concatenate([big, small])
+
+
+def _length(lines):
+    return sum(math.dist(a, b) for line in lines for a, b in zip(line, line[1:]))
+
+
+def test_lineas_del_plano_visibles_y_ocultas():
+    """De frente, el cubo pequeño queda tapado: sus cuatro aristas salen ocultas y las del grande
+    visibles. Desde arriba y de perfil no se tapan. Las aristas que se proyectan en un punto o
+    coinciden con otra visible no se dibujan dos veces, y la isométrica va sin ocultas."""
+    from scadgui.drawing_lines import mesh_edges, view_lines, mesh_volume, view_matrix
+    tris = _two_boxes()
+    me = mesh_edges(tris)
+    vis, hid = view_lines(me, tris, "front")
+    assert abs(_length(vis) - 160) < 0.5 and abs(_length(hid) - 40) < 0.5
+    pts = [p for line in hid for p in line]                  # en el alzado, (x, z) del cubo pequeño
+    assert min(p[0] for p in pts) > 9.9 and max(p[0] for p in pts) < 20.1
+    assert min(p[1] for p in pts) > 9.9 and max(p[1] for p in pts) < 20.1
+    for key in ("top", "side"):
+        vis, hid = view_lines(me, tris, key)
+        assert abs(_length(vis) - 200) < 0.5 and _length(hid) < 0.5, key
+    vis, hid = view_lines(me, tris, "isometric", hidden=False)
+    assert hid == [] and _length(vis) > 0
+    assert abs(mesh_volume(tris) - (40 ** 3 + 10 ** 3)) < 1e-6
+    # Cada vista mira desde donde dice: Z de la vista hacia el observador
+    assert np.allclose(view_matrix("front") @ [0, -1, 0], [0, 0, 1])
+    assert np.allclose(view_matrix("top") @ [0, 0, 1], [0, 0, 1])
+    assert np.allclose(view_matrix("side") @ [-1, 0, 0], [0, 0, 1])
+    assert np.allclose(view_matrix("isometric") @ (np.array([1, -1, 1]) / math.sqrt(3)), [0, 0, 1], atol=1e-4)
+
+
+def test_lamina_iso_con_cajetin_notas_y_cotas():
+    """La lámina lleva el recuadro ISO, el cajetín con todos sus datos (y la masa calculada con el
+    volumen y la densidad), las notas, las cotas generales con la medida real y las vistas dentro
+    del recuadro sin pisar el cajetín. El SVG es XML válido en milímetros y el DXF pone las ocultas
+    en su capa con línea discontinua."""
+    import xml.etree.ElementTree as ET
+    from scadgui.drawing_lines import mesh_edges, view_lines, mesh_volume
+    from scadgui.drawing_sheet import (BLOCK_W, MARGINS, SheetInfo, build_sheet, number, sheet_format, to_dxf,
+                                       to_svg)
+    from scadgui.drawing import scale_label
+    from scadgui.i18n import set_language
+    set_language("es")
+    tris = _two_boxes()
+    me = mesh_edges(tris)
+    lines = {k: view_lines(me, tris, k, hidden=k != "isometric") for k in ("front", "top", "side", "isometric")}
+    box = ((0.0, 0.0, 0.0), (40.0, 60.0, 40.0))
+    info = SheetInfo(title="Soporte", description="Prueba", company="Taller", number="PZ-7", revision="B",
+                     material="PLA", density=1.24, author="Ana", checker="Luis",
+                     notes=["Cotas en milímetros.", "Sin rebabas."])
+    sh = build_sheet(lines, box, info, "A4", volume=mesh_volume(tris))
+    assert sh.fits and sh.scale in (1.0, 0.5)
+    texts = [t[2] for t in sh.texts]
+    for want in ("Soporte", "Prueba", "Taller", "PZ-7", "B", "PLA", "Ana", "Luis", "1/1", "ISO 2768-m", "A4",
+                 scale_label(sh.scale), "40 × 60 × 40 mm", "1. Cotas en milímetros.", "2. Sin rebabas.", "NOTAS:",
+                 "ALZADO", "PLANTA", "PERFIL IZQUIERDO", "ISOMÉTRICA"):
+        assert any(want == t or t.startswith(want) for t in texts), want
+    assert f"{number(65.0 * 1.24 / 1000, 3)} kg  ·  65 cm³" in texts       # 40³ + 10³ mm³ = 65 cm³
+    assert texts.count("40") == 2 and texts.count("60") == 1               # ancho y alto, y el fondo
+    assert number(0.5) == "0,5"
+    w, h = sh.w, sh.h
+    l, b, r, t = MARGINS
+    block = (w - r - BLOCK_W, b, w - r, b + sheet_format({}, True, 2).title[1])
+    for pts, style in sh.lines:
+        if style in ("thick", "hidden"):                                   # las vistas
+            for x, y in pts:
+                assert l < x < w - r and b < y < h - t
+                assert not (block[0] < x < block[2] and block[1] < y < block[3])
+    svg = to_svg(sh, "Soporte")
+    root = ET.fromstring(svg)
+    assert root.get("viewBox") == f"0 {-h:g} {w:g} {h:g}" and root.get("width") == f"{w:g}mm"
+    assert 'stroke-dasharray="3,1.5"' in svg and "Taller" in svg
+    dxf = to_dxf(sh)
+    assert dxf.startswith("0\nSECTION") and dxf.rstrip().endswith("EOF")
+    hidden_segments = sum(len(p) - 1 for p, s in sh.lines if s == "hidden")
+    assert dxf.count("LINE\n8\nOCULTAS") == hidden_segments > 0
+    assert "DASHED" in dxf and "TEXT\n8\nTEXTOS" in dxf
+    set_language("en")
+    try:
+        assert number(0.5) == "0.5"
+    finally:
+        set_language("es")
+
+
+def test_ejes_de_los_taladros_en_el_plano():
+    """Las circunferencias cerradas de una vista ortogonal llevan su eje (una cruz de trazo y punto
+    por centro, con el radio de la mayor); un polígono que no es redondo no."""
+    from scadgui import geometry as geo
+    from scadgui.drawing_lines import mesh_edges, view_lines
+    from scadgui.drawing_sheet import circles
+    tris = np.concatenate([geo.cylinder({"h": 10, "r": 12}, {"fn": 48, "fa": 12, "fs": 2}),
+                           geo.cube({"size": [10, 10, 10]}) + np.array([30.0, 0, 0])])
+    vis, hid = view_lines(mesh_edges(tris), tris, "top")
+    found = circles(vis + hid)
+    assert len(found) == 1
+    (cx, cy), r = found[0]
+    assert abs(cx) < 1e-6 and abs(cy) < 1e-6 and abs(r - 12) < 0.2
+    two = [[(r * math.cos(a), r * math.sin(a)) for a in np.linspace(0, 2 * math.pi, 25)] for r in (4, 9)]
+    assert [round(f[1]) for f in circles(two)] == [9]                         # concéntricas: un eje
+
+
 def test_conico_en_la_vista_aproximada():
     from scadgui.parser import parse
     from scadgui import geometry as geo, gears

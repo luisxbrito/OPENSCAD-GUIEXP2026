@@ -170,10 +170,18 @@ Masks are subtracted from the selected part in one step.
 ### Code, drawings and export
 - Code editor in sync with the tree: click a line to select the part, edit by hand and apply with
   Ctrl+Enter, autocompletion, parameter hints and snippets.
-- Technical drawing on A4/A3 with first-angle (ISO E) front, top, side and isometric views, border
-  and title block; export to SVG, DXF or PDF. Each view is centred in its place wherever the part
-  sits, labels and the title block are kept clear, and the automatic scale picks the largest
-  standard one (ISO 5455) that fits the sheet.
+- Technical drawing on A4/A3 with first-angle (ISO E) front, top, side and isometric views, exported
+  to PDF (at true scale, on a page the size of the sheet), SVG or DXF (one layer per line type):
+  - The views are drawn from OpenSCAD's final mesh: visible edges and outlines as thick lines, hidden
+    edges dashed (optional), and centre lines on every hole and round edge.
+  - ISO 5457 border with grid references and centring marks, and an ISO 7200 title block: company,
+    title and description, drawing number and revision, material, mass (from the volume and the
+    material's density), overall size, scale, sheet size, the first-angle projection symbol,
+    general tolerances, drawn and checked by, and date. Notes go above the title block.
+  - Overall dimensions on the front and top views.
+  - The automatic scale picks the largest standard one (ISO 5455) that fits. If only the isometric
+    is in the way, it gets a smaller scale, shown in its label.
+  - *Insert into model* still adds the views as OpenSCAD `projection()` outlines.
 - Export to STL, 3MF, OBJ, OFF, AMF, SVG, DXF, PDF and PNG through OpenSCAD.
 - Interface in English, Spanish, French, German, Italian and Portuguese, with a light and a dark theme.
 

@@ -21,7 +21,7 @@ SAME_EVERYWHERE = {
     "Color", "Minkowski", "Manifold (rápido)", "OpenSCAD", "X +10", "X -10", "Y +10", "Y -10",
     "Z +10", "Z -10", "Z = 0", "X +90°", "Y +90°", "Z +90°", "Z +45°", "Z +180°", "5 mm", "10 mm",
     "20 mm", "SteelBlue", "Tomato", "Gold", "SeaGreen", "DimGray", "Purple", "Radio R=2",
-    "Radio R=5", "Delta +1", "Delta -1", "Twist 90°", "Alta suave ($fn=64)",
+    "Radio R=5", "Delta +1", "Delta -1", "Twist 90°", "Alta suave ($fn=64)", "Rev.",
 }
 
 # Palabras que en ese idioma se escriben igual que en español (revisadas una a una).
@@ -31,7 +31,9 @@ SAME_AS_SPANISH = {
            "Número de lados:", "Polígono", "Polígono regular", "Rápido (300 ms)", "Sólidos 3D",
            "Tipo de componente normalizado", "Tipo de perfil 2D", "código", "de",
            "Círculo 1", "Círculo 2", "Hexágono", "Polígono de {n} lados", "Ortográfica", "Módulo (m)",
-           "Módulo normal (mn)", "parabólica", "automática", "Ø máximo", "Ø mínimo"},
+           "Módulo normal (mn)", "parabólica", "automática", "Ø máximo", "Ø mínimo",
+           "Empresa", "Empresa:", "Escala", "Formato", "Material", "Material:", "NOTAS:", "Rev.", "Revisado",
+           "Revisado por:", "Título"},
 }
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import math
+from dataclasses import dataclass
 from typing import Optional
 
 from .i18n import tr
@@ -86,83 +87,144 @@ def label_width(text: str) -> float:
     return 0.72 * LABEL_SIZE * len(text)
 
 
-def _layout(box: Box, w: float, h: float, scale: float, keys: list[str], border: bool):
-    """Coloca las vistas a una escala dada. Devuelve ({vista: (cx, cy, rect)}, cabe).
-    cx, cy es dónde cae el centro de la vista en la hoja y rect lo que ocupa con su rótulo, que
-    puede ser más ancho que la vista."""
-    ext = {k: view_extent(box, k) for k in keys}
+@dataclass(frozen=True)
+class SheetFormat:
+    """Márgenes hasta el recuadro (izquierda, abajo, derecha, arriba), cajetín en la esquina inferior
+    derecha (ancho, alto) y aire extra alrededor de cada vista (izquierda, abajo, derecha, arriba)
+    para sus cotas."""
+    frame: tuple = (FRAME, FRAME, FRAME, FRAME)
+    title: tuple = (TITLE_W, TITLE_H)
+    pads: tuple = ()          # ((vista, (izq, abajo, der, arriba)), ...)
+
+    def pad(self, key: str):
+        return dict(self.pads).get(key, (0.0, 0.0, 0.0, 0.0))
+
+
+DEFAULT_FORMAT = SheetFormat()
+
+
+def _layout(ext: dict, w: float, h: float, scale, keys: list[str], border: bool,
+            fmt: SheetFormat = DEFAULT_FORMAT):
+    """Coloca las vistas a una escala dada. ext da el rectángulo de cada vista a escala 1.
+    Devuelve ({vista: (cx, cy, rect)}, cabe): cx, cy es dónde cae el centro de la vista en la hoja
+    y rect lo que ocupa con sus cotas y su rótulo, que puede ser más ancho que la vista."""
     labels = view_labels()
-    size = {k: (max((e[2] - e[0]) * scale, label_width(labels[k])), (e[3] - e[1]) * scale) for k, e in ext.items()}
-    x0, y0, x1, y1 = FRAME + INNER, FRAME + INNER, w - FRAME - INNER, h - FRAME - INNER
+    fl, fb, fr, ft = fmt.frame
+    x0, y0, x1, y1 = fl + INNER, fb + INNER, w - fr - INNER, h - ft - INNER
+    reach = {}                                  # lo que ocupa a cada lado de su centro
+    scales = scale if isinstance(scale, dict) else {k: scale for k in keys}
+    for k in keys:
+        e = ext[k]
+        sw, sh = (e[2] - e[0]) * scales[k], (e[3] - e[1]) * scales[k]
+        pl, pb, pr, pt = fmt.pad(k)
+        extra = " (1:10)" if scales[k] != max(scales.values()) else ""   # rótulo con su propia escala
+        half_label = label_width(labels[k] + extra) / 2
+        reach[k] = (max(sw / 2 + pl, half_label), sh / 2 + pb + LABEL_BAND, max(sw / 2 + pr, half_label), sh / 2 + pt)
 
     cols = [[k for k in ("front", "top") if k in keys], [k for k in ("side", "isometric") if k in keys]]
     rows = [[k for k in ("front", "side") if k in keys], [k for k in ("top", "isometric") if k in keys]]
-    col_w = [max((size[k][0] for k in c), default=0.0) for c in cols]
-    row_h = [max((size[k][1] + LABEL_BAND for k in r), default=0.0) for r in rows]
-    used_c = [c for c, cw in zip(range(2), col_w) if cw > 0]
-    used_r = [r for r, rh in zip(range(2), row_h) if rh > 0]
+    col_l = [max((reach[k][0] for k in c), default=0.0) for c in cols]
+    col_r = [max((reach[k][2] for k in c), default=0.0) for c in cols]
+    row_u = [max((reach[k][3] for k in r), default=0.0) for r in rows]
+    row_d = [max((reach[k][1] for k in r), default=0.0) for r in rows]
+    used_c = [c for c in range(2) if cols[c]]
+    used_r = [r for r in range(2) if rows[r]]
 
     # El aire que sobra se reparte a partes iguales: márgenes y separación entre vistas.
-    gap_x = (x1 - x0 - sum(col_w)) / (len(used_c) + 1)
-    gap_y = (y1 - y0 - sum(row_h)) / (len(used_r) + 1)
-    fits = gap_x >= 0 and gap_y >= 0
+    gap_x = (x1 - x0 - sum(col_l[c] + col_r[c] for c in used_c)) / (len(used_c) + 1)
     centers_x, x = {}, x0
     for c in used_c:
         x += gap_x
-        centers_x[c] = x + col_w[c] / 2
-        x += col_w[c]
-    tops, y = {}, y1
-    for r in used_r:
-        y -= gap_y
-        tops[r] = y
-        y -= row_h[r]
-    # Dentro de una fila, todas las vistas comparten el centro vertical (alzado y perfil quedan a
-    # la misma altura); dentro de una columna, el horizontal (alzado y planta, alineados).
-    place = {}
-    for k in keys:
-        c = 0 if k in cols[0] else 1
-        r = 0 if k in rows[0] else 1
-        sw, sh = size[k]
-        cx, cy = centers_x[c], tops[r] - (row_h[r] - LABEL_BAND) / 2
-        place[k] = [cx, cy, (cx - sw / 2, cy - sh / 2 - LABEL_BAND, cx + sw / 2, cy + sh / 2)]
+        centers_x[c] = x + col_l[c]
+        x += col_l[c] + col_r[c]
+    tw, th = fmt.title
+    title = (w - fr - tw - INNER, 0.0, w, fb + th + INNER)
 
-    if border:
-        # El cajetín ocupa la esquina inferior derecha: una vista de la fila de abajo que lo
-        # pisaría se sube lo justo, sin tocar la de encima. Si no hay sitio, a esa escala no cabe.
-        title = (w - FRAME - TITLE_W - INNER, 0.0, w, FRAME + TITLE_H + INNER)
-        for k in rows[1]:
-            cx, cy, rect = place[k]
-            if not _overlap(rect, title):
-                continue
-            lift = title[3] - rect[1]
-            rect = (rect[0], rect[1] + lift, rect[2], rect[3] + lift)
-            above = [place[o][2] for o in rows[0] if (o in cols[0]) == (k in cols[0])]
-            if rect[3] > y1 or any(rect[3] + INNER > a[1] for a in above):
-                fits = False
-            place[k] = [cx, cy + lift, rect]
-    rects = [p[2] for p in place.values()]
-    if any(_overlap(a, b) for i, a in enumerate(rects) for b in rects[i + 1:]):
-        fits = False
-    return {k: (p[0], p[1], p[2]) for k, p in place.items()}, fits
+    def arrange(bottom: float):
+        """Reparte las filas entre bottom y el recuadro de arriba."""
+        gap_y = (y1 - bottom - sum(row_u[r] + row_d[r] for r in used_r)) / (len(used_r) + 1)
+        fits = gap_x >= 0 and gap_y >= 0
+        centers_y, y = {}, y1
+        for r in used_r:
+            y -= gap_y
+            centers_y[r] = y - row_u[r]
+            y -= row_u[r] + row_d[r]
+        # Dentro de una fila, todas las vistas comparten el centro vertical (alzado y perfil quedan
+        # a la misma altura); dentro de una columna, el horizontal (alzado y planta, alineados).
+        place = {}
+        for k in keys:
+            cx = centers_x[0 if k in cols[0] else 1]
+            cy = centers_y[0 if k in rows[0] else 1]
+            left, down, right, up = reach[k]
+            place[k] = [cx, cy, (cx - left, cy - down, cx + right, cy + up)]
+        if border:
+            # El cajetín ocupa la esquina inferior derecha: una vista de la fila de abajo que lo
+            # pisaría se sube lo justo, sin tocar la de encima.
+            for k in rows[1]:
+                cx, cy, rect = place[k]
+                if not _overlap(rect, title):
+                    continue
+                lift = title[3] - rect[1]
+                rect = (rect[0], rect[1] + lift, rect[2], rect[3] + lift)
+                above = [place[o][2] for o in rows[0] if (o in cols[0]) == (k in cols[0])]
+                if rect[3] > y1 or any(rect[3] + INNER > a[1] for a in above):
+                    fits = False
+                place[k] = [cx, cy + lift, rect]
+        rects = [p[2] for p in place.values()]
+        if any(_overlap(a, b) for i, a in enumerate(rects) for b in rects[i + 1:]):
+            fits = False
+        return {k: (p[0], p[1], p[2]) for k, p in place.items()}, fits
+
+    place, fits = arrange(y0)
+    if not fits and border:
+        # Con un cajetín ancho, que pisa las dos columnas, se reparte todo por encima de él.
+        above, ok = arrange(title[3])
+        if ok:
+            return above, True
+    return place, fits
 
 
 def plan_sheet(box: Optional[Box], sheet_size: str = "A4", scale: float = 0.0,
-               views: Optional[dict[str, bool]] = None, include_border: bool = True):
+               views: Optional[dict[str, bool]] = None, include_border: bool = True,
+               fmt: SheetFormat = DEFAULT_FORMAT, extents: Optional[dict] = None):
     """Escala y posición de cada vista. Con scale = 0 elige la mayor escala normalizada con la que
-    todo cabe. Devuelve (escala, {vista: (cx, cy, rect)}, cabe)."""
+    todo cabe. ``extents`` da el rectángulo real de cada vista a escala 1 (si no, sale de la caja).
+    Devuelve (escala, {vista: (cx, cy, rect)}, cabe)."""
+    scale, place, fits, _ = plan_views(box, sheet_size, scale, views, include_border, fmt, extents, False)
+    return scale, place, fits
+
+
+def plan_views(box: Optional[Box], sheet_size: str = "A4", scale: float = 0.0,
+               views: Optional[dict[str, bool]] = None, include_border: bool = True,
+               fmt: SheetFormat = DEFAULT_FORMAT, extents: Optional[dict] = None, iso_free: bool = True):
+    """Como plan_sheet, y además la escala de cada vista. Con iso_free, si lo único que impide una
+    escala es la isométrica, esta baja a una escala normalizada menor (se indica en su rótulo) y las
+    vistas principales se quedan con la mayor. Devuelve (escala, colocación, cabe, {vista: escala})."""
     box = box or DEFAULT_BOX
     if views is None:
         views = {"top": True, "front": True, "side": True, "isometric": True}
     keys = [k for k in ("front", "top", "side", "isometric") if views.get(k, True)]
+    ext = {k: (extents or {}).get(k) or view_extent(box, k) for k in keys}
     w, h = SHEET_SIZES.get(sheet_size, SHEET_SIZES["A4"])
+
+    def attempt(s):
+        options = [s] + ([t for t in STANDARD_SCALES if t < s] if iso_free and "isometric" in keys else [])
+        for t in options:
+            scales = {k: (t if k == "isometric" else s) for k in keys}
+            place, fits = _layout(ext, w, h, scales, keys, include_border, fmt)
+            if fits:
+                return place, True, scales
+        scales = {k: s for k in keys}
+        return _layout(ext, w, h, scales, keys, include_border, fmt) + (scales,)
+
     if scale and scale > 0:
-        place, fits = _layout(box, w, h, scale, keys, include_border)
-        return scale, place, fits
+        place, fits, scales = attempt(scale)
+        return scale, place, fits, scales
     for s in STANDARD_SCALES:
-        place, fits = _layout(box, w, h, s, keys, include_border)
+        place, fits, scales = attempt(s)
         if fits:
-            return s, place, True
-    return s, place, False
+            return s, place, True, scales
+    return s, place, False, scales
 
 
 def generate_technical_drawing_code(

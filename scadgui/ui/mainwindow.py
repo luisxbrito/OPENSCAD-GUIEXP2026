@@ -571,7 +571,7 @@ class MainWindow(QMainWindow):
         self.gl = False
         self._gl_error = ""
         self.ghosts: dict = {}
-        self._drawing_pdf = None   # (svg temporal, pdf, ancho, alto, título) de una lámina en PDF
+        self._drawing_job = None   # (stl temporal, archivo de la lámina, datos) mientras OpenSCAD calcula
         if self.settings.value("viewer", "gl", str) != "image":
             try:
                 from .viewer3d import Viewer3D
@@ -1336,74 +1336,148 @@ class MainWindow(QMainWindow):
         lo, hi = found
         return tuple(float(v) for v in lo), tuple(float(v) for v in hi)
 
+    DRAWING_KEYS = ("company", "checker", "material", "tolerance", "notes", "hidden", "dims")
+
     def open_drawing_dialog(self) -> None:
-        from ..drawing import SHEET_SIZES, generate_technical_drawing_code, plan_sheet, scale_label
+        from ..drawing import generate_technical_drawing_code, plan_sheet, scale_label
         from .drawing_dialog import DrawingDialog
 
         sel = self.selected_ids()
         def_author = self.settings.value("drawing_author", "Diseñador CAD", str)
         def_sheet = self.settings.value("drawing_sheet", "A4", str)
-        dlg = DrawingDialog(has_selection=bool(sel), default_author=def_author, default_sheet=def_sheet, parent=self)
-        if dlg.exec():
-            cfg = dlg.get_config()
-            if cfg.get("use_selection") and sel:
-                nodes = [self.doc.find(i) for i in sel if self.doc.find(i) is not None]
-                target_code = "\n".join(generate(n, header=False).text.strip() for n in nodes)
-                box = self.drawing_box([n.id for n in nodes])
-            else:
-                target_code = generate(self.doc, header=False).text
-                box = self.drawing_box(None)
+        defaults = {}
+        for key in self.DRAWING_KEYS:
+            value = self.settings.value(f"drawing_{key}", None)
+            if value is not None:
+                defaults[key] = value in (True, "true", "1") if key in ("hidden", "dims") else str(value)
+        dlg = DrawingDialog(has_selection=bool(sel), default_author=def_author, default_sheet=def_sheet, parent=self,
+                            defaults=defaults)
+        if not dlg.exec():
+            return
+        cfg = dlg.get_config()
+        # Lo que no cambia de un plano a otro se recuerda para el siguiente.
+        self.settings.setValue("drawing_author", cfg["author"])
+        for key in self.DRAWING_KEYS:
+            value = cfg.get(key)
+            self.settings.setValue(f"drawing_{key}", "\n".join(value) if key == "notes" else value)
+        if cfg.get("use_selection") and sel:
+            nodes = [self.doc.find(i) for i in sel if self.doc.find(i) is not None]
+            target_code = "\n".join(generate(n, header=False).text.strip() for n in nodes)
+            ids = [n.id for n in nodes]
+        else:
+            target_code = generate(self.doc, header=False).text
+            ids = None
+        sheet, views = cfg.get("sheet_size", "A4"), cfg.get("views")
 
-            sheet, views = cfg.get("sheet_size", "A4"), cfg.get("views")
+        if cfg.get("action") == "insert":
+            # En el modelo, como código OpenSCAD: siluetas con projection().
+            box = self.drawing_box(ids)
             border = bool(cfg.get("include_border", True))
             scale, _, fits = plan_sheet(box, sheet, float(cfg.get("scale", 0.0)), views, border)
             drawing_code = generate_technical_drawing_code(
-                target_code=target_code,
-                title=cfg.get("title", ""),
-                author=cfg.get("author", ""),
-                sheet_size=sheet,
-                scale=scale,
-                views=views,
-                include_border=border,
-                box=box,
-            )
+                target_code=target_code, title=cfg.get("title", ""), author=cfg.get("author", ""),
+                sheet_size=sheet, scale=scale, views=views, include_border=border, box=box)
             if not fits:
-                QMessageBox.warning(self, tr("Generar plano técnico 2D"),
-                                    tr("Las vistas no caben en la hoja a escala {s}: elige una escala menor, "
-                                       "la automática o una hoja más grande.").format(s=scale_label(scale)))
+                self._warn_drawing_scale(scale_label(scale))
 
-            if cfg.get("action") == "export":
-                if not self.runner.exe:
-                    self.configure_openscad()
-                    if not self.runner.exe:
-                        return
-                base = os.path.splitext(self.path)[0] if self.path else os.path.join(
-                    self.settings.value("last_dir", "", str), "plano_tecnico")
-                filters = "SVG (*.svg);;DXF (*.dxf);;PDF (*.pdf);;Todos (*)"
-                path, chosen = QFileDialog.getSaveFileName(self, tr("Exportar plano técnico"), base + ".svg", filters)
-                if not path:
-                    return
-                if not os.path.splitext(path)[1]:
-                    ext = ".svg"
-                    if "*.dxf" in chosen:
-                        ext = ".dxf"
-                    elif "*.pdf" in chosen:
-                        ext = ".pdf"
-                    path += ext
-                target = path
-                if path.lower().endswith(".pdf"):
-                    # El PDF de OpenSCAD 2021 es siempre un A4 vertical con regla: la lámina sale
-                    # cortada. Se exporta a SVG y se pasa a PDF del tamaño de la hoja al terminar.
-                    target = os.path.join(tempfile.mkdtemp(prefix="scadgui_pdf_"), "lamina.svg")
-                    w, h = SHEET_SIZES.get(sheet, SHEET_SIZES["A4"])
-                    self._drawing_pdf = (target, path, w, h, cfg.get("title", ""))
-                self.runner.export(drawing_code, os.path.dirname(self.path) if self.path else "", target)
-            elif cfg.get("action") == "insert":
-                def change():
-                    raw = RawCode(drawing_code)
-                    self.doc.children.append(raw)
-                self.mutate(change)
-                self.statusBar().showMessage(tr("Plano técnico insertado en el modelo"), 4000)
+            def change():
+                self.doc.children.append(RawCode(drawing_code))
+            self.mutate(change)
+            self.statusBar().showMessage(tr("Plano técnico insertado en el modelo"), 4000)
+            return
+
+        if not self.runner.exe:
+            self.configure_openscad()
+            if not self.runner.exe:
+                return
+        base = os.path.splitext(self.path)[0] if self.path else os.path.join(
+            self.settings.value("last_dir", "", str), "plano_tecnico")
+        filters = "PDF (*.pdf);;SVG (*.svg);;DXF (*.dxf);;Todos (*)"
+        path, chosen = QFileDialog.getSaveFileName(self, tr("Exportar plano técnico"), base + ".pdf", filters)
+        if not path:
+            return
+        if not os.path.splitext(path)[1]:
+            path += ".dxf" if "*.dxf" in chosen else ".svg" if "*.svg" in chosen else ".pdf"
+        # La lámina se dibuja con la malla final de OpenSCAD: la de la caché si está al día y es todo
+        # el modelo; si no, se le pide a OpenSCAD y se sigue en on_exported.
+        tris = self._cached_mesh() if ids is None else None
+        if tris is not None:
+            self._write_drawing(tris, cfg, path)
+            return
+        stl = os.path.join(tempfile.mkdtemp(prefix="scadgui_plano_"), "pieza.stl")
+        self._drawing_job = (stl, path, cfg)
+        self.runner.extra_args = self._openscad_args()
+        self.runner.export(target_code, os.path.dirname(self.path) if self.path else "", stl)
+        self.statusBar().showMessage(tr("Calculando la pieza para el plano…"))
+
+    def _cached_mesh(self):
+        code = generate(self.doc, header=False).text
+        if not (meshcache.cacheable(code) and self.runner.exe):
+            return None
+        base = os.path.dirname(self.path) if self.path else ""
+        key = meshcache.mesh_key(code, self._openscad_args(), self.runner.backend, self.runner.exe, base)
+        cached = self.mesh_cache.get(key)
+        if cached is None or cached == meshcache.EMPTY or not len(cached[0]):
+            return None
+        return cached[0]
+
+    def _warn_drawing_scale(self, label: str) -> None:
+        QMessageBox.warning(self, tr("Generar plano técnico 2D"),
+                            tr("Las vistas no caben en la hoja a escala {s}: elige una escala menor, "
+                               "la automática o una hoja más grande.").format(s=label))
+
+    def _write_drawing(self, tris, cfg: dict, path: str) -> bool:
+        """Dibuja la lámina con las aristas de la malla y la guarda en SVG, DXF o PDF."""
+        from .. import drawing_lines as dl
+        from ..drawing import scale_label
+        from ..drawing_sheet import SheetInfo, build_sheet, to_dxf, to_svg
+        if tris is None or not len(tris):
+            QMessageBox.warning(self, tr("Generar plano técnico 2D"),
+                                tr("El plano necesita piezas 3D: lo seleccionado no tiene volumen."))
+            return False
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            views = cfg.get("views") or {}
+            me = dl.mesh_edges(tris)
+            lines = {k: dl.view_lines(me, tris, k, hidden=bool(cfg.get("hidden", True)) and k != "isometric")
+                     for k in ("front", "top", "side", "isometric") if views.get(k, True)}
+            lo, hi = geo.bbox(tris)
+            box = (tuple(float(v) for v in lo), tuple(float(v) for v in hi))
+            info = SheetInfo(title=cfg.get("title", ""), description=cfg.get("description", ""),
+                             company=cfg.get("company", ""), number=cfg.get("number", ""),
+                             revision=cfg.get("revision", ""), material=cfg.get("material", ""),
+                             density=cfg.get("density"), author=cfg.get("author", ""),
+                             checker=cfg.get("checker", ""), tolerance=cfg.get("tolerance", ""),
+                             notes=list(cfg.get("notes") or []))
+            sheet = build_sheet(lines, box, info, cfg.get("sheet_size", "A4"), float(cfg.get("scale", 0.0)),
+                                views, bool(cfg.get("dims", True)), dl.mesh_volume(tris))
+            ext = os.path.splitext(path)[1].lower()
+            if ext == ".dxf":
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(to_dxf(sheet))
+            elif ext == ".pdf":
+                from ..pdfsheet import svg_to_pdf
+                folder = tempfile.mkdtemp(prefix="scadgui_pdf_")
+                svg = os.path.join(folder, "lamina.svg")
+                with open(svg, "w", encoding="utf-8") as fh:
+                    fh.write(to_svg(sheet, info.title))
+                try:
+                    svg_to_pdf(svg, path, sheet.w, sheet.h, info.title)
+                finally:
+                    shutil.rmtree(folder, ignore_errors=True)
+            else:
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(to_svg(sheet, info.title))
+        except (OSError, ValueError, RuntimeError) as exc:
+            self.log(tr("No se pudo crear el plano: {error}").format(error=exc), "error")
+            return False
+        finally:
+            QApplication.restoreOverrideCursor()
+        if not sheet.fits:
+            self._warn_drawing_scale(scale_label(sheet.scale))
+        self.log(tr("Exportado: {path}").format(path=path), "info")
+        self.statusBar().showMessage(f"{tr('Exportado')}: {path}", 6000)
+        return True
 
     def open_boolean_dialog(self, node_id: Optional[int] = None) -> None:
         from .boolean_dialog import BooleanDialog
@@ -2213,18 +2287,21 @@ class MainWindow(QMainWindow):
         self.runner.export(code, os.path.dirname(self.path) if self.path else "", path)
 
     def on_exported(self, path: str, ok: bool) -> None:
-        pending = self._drawing_pdf
-        if pending is not None and path == pending[0]:
-            self._drawing_pdf = None
-            svg, path, w, h, title = pending
-            if ok:
-                from ..pdfsheet import svg_to_pdf
-                try:
-                    svg_to_pdf(svg, path, w, h, title)
-                except (OSError, ValueError, RuntimeError) as exc:
-                    self.log(tr("No se pudo crear el PDF: {error}").format(error=exc), "error")
-                    ok = False
-            shutil.rmtree(os.path.dirname(svg), ignore_errors=True)
+        job = self._drawing_job
+        if job is not None and path == job[0]:
+            # La malla que pidió el plano técnico: se dibuja la lámina con ella.
+            self._drawing_job = None
+            stl, out, cfg = job
+            tris = geo.load_stl(stl) if ok and os.path.isfile(stl) else None
+            shutil.rmtree(os.path.dirname(stl), ignore_errors=True)
+            if tris is None:
+                self.log(tr("OpenSCAD no pudo calcular la pieza para el plano. Mira los mensajes de arriba."),
+                         "error")
+                self.viewer.status.setText(tr("Error al exportar"))
+            else:
+                self._write_drawing(tris, cfg, out)
+            self.schedule_preview()
+            return
         if ok:
             self.log(tr("Exportado: {path}").format(path=path), "info")
             self.statusBar().showMessage(f"{tr('Exportado')}: {path}", 6000)

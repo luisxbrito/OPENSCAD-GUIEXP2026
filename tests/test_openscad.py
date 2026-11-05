@@ -667,6 +667,24 @@ def test_plano_tecnico_en_pdf_del_tamano_de_la_hoja():
         box = [float(v) for v in re.search(rb"/MediaBox \[([\d. ]+)\]", data).group(1).split()]
         assert abs(box[2] - w * 72 / 25.4) < 1 and abs(box[3] - h * 72 / 25.4) < 1, (sheet, box)
 
+
+def test_plano_con_lineas_ocultas_de_un_taladro():
+    """Con la malla de OpenSCAD de una placa con un taladro vertical, el alzado dibuja el taladro con
+    dos líneas ocultas a ±r de su eje en toda la altura y la planta lo ve como un círculo."""
+    from scadgui.drawing_lines import mesh_edges, view_lines
+    tris = render("$fn = 64; difference() { cube([80, 50, 20]); translate([30, 25, -1]) cylinder(h = 22, d = 16); }")
+    me = mesh_edges(tris)
+    vis, hid = view_lines(me, tris, "front")
+    verticals = [line for line in hid if abs(line[0][0] - line[-1][0]) < 1e-6]
+    xs = sorted({round(line[0][0], 2) for line in verticals})
+    assert xs == [22.0, 38.0], xs
+    for x in xs:
+        span = [p[1] for line in verticals if round(line[0][0], 2) == x for p in line]
+        assert min(span) < 0.5 and max(span) > 19.5
+    vis, hid = view_lines(me, tris, "top")
+    ring = [p for line in vis for p in line if math.hypot(p[0] - 30, p[1] - 25) < 8.5]
+    assert ring and all(abs(math.hypot(p[0] - 30, p[1] - 25) - 8) < 0.1 for p in ring) and hid == []
+
 if __name__ == "__main__":
     if not EXE:
         print("OpenSCAD no encontrado: se omiten estas pruebas (define OPENSCAD para indicar dónde está)")
