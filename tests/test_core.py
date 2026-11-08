@@ -32,7 +32,7 @@ def roundtrip(text):
 
 
 def test_catalogo_completo():
-    assert len(SPECS) == 47  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 12 de mecánica
+    assert len(SPECS) == 49  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 14 de mecánica
     for key, _, _ in CATEGORIES:
         assert specs_in(key), key
     for name in SPECS:
@@ -1100,7 +1100,8 @@ def test_modulos_propios_con_comentarios_en_ingles():
 
     assert set(SPANISH_COMMENTS) == set(LIBRARY) - {"shaft_bore", "spline", "cam", "pipe_flange",
                                                        "camshaft_main_shaft", "cam_lobe",
-                                                       "herringbone_gear"}  # nacieron en inglés
+                                                       "herringbone_gear", "worm",
+                                                       "worm_gear"}  # nacieron en inglés
     for name, code in LIBRARY.items():
         assert all(c.isascii() for c in re.findall(r"//[^\n]*", code)), name
         assert "written by OpenSCAD GUI Mejorada" in code and "lo escribe" not in code, name

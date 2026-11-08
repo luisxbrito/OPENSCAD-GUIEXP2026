@@ -816,6 +816,39 @@ def herringbone_gear(p) -> Optional[Tris]:
     return mesh
 
 
+def worm(p) -> Optional[Tris]:
+    """Tornillo sin fin (vista aproximada: sin el agujero, que lo hace OpenSCAD)."""
+    from . import gears
+    mod, starts = _num(p.get("mod", 2)), _num(p.get("starts", 1))
+    diam, length = _num(p.get("diam", 20)), _num(p.get("length", 30))
+    pa = _num(p.get("pressure_angle", 20))
+    if None in (mod, starts, diam, length, pa) or mod <= 0 or starts < 1 or diam <= 0 or length <= 0:
+        return None
+    poly = gears.worm_polygon(mod, int(starts), diam, pa)
+    turn = gears.worm_twist(mod, int(starts), length)
+    if p.get("left_hand") is True:
+        turn = -turn
+    return twisted_prism(poly, length, -length / 2 if p.get("center") is True else 0.0, turn,
+                         max(16, int(math.ceil(abs(turn) / 4))))
+
+
+def worm_gear(p) -> Optional[Tris]:
+    """Rueda corona de un tornillo sin fin (vista aproximada, sin agujero ni garganta tallada:
+    la garganta exacta -- intersección con el toro que envuelve al sinfín -- la hace OpenSCAD;
+    aquí basta con el diente recto para que la vista previa dé una idea del tamaño y la hélice)."""
+    from . import gears
+    mod, z = _num(p.get("mod", 2)), _num(p.get("teeth", 30))
+    wd, ws = _num(p.get("worm_diam", 20)), _num(p.get("worm_starts", 1))
+    t, pa = _num(p.get("thickness", 10)), _num(p.get("pressure_angle", 20))
+    if None in (mod, z, wd, ws, t, pa) or mod <= 0 or z < 3 or wd <= 0 or ws < 1 or t <= 0:
+        return None
+    poly = gears.worm_gear_polygon(mod, int(z), wd, int(ws), pa, _num(p.get("backlash", 0), 0.0) or 0.0)
+    turn = gears.worm_gear_twist(mod, int(z), wd, int(ws), t)
+    if p.get("left_hand") is True:
+        turn = -turn
+    return twisted_prism(poly, t, -t / 2 if p.get("center") is True else 0.0, turn,
+                         max(8, int(math.ceil(abs(turn) / 2))))
+
 def bevel_gear(p) -> Optional[Tris]:
     """Engranaje cónico recto (vista aproximada: sin el agujero, que lo hace OpenSCAD).
 
@@ -1361,6 +1394,10 @@ def solid(node, ctx) -> dict:
         mesh = rack(p)
     elif k == "bevel_gear":
         mesh = bevel_gear(p)
+    elif k == "worm":
+        mesh = worm(p)
+    elif k == "worm_gear":
+        mesh = worm_gear(p)
     elif k == "pulley":
         mesh = pulley(p)
     elif k == "v_pulley":

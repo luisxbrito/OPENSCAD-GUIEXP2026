@@ -218,6 +218,103 @@ HERRINGBONE_GEAR = '''module herringbone_gear(mod = 1, teeth = 20, thickness = 1
   }
 }'''
 
+WORM = '''module worm(mod = 2, starts = 1, diam = 20, length = 30, pressure_angle = 20, left_hand = false, backlash = 0, bore = 0, center = false, keyway = false, key_width = 0, key_depth = 0) {
+  // Worm screw thread (written by OpenSCAD GUI Mejorada).
+  // mod is the AXIAL module (the one the thread is cut with, like a lead screw on a lathe);
+  // axial pitch px = PI * mod. starts: number of parallel threads (entradas/filetes); lead
+  // L = starts * px. diam is the PITCH diameter, a free design choice (see worm_gear's hint for
+  // the usual bounds). Addendum/dedendum follow the same convention as the other gears here:
+  // head = mod, root = 1.25 * mod. pressure_angle is the flank half-angle measured in the AXIAL
+  // plane, like an ACME thread (14.5 deg simple/double, 20 deg reinforced, 29-30 deg for long pitches).
+  n = max(1, round(starts));
+  r = diam / 2;
+  ra = r + mod;
+  rf = max(r - 1.25 * mod, mod * 0.1);
+  px = PI * mod;
+  lead = n * px;
+  t = tan(pressure_angle);
+  // Half the AXIAL thickness of the thread at radius R (straight flank, like an ACME thread).
+  // A profile drawn in the TRANSVERSE (XY) plane and swept with linear_extrude(twist = ...)
+  // reproduces this axial profile at every Z because, near a thread crossing the axial cutting
+  // plane, the local twist is linear in Z: an axial half-thickness h there corresponds to a twist
+  // of h turns of the full lead, i.e. a circumferential half-angle of h * 360 / lead degrees.
+  function half(R) = max(0, px / 4 - (R - r) * t) * 360 / lead;
+  nn = 8;
+  flank = [for (k = [0 : nn]) rf + (ra - rf) * k / nn];
+  pts = [for (i = [0 : n - 1]) let(c = i * 360 / n) each concat(
+           [for (R = flank) [R * cos(c - half(R)), R * sin(c - half(R))]],
+           [for (k = [nn : -1 : 0]) let(R = flank[k]) [R * cos(c + half(R)), R * sin(c + half(R))]])];
+  turn = 360 * length / lead;
+  translate([0, 0, center ? -length / 2 : 0]) difference() {
+    linear_extrude(length, twist = left_hand ? turn : -turn, slices = max(16, ceil(turn / 4)),
+                   convexity = 10) polygon(pts);
+    if (bore > 0) translate([0, 0, -1]) shaft_bore(bore, length + 2, keyway, key_width, key_depth);
+  }
+}'''
+
+WORM_GEAR = '''module worm_gear(mod = 2, teeth = 30, worm_diam = 20, worm_starts = 1, thickness = 10, pressure_angle = 20, left_hand = false, backlash = 0, bore = 0, center = false, keyway = false, key_width = 0, key_depth = 0) {
+  // Worm wheel / rueda corona (written by OpenSCAD GUI Mejorada).
+  // mod is the mating worm's AXIAL module, which is this wheel's TRANSVERSE circular module
+  // directly (circular pitch at the pitch circle = PI * mod): unlike helical_gear, mod here is
+  // NOT divided by cos(helix) first, because that is how a worm pair is specified (Shigley,
+  // Sec. 15-6: translated, a worm's normal diametral pitch equals that of a helical gear with
+  // the same helix (psi) as the worm's lead angle (lambda). The helix (lead) angle is derived from the worm it mates
+  // with: tan(lead_angle) = worm_starts * mod / worm_diam. Pitch diameter = mod * teeth, same
+  // formula as a spur gear. The outer edge of the teeth is then carved concave (the \"throat\"),
+  // following the cylindrical envelope of the mating worm, by intersecting with a torus centred
+  // on THIS gear's own axis with major radius = centre distance and minor radius =
+  // worm_diam / 2 - mod (classic rule of thumb, a bit less than the worm's addendum circle so
+  // the tips clear it).
+  z = max(3, round(teeth));
+  ha = atan(worm_starts * mod / max(0.001, worm_diam));   // lead angle of the worm = helix angle here
+  at = atan(tan(pressure_angle) / cos(ha));
+  r = mod * z / 2;                      // pitch radius (mod is already the transverse module)
+  rb = r * cos(at);
+  ra = r + mod;
+  rf = max(r - 1.25 * mod, mod * 0.1);
+  r0 = max(rb, rf);
+  function inv(a) = tan(a) - a * PI / 180;
+  function half(R) = max(0, ((PI * mod / 2 - backlash / 2) / (2 * r) + inv(at)
+                             - inv(acos(min(1, rb / R)))) * 180 / PI);
+  n = 8;
+  flank = [for (k = [0 : n]) r0 + (ra - r0) * k / n];
+  root = rf < r0 - 1e-6;
+  pts = [for (i = [0 : z - 1]) let(c = i * 360 / z) each concat(
+           root ? [[rf * cos(c - half(r0)), rf * sin(c - half(r0))]] : [],
+           [for (R = flank) [R * cos(c - half(R)), R * sin(c - half(R))]],
+           [for (k = [n : -1 : 0]) let(R = flank[k]) [R * cos(c + half(R)), R * sin(c + half(R))]],
+           root ? [[rf * cos(c + half(r0)), rf * sin(c + half(r0))]] : [],
+           [[rf * cos(c + 180 / z), rf * sin(c + 180 / z)]])];
+  // Twist over the face width, as in helical_gear but with mod already transverse: see that
+  // module for the general derivation (here it simplifies to 2 * thickness * tan(ha) / (z * mod)).
+  turn = 2 * thickness * tan(ha) / (z * mod) * 180 / PI;
+  C = r + worm_diam / 2;                            // centre distance to the mating worm
+  // Throat (concavity) radius: the worm's own OUTER (addendum) radius, since that is the
+  // envelope the worm's cylindrical body sweeps through the gear as it is hobbed with a
+  // cutter the same size as the worm, through a full turn of the gear around its own axis.
+  Rt = worm_diam / 2 + mod;
+  // The dedendum land between teeth (radius rf) always sits OUTSIDE the throat torus's reach:
+  // C - Rt = r - mod, which is exactly 0.25 * mod above rf = r - 1.25 * mod, for any parameters.
+  // Intersecting the whole tooth extrusion with the torus would therefore cut the teeth free of
+  // each other (no hub left to hold them). A plain backing-hub cylinder, sized to reach into the
+  // torus's narrowest cross-section (at the gear's own front/back faces), restores a solid base
+  // without otherwise touching the throated tooth shape.
+  half_t = thickness / 2;
+  Rt_face = sqrt(max(0.0001, Rt * Rt - half_t * half_t));
+  hub_r = min(ra - 0.05, C - Rt_face + 0.05);
+  translate([0, 0, center ? -thickness / 2 : 0]) difference() {
+    union() {
+      intersection() {
+        linear_extrude(thickness, twist = left_hand ? turn : -turn, slices = max(8, ceil(abs(turn) / 2)),
+                       convexity = 10) polygon(pts);
+        translate([0, 0, thickness / 2]) rotate_extrude(convexity = 10) translate([C, 0]) circle(Rt);
+      }
+      cylinder(h = thickness, r = max(0, hub_r));
+    }
+    if (bore > 0) translate([0, 0, -1]) shaft_bore(bore, thickness + 2, keyway, key_width, key_depth);
+  }
+}'''
+
 RACK = '''module rack(mod = 1, teeth = 10, thickness = 5, base = 5, pressure_angle = 20, backlash = 0, helix_angle = 0, left_hand = false, center = false) {
   // Rack of the module system (written by OpenSCAD GUI Mejorada).
   // It is the "basic rack" that defines the tooth form: straight flanks inclined at the pressure
@@ -582,7 +679,7 @@ CAM_LOBE = '''module cam_lobe(base_r = 15, lift = 8, width = 12, rise_angle = 11
 
 LIBRARY = {"cube_edges": CUBE_EDGES, "cylinder_edges": CYLINDER_EDGES, "spur_gear": SPUR_GEAR,
            "helical_gear": HELICAL_GEAR, "herringbone_gear": HERRINGBONE_GEAR, "rack": RACK,
-           "bevel_gear": BEVEL_GEAR, "pulley": PULLEY,
+           "bevel_gear": BEVEL_GEAR, "worm": WORM, "worm_gear": WORM_GEAR, "pulley": PULLEY,
            "v_pulley": V_PULLEY, "spline": SPLINE, "cam": CAM, "shaft_bore": SHAFT_BORE,
            "pipe_flange": PIPE_FLANGE,
            "camshaft_main_shaft": CAMSHAFT_MAIN_SHAFT, "cam_lobe": CAM_LOBE}

@@ -218,6 +218,10 @@ class PropertyPanel(QScrollArea):
             self._lay.addWidget(fix)
         if node.kind in ("spur_gear", "helical_gear", "herringbone_gear", "rack", "bevel_gear"):
             self._gear_info(node)
+        if node.kind == "worm":
+            self._worm_info(node)
+        if node.kind == "worm_gear":
+            self._worm_gear_info(node)
         if node.kind == "pulley":
             self._pulley_info(node)
         if node.kind == "v_pulley":
@@ -364,6 +368,71 @@ class PropertyPanel(QScrollArea):
         lay.addWidget(QLabel(tr("dientes:")))
         lay.addWidget(teeth)
         self._lay.addWidget(row)
+
+    def _worm_info(self, node: Node) -> None:
+        """Medidas calculadas, avisos de diseño y el botón para añadir la rueda corona."""
+        from .. import gears
+        p = node.params
+
+        def val(key, default):
+            v = p.get(key, default)
+            return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+        mod, starts, diam, length, pa = (val("mod", 2), val("starts", 1), val("diam", 20),
+                                         val("length", 30), val("pressure_angle", 20))
+        if None in (mod, starts, diam, length, pa):
+            return
+        d = gears.worm_dims(mod, int(starts), diam, length)
+        self._hint(tr("Ø exterior {de:g} mm · Ø raíz {dr:g} mm · paso axial {px:.3f} mm · avance "
+                      "{l:.3f} mm").format(de=round(d["tip_d"], 3), dr=round(d["root_d"], 3),
+                                           px=d["axial_pitch"], l=d["lead"]))
+        self._hint(tr("Ángulo de avance {a:.2f}°").format(a=d["lead_angle"]))
+        for text, values in gears.worm_warnings(mod, int(starts), diam, length, pa):
+            self._hint(tr(text).format(**values), "warnText")
+        self._keyway_info(p, d["root_d"])
+        row = QWidget()
+        lay = QHBoxLayout(row)
+        lay.setContentsMargins(0, 0, 0, 0)
+        teeth = QSpinBox()
+        teeth.setRange(10, 400)
+        teeth.setValue(30)
+        teeth.setToolTip(tr("Dientes de la rueda corona nueva"))
+        add = QPushButton(tr("Añadir rueda corona"))
+        add.setToolTip(tr("Crea la rueda que engrana con este sinfín (mismo módulo, Ø y número de "
+                          "entradas), ya colocada a la distancia entre ejes correcta y con su eje "
+                          "cruzado a 90° con el del sinfín."))
+        add.clicked.connect(lambda: self.addMeshingGear.emit(node.id, teeth.value()))
+        lay.addWidget(add, 1)
+        lay.addWidget(QLabel(tr("dientes:")))
+        lay.addWidget(teeth)
+        self._lay.addWidget(row)
+
+    def _worm_gear_info(self, node: Node) -> None:
+        """Medidas calculadas y avisos de diseño de la rueda corona."""
+        from .. import gears
+        p = node.params
+
+        def val(key, default):
+            v = p.get(key, default)
+            return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+        mod, z, wd, ws, pa = (val("mod", 2), val("teeth", 30), val("worm_diam", 20),
+                              val("worm_starts", 1), val("pressure_angle", 20))
+        if None in (mod, z, wd, ws, pa):
+            return
+        d = gears.worm_gear_dims(mod, int(z), wd, int(ws))
+        self._hint(tr("Ø primitivo {dp:g} mm · Ø exterior {de:g} mm · Ø raíz {dr:g} mm · distancia "
+                      "entre ejes {c:.2f} mm").format(dp=round(d["pitch_d"], 3),
+                                                       de=round(d["tip_d"], 3),
+                                                       dr=round(d["root_d"], 3),
+                                                       c=d["center_distance"]))
+        self._hint(tr("Ángulo de hélice (= avance del sinfín) {a:.2f}° · radio de garganta "
+                      "{r:.2f} mm").format(a=d["lead_angle"], r=d["throat_r"]))
+        bore = p.get("bore", 0)
+        bore = bore if isinstance(bore, (int, float)) and not isinstance(bore, bool) else 0
+        for text, values in gears.worm_gear_warnings(mod, int(z), wd, int(ws), pa, bore):
+            self._hint(tr(text).format(**values), "warnText")
+        self._keyway_info(p, d["root_d"])
 
     def _keyway_info(self, p: dict, root_d: float) -> None:
         """Medidas y avisos del cuñero, si la pieza lo lleva."""

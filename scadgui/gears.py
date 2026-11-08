@@ -990,3 +990,135 @@ def lobe_warnings(base_r: float, lift: float, rise_angle: float, dwell_angle: fl
             out.append((N_("El radio de la punta ({n:g} mm) es mayor que el radio base ({r:g} mm): el "
                            "lóbulo deja de apoyarse en el círculo base."), {"n": nose_r, "r": base_r}))
     return out
+
+
+# ---------------------------------------------------------------------------------------------
+# Tornillo sin fin y su rueda corona (worm / worm_gear)
+# ---------------------------------------------------------------------------------------------
+# Mismo método que el helicoidal (perfil del plano de giro + linear_extrude(twist=...)), pero el
+# sinfín se especifica por su módulo AXIAL (el del husillo, como una rosca ACME) y la rueda toma
+# ese módulo directamente como su módulo transversal (Shigley, cap. 15: "el paso diametral normal
+# de un tornillo sinfín es el mismo que el de un engranaje helicoidal... con psi = lambda").
+
+def worm_lead(mod: float, starts: int) -> float:
+    return max(1, int(round(starts))) * math.pi * mod
+
+
+def worm_lead_angle(mod: float, starts: int, diam: float) -> float:
+    """Ángulo de avance λ (grados), medido desde el plano transversal (Shigley ec. 13-28)."""
+    return math.degrees(math.atan2(max(1, int(round(starts))) * mod, max(1e-9, diam)))
+
+
+def worm_dims(mod: float, starts: int, diam: float, length: float = 0.0) -> dict:
+    n = max(1, int(round(starts)))
+    return {
+        "starts": n,
+        "pitch_d": diam,
+        "tip_d": diam + 2 * mod,
+        "root_d": max(diam - 2.5 * mod, mod * 0.2),
+        "axial_pitch": math.pi * mod,
+        "lead": worm_lead(mod, n),
+        "lead_angle": worm_lead_angle(mod, n, diam),
+    }
+
+
+def worm_warnings(mod: float, starts: int, diam: float, length: float,
+                  pressure_angle: float = 20.0) -> list[tuple[str, dict]]:
+    """Problemas de diseño del sinfín: (texto en español, valores para format)."""
+    out = []
+    d = worm_dims(mod, starts, diam, length)
+    # Buena proporción del diámetro primitivo (Shigley ec. 15-27), tomando la distancia entre
+    # ejes aproximada de un acoplamiento habitual (rueda de 30-40 dientes) como referencia.
+    c_ref = diam / 2 + mod * 30 / 2
+    low, high = c_ref ** 0.875 / 3, c_ref ** 0.875 / 1.6
+    if not low <= diam <= high:
+        out.append((N_("Con un módulo {m} el Ø primitivo habitual está entre {lo:.1f} y {hi:.1f} mm "
+                    "(para una rueda de referencia de 30 dientes); fuera de ese rango el sinfín "
+                    "puede salir poco rígido o demasiado voluminoso."),
+                    {"m": f"{mod:g}", "lo": low, "hi": high}))
+    if d["lead_angle"] > 45:
+        out.append((N_("Con {a:.1f}° de avance el sinfín se acerca a un tornillo de paso muy largo: "
+                    "revisa que la rueda tenga suficientes dientes para engranar bien."),
+                    {"a": d["lead_angle"]}))
+    if d["root_d"] <= 0.2 * mod:
+        out.append((N_("El Ø primitivo es demasiado pequeño para el módulo {m}: el núcleo del "
+                    "sinfín casi desaparece."), {"m": f"{mod:g}"}))
+    return out
+
+
+def worm_polygon(mod: float, starts: int, diam: float, pressure_angle: float = 20.0) -> np.ndarray:
+    """Perfil del plano de giro del sinfín (N × 2), antihorario (ver worm en library.py)."""
+    n = max(1, int(round(starts)))
+    r = diam / 2
+    ra, rf = r + mod, max(r - 1.25 * mod, mod * 0.1)
+    px = math.pi * mod
+    lead = n * px
+    t = math.tan(math.radians(pressure_angle))
+
+    def half(R: float) -> float:
+        return max(0.0, px / 4 - (R - r) * t) * 360.0 / lead
+
+    flank = [rf + (ra - rf) * k / FLANK_STEPS for k in range(FLANK_STEPS + 1)]
+    pts = []
+    for i in range(n):
+        c = 2 * math.pi * i / n
+        for R in flank:
+            a = math.radians(half(R))
+            pts.append((R * math.cos(c - a), R * math.sin(c - a)))
+        for R in reversed(flank):
+            a = math.radians(half(R))
+            pts.append((R * math.cos(c + a), R * math.sin(c + a)))
+    return np.array(pts)
+
+
+def worm_twist(mod: float, starts: int, length: float) -> float:
+    return 360.0 * length / worm_lead(mod, starts)
+
+
+def worm_wheel_center_distance(mod: float, teeth: int, worm_diam: float) -> float:
+    return mod * max(3, int(round(teeth))) / 2 + worm_diam / 2
+
+
+def worm_gear_dims(mod: float, teeth: int, worm_diam: float, worm_starts: int) -> dict:
+    z = max(3, int(round(teeth)))
+    d = mod * z
+    return {
+        "teeth": z,
+        "pitch_d": d,
+        "tip_d": d + 2 * mod,
+        "root_d": max(d - 2.5 * mod, mod * 0.2),
+        "lead_angle": worm_lead_angle(mod, worm_starts, worm_diam),
+        "center_distance": worm_wheel_center_distance(mod, z, worm_diam),
+        "throat_r": worm_diam / 2 + mod,
+    }
+
+
+def worm_gear_warnings(mod: float, teeth: int, worm_diam: float, worm_starts: int,
+                       pressure_angle: float = 20.0, bore: float = 0.0) -> list[tuple[str, dict]]:
+    out = []
+    d = worm_gear_dims(mod, teeth, worm_diam, worm_starts)
+    if d["teeth"] < 10:
+        out.append((N_("Con {z} dientes la rueda es pequeña para engranar bien con un sinfín: se "
+                    "recomiendan al menos 10-12 (más, con ángulos de presión pequeños)."),
+                    {"z": d["teeth"]}))
+    if bore and bore >= d["root_d"] - 2 * mod:
+        out.append((N_("El agujero ({b} mm) casi llega al fondo de los dientes ({f:.1f} mm): deja al "
+                    "menos dos módulos de material."), {"b": f"{bore:g}", "f": d["root_d"]}))
+    return out
+
+
+def worm_gear_polygon(mod: float, teeth: int, worm_diam: float, worm_starts: int,
+                      pressure_angle: float = 20.0, backlash: float = 0.0) -> np.ndarray:
+    """Perfil del plano de giro de la rueda corona (N × 2), antihorario (ver worm_gear)."""
+    z = max(3, int(round(teeth)))
+    ha = math.radians(worm_lead_angle(mod, worm_starts, worm_diam))
+    at = math.atan(math.tan(math.radians(pressure_angle)) / max(1e-9, math.cos(ha)))
+    r = mod * z / 2
+    return _involute_polygon(z, r, r * math.cos(at), r + mod, max(r - 1.25 * mod, mod * 0.1),
+                             at, (math.pi * mod / 2 - backlash / 2) / (2 * r))
+
+
+def worm_gear_twist(mod: float, teeth: int, worm_diam: float, worm_starts: int, thickness: float) -> float:
+    z = max(3, int(round(teeth)))
+    ha = math.radians(worm_lead_angle(mod, worm_starts, worm_diam))
+    return math.degrees(2 * thickness * math.tan(ha) / (z * mod))

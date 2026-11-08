@@ -312,6 +312,43 @@ _add(Spec("bevel_gear", "Engranaje cónico", "mech", False, (
 ), keyword="module", hint="Engranaje cónico recto para ejes que se cortan. El vértice del cono queda en "
    "el origen y la rueda mira hacia +Z, así que la pareja es la misma pieza girada el ángulo entre ejes, "
    "sin moverla. Su cono depende de los dientes de las dos, por eso hay que decir los de la otra."))
+_add(Spec("worm", "Tornillo sin fin", "mech", False, (
+    Param("mod", "num", 2, label="Módulo axial (m)", minimum=0.05, step=0.25),
+    Param("starts", "int", 1, label="Entradas (filetes)", minimum=1, maximum=10),
+    Param("diam", "num", 20, label="Ø primitivo", minimum=0.5, step=0.5),
+    Param("length", "num", 30, label="Longitud roscada", minimum=0.5, step=1),
+    Param("pressure_angle", "num", 20, label="Ángulo de flanco (°)", minimum=10, maximum=35, step=0.5),
+    Param("left_hand", "bool", False, label="Hélice a izquierdas"),
+    Param("backlash", "num", 0.1, label="Holgura (mm)", minimum=0, step=0.05),
+    Param("bore", "num", 0, optional=True, label="Agujero (Ø)", minimum=0),
+    *KEYWAY,
+    Param("center", "bool", False, label="Centrado"),
+    FN,
+), keyword="module", hint="Tornillo sin fin: rosca trapecial de varias entradas, como un husillo "
+   "ACME. El módulo es el AXIAL (paso = π·m); con varias entradas, el avance es entradas·paso. "
+   "El Ø primitivo es una decisión de diseño libre (buena proporción, Shigley ec. 15-27: "
+   "C^0.875/3 ≤ Ø/2 ≤ C^0.875/1.6, con C la distancia entre ejes). Engrana con una rueda corona "
+   "(worm_gear) con su mismo módulo, Ø y número de entradas."))
+_add(Spec("worm_gear", "Rueda corona (sinfín)", "mech", False, (
+    Param("mod", "num", 2, label="Módulo axial del sinfín (m)", minimum=0.05, step=0.25),
+    Param("teeth", "int", 30, label="Dientes (z)", minimum=10, maximum=400),
+    Param("worm_diam", "num", 20, label="Ø primitivo del sinfín", minimum=0.5, step=0.5),
+    Param("worm_starts", "int", 1, label="Entradas del sinfín", minimum=1, maximum=10),
+    Param("thickness", "num", 10, label="Ancho de cara", minimum=0.01),
+    Param("pressure_angle", "num", 20, label="Ángulo de presión normal (°)", minimum=10, maximum=35, step=0.5),
+    Param("left_hand", "bool", False, label="Hélice a izquierdas (como el sinfín)"),
+    Param("backlash", "num", 0.1, label="Holgura (mm)", minimum=0, step=0.05),
+    Param("bore", "num", 5, optional=True, label="Agujero (Ø)", minimum=0),
+    *KEYWAY,
+    Param("center", "bool", False, label="Centrado"),
+    FN,
+), keyword="module", hint="Rueda para engranar con un tornillo sin fin: su módulo, Ø primitivo y "
+   "número de entradas deben coincidir con los de la pieza worm con la que va a engranar. Ø "
+   "primitivo de la rueda = m·z; distancia entre ejes = (Ø rueda + Ø sinfín)/2 (los ejes quedan "
+   "cruzados a 90°, no en el mismo plano). El borde de los dientes se talla cóncavo (garganta) "
+   "para envolver al sinfín. Mismo sentido de hélice que el sinfín: al contrario que un par "
+   "helicoidal normal, que engrana con manos contrarias."))
+
 _add(Spec("rack", "Cremallera", "mech", False, (
     Param("mod", "num", 1, label="Módulo (m)", minimum=0.05, step=0.25),
     Param("teeth", "int", 10, label="Dientes (z)", minimum=1, maximum=400),
@@ -549,6 +586,11 @@ ICONS = {
                  " M9 2.5l3 3l3-3 M9 21.5l3-3l3 3 M2.5 9l3 3l-3 3 M21.5 9l-3 3l3 3"),
     "rack": ("M2 14H2.7L3.5 7h2l0.8 7h1.4L8.5 7h2l0.8 7h1.4L13.5 7h2l0.8 7h1.4L18.5 7h2l0.8 7H22"
              "V19H2Z"),
+    "worm": ("M8 3c0-0.55 1.79-1 4-1s4 0.45 4 1v18c0 0.55-1.79 1-4 1s-4-0.45-4-1z"
+             " M8 3c0 0.55 1.79 1 4 1s4-0.45 4-1"
+             " M8.5 5.5l7 3 M8.5 9l7 3 M8.5 12.5l7 3 M8.5 16l7 3"),
+    "worm_gear": ("M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20z M12 6a6 6 0 1 0 0 12a6 6 0 1 0 0-12z"
+                 " M2.2 8.5c4-2 15.6-2 19.6 0 M2.2 15.5c4 2 15.6 2 19.6 0"),
     "cube_edges": "M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5 M12 12v9 M12 12L4 7.5 M17 4.2a4 4 0 0 1 3 3.3",
     "cylinder_edges": "M5 8c0-1.7 3.1-3 7-3s7 1.3 7 3v10c0 1.7-3.1 3-7 3s-7-1.3-7-3z M5 8c0 1.7 3.1 3 7 3s7-1.3 7-3",
     "linear_array": "M2 9h5v6H2z M9.5 9h5v6h-5z M17 9h5v6h-5z M4 5h16 M17 2.5L20 5l-3 2.5",
