@@ -165,8 +165,10 @@ HELICAL_GEAR = '''module helical_gear(mod = 1, teeth = 20, thickness = 10, helix
   // Twist of the profile over the thickness: 2 * b * sin(helix) / (z * mod) radians. OpenSCAD turns
   // clockwise with a positive twist, so a right-hand helix takes a negative twist.
   turn = 2 * b * sin(helix_angle) / (z * mod) * 180 / PI;
+  s_per_turn = ($fn > 0 ? $fn : 16);
+  sl = max(4, ceil(abs(turn) * s_per_turn / 360));
   translate([0, 0, center ? -b / 2 : 0]) difference() {
-    linear_extrude(b, twist = left_hand ? turn : -turn, slices = max(8, ceil(turn / 2)),
+    linear_extrude(b, twist = left_hand ? turn : -turn, slices = sl,
                    convexity = 10) polygon(pts);
     if (bore > 0) translate([0, 0, -1]) shaft_bore(bore, b + 2, keyway, key_width, key_depth);
   }
@@ -203,8 +205,10 @@ HERRINGBONE_GEAR = '''module herringbone_gear(mod = 1, teeth = 20, thickness = 1
            [[rf * cos(c + 180 / z), rf * sin(c + 180 / z)]])];
   // Twist of one half over half_b: 2 * half_b * sin(helix) / (z * mod) radians, in degrees.
   turn = 2 * half_b * sin(helix_angle) / (z * mod) * 180 / PI;
+  s_per_turn = ($fn > 0 ? $fn : 16);
+  sl = max(4, ceil(abs(turn) * s_per_turn / 360));
   module half_profile() {
-    linear_extrude(half_b, twist = left_hand ? -turn : turn, slices = max(8, ceil(turn / 2)),
+    linear_extrude(half_b, twist = left_hand ? -turn : turn, slices = sl,
                    convexity = 10) polygon(pts);
   }
   translate([0, 0, center ? -thickness / 2 : 0]) difference() {
@@ -239,16 +243,19 @@ WORM = '''module worm(mod = 2, starts = 1, diam = 20, length = 30, pressure_angl
   // plane, the local twist is linear in Z: an axial half-thickness h there corresponds to a twist
   // of h turns of the full lead, i.e. a circumferential half-angle of h * 360 / lead degrees.
   function half(R) = max(0, px / 4 - (R - r) * t) * 360 / lead;
-  nn = 8;
+  nn = 2;
   flank = [for (k = [0 : nn]) rf + (ra - rf) * k / nn];
   pts = [for (i = [0 : n - 1]) let(c = i * 360 / n) each concat(
            [for (R = flank) [R * cos(c - half(R)), R * sin(c - half(R))]],
            [for (k = [nn : -1 : 0]) let(R = flank[k]) [R * cos(c + half(R)), R * sin(c + half(R))]])];
   turn = 360 * length / lead;
+  s_per_turn = ($fn > 0 ? $fn : 16);
+  sl = max(8, ceil(abs(turn) * s_per_turn / 360));
+  fn_core = ($fn > 0 ? $fn : 16);
   translate([0, 0, center ? -length / 2 : 0]) difference() {
     union() {
-      cylinder(h = length, r = rf, $fn = max(32, n * 16));
-      linear_extrude(length, twist = left_hand ? turn : -turn, slices = max(32, ceil(abs(turn) / 2)),
+      cylinder(h = length, r = rf, $fn = fn_core);
+      linear_extrude(length, twist = left_hand ? turn : -turn, slices = sl,
                      convexity = 10) polygon(pts);
     }
     if (bore > 0) translate([0, 0, -1]) shaft_bore(bore, length + 2, keyway, key_width, key_depth);
@@ -285,8 +292,10 @@ WORM_GEAR = '''module worm_gear(mod = 2, teeth = 30, worm_diam = 20, worm_starts
            root ? [[rf * cos(c + half(r0)), rf * sin(c + half(r0))]] : [],
            [[rf * cos(c + 180 / z), rf * sin(c + 180 / z)]])];
   turn = 2 * thickness * tan(ha) / (z * mod) * 180 / PI;
+  s_per_turn = ($fn > 0 ? $fn : 16);
+  sl = max(4, ceil(abs(turn) * s_per_turn / 360));
   translate([0, 0, center ? -thickness / 2 : 0]) difference() {
-    linear_extrude(thickness, twist = left_hand ? turn : -turn, slices = max(16, ceil(abs(turn) / 2)),
+    linear_extrude(thickness, twist = left_hand ? turn : -turn, slices = sl,
                    convexity = 10) polygon(pts);
     if (bore > 0) translate([0, 0, -1]) shaft_bore(bore, thickness + 2, keyway, key_width, key_depth);
   }
@@ -416,7 +425,7 @@ PULLEY = '''module pulley(section = "XL", teeth = 20, width = 6, bore = 0, flang
            [r_root * cos(c - bot_a), r_root * sin(c - bot_a)],
            [r_root * cos(c + bot_a), r_root * sin(c + bot_a)],
            [r_out * cos(c + top_a), r_out * sin(c + top_a)]]];
-  fn_c = max(32, z * 2);
+  fn_c = $fn > 0 ? $fn : 16;
   function flange_is(names) = len([for (x = names) if (x == flange) 1]) > 0;
   both = flange_is(["ambas", "both", "les deux", "beide", "entrambe"]);
   bot = both || flange_is(["inferior", "bottom", "inférieur", "unten", "inferiore"]) ? max(0, flange_height) : 0;
@@ -464,7 +473,7 @@ V_PULLEY = '''module v_pulley(section = "A", datum_d = 80, grooves = 1, bore = 0
                 : [[r_top, zc - bg / 2], [r_top - (bg / 2) / t, zc], [r_top, zc + bg / 2]])],
     [[r_top, width], [0, width], [0, 0]]);
   translate([0, 0, center ? -width / 2 : 0]) difference() {
-    rotate_extrude() polygon(profile);
+    rotate_extrude($fn = $fn > 0 ? $fn : 16) polygon(profile);
     if (bore > 0) translate([0, 0, -1]) shaft_bore(bore, width + 2, keyway, key_width, key_depth);
   }
 }'''
@@ -534,7 +543,7 @@ SHAFT_BORE = '''module shaft_bore(d, h, keyway = false, key_width = 0, key_depth
   row = [for (r = table) if (d > r[0] && d <= r[1]) r];
   b = key_width > 0 ? key_width : len(row) > 0 ? row[0][2] : 0;
   t2 = key_depth > 0 ? key_depth : len(row) > 0 ? row[0][3] : 0;
-  cylinder(h = h, d = d);
+  cylinder(h = h, d = d, $fn = $fn > 0 ? $fn : 16);
   if (keyway && b > 0 && t2 > 0) translate([0, -b / 2, 0]) cube([d / 2 + t2, b, h]);
 }'''
 
@@ -569,7 +578,7 @@ CAM = '''module cam(base_d = 40, lift = 10, rise_angle = 90, dwell_angle = 30, f
   profile = concat(rise_pts, dwell_pts, fall_pts, rest_pts);
   translate([0, 0, center ? -thickness / 2 : 0]) difference() {
     linear_extrude(thickness) polygon(profile);
-    if (bore > 0) translate([0, 0, -1]) cylinder(h = thickness + 2, d = bore);
+    if (bore > 0) translate([0, 0, -1]) cylinder(h = thickness + 2, d = bore, $fn = $fn > 0 ? $fn : 16);
   }
 }'''
 
@@ -594,17 +603,17 @@ PIPE_FLANGE = '''module pipe_flange(od = 230, thickness = 22.3, bolt_circle = 19
     hub_d > 0 ? concat([[hub_d / 2, back], [he / 2, cone]], cone < top ? [[he / 2, top]] : []) : [],
     [[rb, top]]);
   translate([0, 0, center ? -top / 2 : 0]) difference() {
-    rotate_extrude() polygon(profile);
+    rotate_extrude($fn = $fn > 0 ? $fn : 16) polygon(profile);
     if (bolts > 0 && hole > 0)
       for (k = [0 : bolts - 1]) rotate(180 / bolts + 360 * k / bolts)
-        translate([bolt_circle / 2, 0, -1]) cylinder(h = back + 2, d = hole);
+        translate([bolt_circle / 2, 0, -1]) cylinder(h = back + 2, d = hole, $fn = $fn > 0 ? $fn : 16);
   }
 }'''
 
 CAMSHAFT_MAIN_SHAFT = '''module camshaft_main_shaft(length = 250, d = 25) {
   // Main shaft of a camshaft (written by OpenSCAD GUI Mejorada): a plain cylinder along Z,
   // from z = 0 to z = length. The lobes (cam_lobe) are placed on it by their own position.
-  cylinder(h = length, d = d);
+  cylinder(h = length, d = d, $fn = $fn > 0 ? $fn : 16);
 }'''
 
 CAM_LOBE = '''module cam_lobe(base_r = 15, lift = 8, width = 12, rise_angle = 110, dwell_angle = 20, fall_angle = 110,
@@ -807,7 +816,7 @@ PREVIOUS_VERSIONS = {
            [r_root * cos(c - bot_a), r_root * sin(c - bot_a)],
            [r_root * cos(c + bot_a), r_root * sin(c + bot_a)],
            [r_out * cos(c + top_a), r_out * sin(c + top_a)]]];
-  fn_c = max(32, z * 2);
+  fn_c = $fn > 0 ? $fn : 16;
   function flange_is(names) = len([for (x = names) if (x == flange) 1]) > 0;
   both = flange_is(["ambas", "both", "les deux", "beide", "entrambe"]);
   bot = both || flange_is(["inferior", "bottom", "inférieur", "unten", "inferiore"]) ? max(0, flange_height) : 0;

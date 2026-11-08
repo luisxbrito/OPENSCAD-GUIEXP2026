@@ -1042,8 +1042,9 @@ class MainWindow(QMainWindow):
         return args
 
     def _new_document(self) -> Document:
-        """Documento en blanco con el $fn por defecto de Preferencias (0: el de OpenSCAD)."""
-        fn = int(self.settings.value("default_fn", 0) or 0)
+        """Documento en blanco con el $fn por defecto de Preferencias (16 por defecto)."""
+        val = self.settings.value("default_fn")
+        fn = int(val) if val is not None else 16
         return Document(fn=fn if fn > 0 else None)
 
     def apply_settings(self) -> None:

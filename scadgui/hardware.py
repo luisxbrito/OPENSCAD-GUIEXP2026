@@ -415,7 +415,7 @@ ORING_GROOVES_INCH = {
     "6.99": {"w": 0.275, "static": (0.226, 0.229), "moving": (0.237, 0.240), "width": 0.375},
 }
 
-GROOVE_FN = 96     # las máscaras llevan su resolución: un Ø de ranura no puede depender del ajuste global
+GROOVE_FN = 16     # las máscaras llevan su resolución: un Ø de ranura no puede depender del ajuste global
 
 FIT_ALLOWANCE = {"fine": 0.2, "medium": 0.4, "coarse": 0.6}
 PROFILE_SLOT_WIDTH = 6.2   # boca de la ranura de un perfil 20xx

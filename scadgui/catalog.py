@@ -54,7 +54,7 @@ class Spec:
         return None
 
 
-FN = Param("$fn", "int", 64, optional=True, label="Resolución ($fn)", minimum=0, maximum=512)
+FN = Param("$fn", "int", 16, optional=True, label="Resolución ($fn)", minimum=0, maximum=512)
 
 SPECS: dict[str, Spec] = {}
 

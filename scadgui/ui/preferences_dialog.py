@@ -200,7 +200,7 @@ class PreferencesDialog(QDialog):
 
         self.spin_fn = QSpinBox()
         self.spin_fn.setRange(0, 360)
-        self.spin_fn.setValue(int(self.settings.value("default_fn", 0) or 0))
+        self.spin_fn.setValue(int(self.settings.value("default_fn", 16) or 16))
         self.lbl_fn = QLabel()
         form_proj.addRow(self.lbl_fn, self.spin_fn)
 
