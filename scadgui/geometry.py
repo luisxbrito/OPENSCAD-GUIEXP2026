@@ -824,7 +824,8 @@ def worm(p) -> Optional[Tris]:
     pa = _num(p.get("pressure_angle", 20))
     if None in (mod, starts, diam, length, pa) or mod <= 0 or starts < 1 or diam <= 0 or length <= 0:
         return None
-    poly = gears.worm_polygon(mod, int(starts), diam, pa)
+    fn_val = _num(p.get("$fn", 16)) or 16
+    poly = gears.worm_polygon(mod, int(starts), diam, pa, fn=int(fn_val))
     turn = gears.worm_twist(mod, int(starts), length)
     if p.get("left_hand") is True:
         turn = -turn

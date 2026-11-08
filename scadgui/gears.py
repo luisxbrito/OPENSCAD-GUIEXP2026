@@ -1046,7 +1046,7 @@ def worm_warnings(mod: float, starts: int, diam: float, length: float,
     return out
 
 
-def worm_polygon(mod: float, starts: int, diam: float, pressure_angle: float = 20.0) -> np.ndarray:
+def worm_polygon(mod: float, starts: int, diam: float, pressure_angle: float = 20.0, fn: int = 16) -> np.ndarray:
     """Perfil del plano de giro del sinfín (N × 2), antihorario (ver worm en library.py)."""
     n = max(1, int(round(starts)))
     r = diam / 2
@@ -1058,13 +1058,23 @@ def worm_polygon(mod: float, starts: int, diam: float, pressure_angle: float = 2
     def half(R: float) -> float:
         return max(0.0, px / 4 - (R - r) * t) * 360.0 / lead
 
-    flank = [rf + (ra - rf) * k / FLANK_STEPS for k in range(FLANK_STEPS + 1)]
+    fn_val = max(12, int(fn) if fn else 16)
+    nn = max(3, math.ceil(fn_val / 4))
+    flank = [rf + (ra - rf) * k / nn for k in range(nn + 1)]
+    h_ra = half(ra)
+    step_a = 360.0 / fn_val
+    n_tip = max(1, math.ceil(2 * h_ra / step_a))
+    tip_arc = [-h_ra + 2 * h_ra * k / n_tip for k in range(1, n_tip)]
+
     pts = []
     for i in range(n):
         c = 2 * math.pi * i / n
         for R in flank:
             a = math.radians(half(R))
             pts.append((R * math.cos(c - a), R * math.sin(c - a)))
+        for a_deg in tip_arc:
+            a = math.radians(a_deg)
+            pts.append((ra * math.cos(c + a), ra * math.sin(c + a)))
         for R in reversed(flank):
             a = math.radians(half(R))
             pts.append((R * math.cos(c + a), R * math.sin(c + a)))

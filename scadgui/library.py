@@ -243,15 +243,21 @@ WORM = '''module worm(mod = 2, starts = 1, diam = 20, length = 30, pressure_angl
   // plane, the local twist is linear in Z: an axial half-thickness h there corresponds to a twist
   // of h turns of the full lead, i.e. a circumferential half-angle of h * 360 / lead degrees.
   function half(R) = max(0, px / 4 - (R - r) * t) * 360 / lead;
-  nn = 2;
+  fn_val = ($fn > 0 ? $fn : 16);
+  nn = max(3, ceil(fn_val / 4));
   flank = [for (k = [0 : nn]) rf + (ra - rf) * k / nn];
+  h_ra = half(ra);
+  step_a = 360 / fn_val;
+  n_tip = max(1, ceil(2 * h_ra / step_a));
+  tip_arc = [for (k = [1 : n_tip - 1]) -h_ra + 2 * h_ra * k / n_tip];
   pts = [for (i = [0 : n - 1]) let(c = i * 360 / n) each concat(
            [for (R = flank) [R * cos(c - half(R)), R * sin(c - half(R))]],
+           [for (a = tip_arc) [ra * cos(c + a), ra * sin(c + a)]],
            [for (k = [nn : -1 : 0]) let(R = flank[k]) [R * cos(c + half(R)), R * sin(c + half(R))]])];
   turn = 360 * length / lead;
-  s_per_turn = ($fn > 0 ? $fn : 16);
+  s_per_turn = fn_val;
   sl = max(8, ceil(abs(turn) * s_per_turn / 360));
-  fn_core = ($fn > 0 ? $fn : 16);
+  fn_core = fn_val;
   translate([0, 0, center ? -length / 2 : 0]) difference() {
     union() {
       cylinder(h = length, r = rf, $fn = fn_core);
