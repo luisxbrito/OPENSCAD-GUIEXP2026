@@ -427,8 +427,8 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     El cubo se dibuja en la vista aproximada con `geometry.annular_prism`, la primera malla con hueco.
     Las estrías rectas SAE (tablas 18-21) están en pulgadas y no se ofrecen.
 - Ranuras (diálogo de piezas normalizadas, `hardware.py`): solo existen como máscara de resta, sin
-  módulo propio: una corona hecha con `difference` de dos `cylinder`, cada uno con su `$fn` (`GROOVE_FN`),
-  porque un Ø de ranura no puede depender del `$fn` global. Las máscaras arrancan en z = 0 y hay que
+  módulo propio: una corona hecha con `difference` de dos `cylinder`, cada uno con su `$fn` (`GROOVE_FN = 16`),
+  porque un Ø de ranura no puede depender del `$fn` global descontrolado. Las máscaras arrancan en z = 0 y hay que
   colocarlas a lo largo del eje; con una pieza seleccionada se restan de ella.
   - Anillos de retención: series métricas 3AM1 (eje) y 3BM1 (agujero) de ANSI B27.7-1977, Machinery's
     Handbook 27, tablas 1 y 2, pp. 1685-1686, extraídas con un script del texto del PDF. Manda G (Ø de
