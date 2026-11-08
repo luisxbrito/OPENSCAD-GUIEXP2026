@@ -367,13 +367,16 @@ class Document:
                 if key in gear.params:
                     new.params[key] = copy.deepcopy(gear.params[key])
             new.params["teeth"] = int(teeth or 30)
+            new.params["center"] = True
             C = gears.worm_wheel_center_distance(mod, new.params["teeth"], diam)
-            # Los ejes quedan cruzados a 90°: la rueda (que se dibuja como las demás, con su
-            # propio eje en Z) se gira 90° sobre X para que su eje quede en Y, y se traslada C en
-            # X -- así su eje pasa por (C, *, 0), perpendicular al del sinfín (el eje Z, sin
-            # moverse de su sitio habitual) y a distancia C de él.
-            tilt = Node(kind="rotate", params={"a": [90, 0, 0]}, children=[new])
-            shift = Node(kind="translate", params={"v": [round(C, 6), 0, 0]}, children=[tilt])
+            # Los ejes quedan cruzados a 90°. La rueda corona se rota 180°/z sobre su eje para que
+            # su valle de diente reciba al filete del sinfín, se inclina 90° sobre X (eje en Y) y
+            # se traslada C en X hasta el centro axial del sinfín (z_mid).
+            spin_deg = round(180.0 / new.params["teeth"], 4)
+            spin = Node(kind="rotate", params={"a": [0, 0, spin_deg]}, children=[new])
+            tilt = Node(kind="rotate", params={"a": [90, 0, 0]}, children=[spin])
+            z_mid = 0.0 if gear.params.get("center") is True else float(gear.params.get("length", 30)) / 2
+            shift = Node(kind="translate", params={"v": [round(C, 6), 0, round(z_mid, 6)]}, children=[tilt])
             siblings, _parent = self.parent_list(gear_id)
             siblings.insert(siblings.index(gear) + 1, shift)
             return new
@@ -401,7 +404,9 @@ class Document:
             new.params["center"] = True
             C = gears.worm_wheel_center_distance(mod, wheel_teeth, diam)
             z_mid = 0.0 if gear.params.get("center") is True else float(gear.params.get("thickness", 10)) / 2
-            tilt = Node(kind="rotate", params={"a": [90, 0, 0]}, children=[new])
+            # El sinfín gira 180° sobre su eje Z para que su garganta helicoidal reciba el diente de la rueda:
+            spin = Node(kind="rotate", params={"a": [0, 0, 180]}, children=[new])
+            tilt = Node(kind="rotate", params={"a": [90, 0, 0]}, children=[spin])
             shift = Node(kind="translate", params={"v": [round(C, 6), 0, round(z_mid, 6)]}, children=[tilt])
             siblings, _parent = self.parent_list(gear_id)
             siblings.insert(siblings.index(gear) + 1, shift)

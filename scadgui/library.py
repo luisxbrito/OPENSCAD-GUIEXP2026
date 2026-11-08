@@ -246,8 +246,11 @@ WORM = '''module worm(mod = 2, starts = 1, diam = 20, length = 30, pressure_angl
            [for (k = [nn : -1 : 0]) let(R = flank[k]) [R * cos(c + half(R)), R * sin(c + half(R))]])];
   turn = 360 * length / lead;
   translate([0, 0, center ? -length / 2 : 0]) difference() {
-    linear_extrude(length, twist = left_hand ? turn : -turn, slices = max(16, ceil(turn / 4)),
-                   convexity = 10) polygon(pts);
+    union() {
+      cylinder(h = length, r = rf, $fn = max(32, n * 16));
+      linear_extrude(length, twist = left_hand ? turn : -turn, slices = max(32, ceil(abs(turn) / 2)),
+                     convexity = 10) polygon(pts);
+    }
     if (bore > 0) translate([0, 0, -1]) shaft_bore(bore, length + 2, keyway, key_width, key_depth);
   }
 }'''
@@ -260,11 +263,7 @@ WORM_GEAR = '''module worm_gear(mod = 2, teeth = 30, worm_diam = 20, worm_starts
   // Sec. 15-6: translated, a worm's normal diametral pitch equals that of a helical gear with
   // the same helix (psi) as the worm's lead angle (lambda). The helix (lead) angle is derived from the worm it mates
   // with: tan(lead_angle) = worm_starts * mod / worm_diam. Pitch diameter = mod * teeth, same
-  // formula as a spur gear. The outer edge of the teeth is then carved concave (the \"throat\"),
-  // following the cylindrical envelope of the mating worm, by intersecting with a torus centred
-  // on THIS gear's own axis with major radius = centre distance and minor radius =
-  // worm_diam / 2 - mod (classic rule of thumb, a bit less than the worm's addendum circle so
-  // the tips clear it).
+  // formula as a spur gear.
   z = max(3, round(teeth));
   ha = atan(worm_starts * mod / max(0.001, worm_diam));   // lead angle of the worm = helix angle here
   at = atan(tan(pressure_angle) / cos(ha));
@@ -285,32 +284,10 @@ WORM_GEAR = '''module worm_gear(mod = 2, teeth = 30, worm_diam = 20, worm_starts
            [for (k = [n : -1 : 0]) let(R = flank[k]) [R * cos(c + half(R)), R * sin(c + half(R))]],
            root ? [[rf * cos(c + half(r0)), rf * sin(c + half(r0))]] : [],
            [[rf * cos(c + 180 / z), rf * sin(c + 180 / z)]])];
-  // Twist over the face width, as in helical_gear but with mod already transverse: see that
-  // module for the general derivation (here it simplifies to 2 * thickness * tan(ha) / (z * mod)).
   turn = 2 * thickness * tan(ha) / (z * mod) * 180 / PI;
-  C = r + worm_diam / 2;                            // centre distance to the mating worm
-  // Throat (concavity) radius: the worm's own OUTER (addendum) radius, since that is the
-  // envelope the worm's cylindrical body sweeps through the gear as it is hobbed with a
-  // cutter the same size as the worm, through a full turn of the gear around its own axis.
-  Rt = worm_diam / 2 + mod;
-  // The dedendum land between teeth (radius rf) always sits OUTSIDE the throat torus's reach:
-  // C - Rt = r - mod, which is exactly 0.25 * mod above rf = r - 1.25 * mod, for any parameters.
-  // Intersecting the whole tooth extrusion with the torus would therefore cut the teeth free of
-  // each other (no hub left to hold them). A plain backing-hub cylinder, sized to reach into the
-  // torus's narrowest cross-section (at the gear's own front/back faces), restores a solid base
-  // without otherwise touching the throated tooth shape.
-  half_t = thickness / 2;
-  Rt_face = sqrt(max(0.0001, Rt * Rt - half_t * half_t));
-  hub_r = min(ra - 0.05, C - Rt_face + 0.05);
   translate([0, 0, center ? -thickness / 2 : 0]) difference() {
-    union() {
-      intersection() {
-        linear_extrude(thickness, twist = left_hand ? turn : -turn, slices = max(8, ceil(abs(turn) / 2)),
-                       convexity = 10) polygon(pts);
-        translate([0, 0, thickness / 2]) rotate_extrude(convexity = 10) translate([C, 0]) circle(Rt);
-      }
-      cylinder(h = thickness, r = max(0, hub_r));
-    }
+    linear_extrude(thickness, twist = left_hand ? turn : -turn, slices = max(16, ceil(abs(turn) / 2)),
+                   convexity = 10) polygon(pts);
     if (bore > 0) translate([0, 0, -1]) shaft_bore(bore, thickness + 2, keyway, key_width, key_depth);
   }
 }'''
