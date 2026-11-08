@@ -1595,6 +1595,49 @@ def test_cremallera_helicoidal_pide_un_helicoidal_de_la_misma_mano():
     assert generate(parse(text)).text == text                        # ida y vuelta
 
 
+def test_sinfin_y_rueda_corona_generacion_bidireccional():
+    """El sinfín crea su rueda corona y la rueda corona crea su sinfín, ambos cruzados a 90°."""
+    from scadgui import gears
+    # 1. De tornillo sin fin a rueda corona
+    doc = Document()
+    w = doc.add("worm")
+    for k, v in (("mod", 2), ("starts", 2), ("diam", 24), ("length", 35),
+                 ("left_hand", True), ("pressure_angle", 20), ("backlash", 0.15)):
+        doc.set_param(w.id, k, v)
+    wg = doc.add_meshing_gear(w.id, 40)
+    assert wg.kind == "worm_gear"
+    assert wg.params["mod"] == 2 and wg.params["teeth"] == 40
+    assert wg.params["worm_starts"] == 2 and wg.params["worm_diam"] == 24
+    assert wg.params["left_hand"] is True and wg.params["backlash"] == 0.15
+    shift = doc.children[1]
+    assert shift.kind == "translate"
+    assert shift.params["v"][0] == gears.worm_wheel_center_distance(2, 40, 24) == 52.0
+    assert shift.children[0].kind == "rotate" and shift.children[0].params["a"] == [90, 0, 0]
+    text1 = generate(doc).text
+    assert text1.count("module worm(") == 1 and text1.count("module worm_gear(") == 1
+    assert generate(parse(text1)).text == text1
+
+    # 2. De rueda corona a tornillo sin fin
+    doc2 = Document()
+    wg2 = doc2.add("worm_gear")
+    for k, v in (("mod", 2.5), ("teeth", 36), ("worm_diam", 25), ("worm_starts", 1),
+                 ("thickness", 12), ("left_hand", False), ("pressure_angle", 20), ("backlash", 0.1)):
+        doc2.set_param(wg2.id, k, v)
+    w2 = doc2.add_meshing_gear(wg2.id, 45)
+    assert w2.kind == "worm"
+    assert w2.params["mod"] == 2.5 and w2.params["starts"] == 1
+    assert w2.params["diam"] == 25 and w2.params["length"] == 45
+    assert w2.params["center"] is True and w2.params["left_hand"] is False
+    shift2 = doc2.children[1]
+    assert shift2.kind == "translate"
+    C = gears.worm_wheel_center_distance(2.5, 36, 25)  # (2.5*36 + 25)/2 = 57.5
+    assert shift2.params["v"] == [57.5, 0, 6.0]        # z_mid = 12 / 2 = 6.0
+    assert shift2.children[0].kind == "rotate" and shift2.children[0].params["a"] == [90, 0, 0]
+    text2 = generate(doc2).text
+    assert text2.count("module worm(") == 1 and text2.count("module worm_gear(") == 1
+    assert generate(parse(text2)).text == text2
+
+
 def test_polea_dentada_medidas_del_handbook():
     """Comprueba Ø primitivo y Ø exterior contra la tabla 44 del Handbook (XL, N=20)."""
     import math

@@ -358,8 +358,9 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     del sinfín ($\tan \lambda = \text{entradas} \cdot m / \varnothing_w$) y garganta cóncava envolvente generada
     por intersección con un toro de radio mayor $C = (d_{p,\text{rueda}} + d_{p,\text{sinfín}})/2$ y radio menor
     el radio exterior del sinfín ($R_t = \varnothing_w/2 + m$), complementado con un cilindro de respaldo para
-    mantener la raíz de los dientes unida en una sola pieza manifold. `add_meshing_gear` sobre un `worm` genera
-    la rueda corona cruzada a 90° (`rotate([90,0,0])`) trasladada a la distancia entre ejes $C$.
+    mantener la raíz de los dientes unida en una sola pieza manifold. `add_meshing_gear` es bidireccional:
+    sobre un `worm` genera la rueda corona cruzada a 90° (`rotate([90,0,0])`) trasladada a la distancia entre ejes $C$;
+    y sobre un `worm_gear` genera el tornillo sin fin recíproco centrado en la garganta a distancia $C$ y cruzado a 90°.
   - Fuentes: Machinery's Handbook 27 («Gears and Gearing», «Helical Gearing» p. 2099, «Basic Rack
     of the 20-Degree and 25-Degree Full-Depth Involute Systems») y AGMA 908-B89 ec. 2 y 4; Casillas; Shigley §15-6.
   - Polea dentada (`pulley`): no engrana con nada, así que no hay pareja ni verificación de

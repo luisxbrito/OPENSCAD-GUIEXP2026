@@ -333,7 +333,8 @@ class Document:
         gear = self.find(gear_id)
         if not isinstance(gear, Node) or gear.kind not in ("spur_gear", "helical_gear",
                                                             "herringbone_gear", "rack",
-                                                            "bevel_gear", "spline", "worm"):
+                                                            "bevel_gear", "spline", "worm",
+                                                            "worm_gear"):
             raise ValueError(tr("Selecciona un engranaje, una cremallera o un tornillo sin fin."))
         if gear.kind == "spline":
             new = Node(kind="spline", params=copy.deepcopy(gear.params), name=self.unique_name("spline"))
@@ -373,6 +374,35 @@ class Document:
             # moverse de su sitio habitual) y a distancia C de él.
             tilt = Node(kind="rotate", params={"a": [90, 0, 0]}, children=[new])
             shift = Node(kind="translate", params={"v": [round(C, 6), 0, 0]}, children=[tilt])
+            siblings, _parent = self.parent_list(gear_id)
+            siblings.insert(siblings.index(gear) + 1, shift)
+            return new
+        if gear.kind == "worm_gear":
+            from . import gears
+            mod = gear.params.get("mod", 2)
+            starts = gear.params.get("worm_starts", 1)
+            diam = gear.params.get("worm_diam", 20)
+            wheel_teeth = gear.params.get("teeth", 30)
+            left_hand = gear.params.get("left_hand", False)
+            if not all(isinstance(v, (int, float)) and not isinstance(v, bool)
+                      for v in (mod, starts, diam, wheel_teeth)):
+                raise ValueError(tr("El módulo, las entradas y el Ø primitivo deben ser números "
+                                    "para calcular el tornillo sin fin."))
+            new = make_node("worm", self.unique_name("worm"))
+            new.params["mod"] = copy.deepcopy(mod)
+            new.params["starts"] = int(starts)
+            new.params["diam"] = copy.deepcopy(diam)
+            new.params["left_hand"] = left_hand is True
+            for key in ("pressure_angle", "backlash"):
+                if key in gear.params:
+                    new.params[key] = copy.deepcopy(gear.params[key])
+            worm_len = float(teeth) if (isinstance(teeth, (int, float)) and not isinstance(teeth, bool) and teeth > 0) else 30.0
+            new.params["length"] = int(worm_len) if float(worm_len).is_integer() else round(worm_len, 3)
+            new.params["center"] = True
+            C = gears.worm_wheel_center_distance(mod, wheel_teeth, diam)
+            z_mid = 0.0 if gear.params.get("center") is True else float(gear.params.get("thickness", 10)) / 2
+            tilt = Node(kind="rotate", params={"a": [90, 0, 0]}, children=[new])
+            shift = Node(kind="translate", params={"v": [round(C, 6), 0, round(z_mid, 6)]}, children=[tilt])
             siblings, _parent = self.parent_list(gear_id)
             siblings.insert(siblings.index(gear) + 1, shift)
             return new

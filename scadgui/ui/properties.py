@@ -433,6 +433,22 @@ class PropertyPanel(QScrollArea):
         for text, values in gears.worm_gear_warnings(mod, int(z), wd, int(ws), pa, bore):
             self._hint(tr(text).format(**values), "warnText")
         self._keyway_info(p, d["root_d"])
+        row = QWidget()
+        lay = QHBoxLayout(row)
+        lay.setContentsMargins(0, 0, 0, 0)
+        length = QSpinBox()
+        length.setRange(10, 500)
+        length.setValue(30)
+        length.setToolTip(tr("Longitud del tornillo sin fin nuevo"))
+        add = QPushButton(tr("Añadir tornillo sin fin"))
+        add.setToolTip(tr("Crea el tornillo sin fin que engrana con esta rueda corona (mismo módulo, "
+                          "Ø y número de entradas), ya colocado a la distancia entre ejes correcta y con "
+                          "su eje cruzado a 90° con el de la rueda."))
+        add.clicked.connect(lambda: self.addMeshingGear.emit(node.id, length.value()))
+        lay.addWidget(add, 1)
+        lay.addWidget(QLabel(tr("longitud:")))
+        lay.addWidget(length)
+        self._lay.addWidget(row)
 
     def _keyway_info(self, p: dict, root_d: float) -> None:
         """Medidas y avisos del cuñero, si la pieza lo lleva."""
