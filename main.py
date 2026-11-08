@@ -8,15 +8,23 @@ Uso:
 import os
 import sys
 
+# Silenciar avisos no críticos del parser de perfiles ICC de monitores en Qt
+rules = os.environ.get("QT_LOGGING_RULES", "")
+if "qt.gui.icc" not in rules:
+    os.environ["QT_LOGGING_RULES"] = (rules + ";qt.gui.icc=false").strip(";")
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
 def main() -> int:
     try:
+        from PySide6.QtCore import QLoggingCategory
         from PySide6.QtWidgets import QApplication
     except ImportError:
         print("Falta PySide6. Instálalo con:  python -m pip install PySide6")
         return 1
+
+    QLoggingCategory.setFilterRules("qt.gui.icc=false")
     from scadgui.ui.mainwindow import MainWindow
 
     app = QApplication(sys.argv)
