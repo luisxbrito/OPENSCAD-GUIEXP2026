@@ -91,7 +91,7 @@ CONTRIBUTING.md            guía en inglés para quien quiera modificar la aplic
    `cube001`...), nunca con un nombre traducido; si el nombre es igual a la palabra no se
    escribe comentario. Los botones de la cinta muestran solo esa palabra.
 4. **Añadir un comando = añadir un `Spec` en `catalog.py`** (y su malla aproximada en
-   `geometry.solid()`/`flat()` si tiene geometría). Un test exige 46 specs con icono (`test_catalogo_completo`).
+   `geometry.solid()`/`flat()` si tiene geometría). Un test exige 49 specs con icono (`test_catalogo_completo`).
    Las matrices (`linear_array`, `polar_array`, `grid_array`) son specs con
    `keyword="for"`: no son módulos de OpenSCAD. `model.array_head` escribe la cabecera del
    for y `parser.array_head` la reconoce; si se cambia una, hay que cambiar la otra (los
@@ -351,8 +351,17 @@ python tests/simulacion/sim_ventana_visor_imagen.py
     la vista aproximada pesa exactamente lo mismo que el modelo de verdad.
   - `Document.add_meshing_gear` sirve para los tres (translate + rotate tras la pieza); sobre una
     cremallera crea un `spur_gear`. Holgura por defecto 0.1 mm (impresión 3D).
+  - Tornillo sin fin (`worm`) y rueda corona (`worm_gear`): pestaña Mecánica, grupo Engranajes.
+    El sinfín se especifica por su módulo axial $m$ (paso axial $p_x = \pi \cdot m$, avance $L = \text{entradas} \cdot p_x$),
+    con diámetro primitivo libre (recomendación Shigley ec. 15-27). La rueda corona toma ese módulo axial
+    directamente como su módulo transversal ($d_p = m \cdot z$), con ángulo de hélice igual al ángulo de avance
+    del sinfín ($\tan \lambda = \text{entradas} \cdot m / \varnothing_w$) y garganta cóncava envolvente generada
+    por intersección con un toro de radio mayor $C = (d_{p,\text{rueda}} + d_{p,\text{sinfín}})/2$ y radio menor
+    el radio exterior del sinfín ($R_t = \varnothing_w/2 + m$), complementado con un cilindro de respaldo para
+    mantener la raíz de los dientes unida en una sola pieza manifold. `add_meshing_gear` sobre un `worm` genera
+    la rueda corona cruzada a 90° (`rotate([90,0,0])`) trasladada a la distancia entre ejes $C$.
   - Fuentes: Machinery's Handbook 27 («Gears and Gearing», «Helical Gearing» p. 2099, «Basic Rack
-    of the 20-Degree and 25-Degree Full-Depth Involute Systems») y AGMA 908-B89 ec. 2 y 4; Casillas.
+    of the 20-Degree and 25-Degree Full-Depth Involute Systems») y AGMA 908-B89 ec. 2 y 4; Casillas; Shigley §15-6.
   - Polea dentada (`pulley`): no engrana con nada, así que no hay pareja ni verificación de
     interferencia; solo hay que acertar el perfil del hueco contra la tabla. Secciones clásicas
     ANSI/RMA IP-24 MXL/XL/L/H/XH (Machinery's Handbook 27, tabla 40 «Nominal Tooth and Section
