@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QFrame, QGridLayout,
                                QHBoxLayout, QLabel, QLineEdit, QListWidget,
                                QListWidgetItem, QPlainTextEdit, QPushButton,
-                               QScrollArea, QSplitter, QVBoxLayout, QWidget)
+                               QScrollArea, QSizePolicy, QSplitter, QVBoxLayout, QWidget)
 
 from ..catalog import SPECS
 from ..i18n import tr
@@ -121,8 +121,8 @@ class OperationHelperDialog(QDialog):
         super().__init__(parent)
         self.doc = doc
         self.setWindowTitle(tr("Guía y Helper de Operaciones OpenSCAD"))
-        self.resize(820, 580)
-        self.setMinimumSize(700, 480)
+        self.resize(880, 600)
+        self.setMinimumSize(720, 480)
         self.current_kind = current_kind
         self._build_ui()
 
@@ -145,10 +145,14 @@ class OperationHelperDialog(QDialog):
 
         # Splitter central: lista a la izquierda, detalles a la derecha
         splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setChildrenCollapsible(False)
+        splitter.setStyleSheet(themed("QSplitter::handle { background-color: #E2E8F0; width: 3px; } QSplitter::handle:hover { background-color: #3B82F6; }"))
 
         # Panel izquierdo: lista de operaciones
         self.list_widget = QListWidget()
         self.list_widget.setMinimumWidth(220)
+        self.list_widget.setMaximumWidth(340)
+        self.list_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         self._populate_list()
         self.list_widget.currentItemChanged.connect(self._on_item_changed)
         splitter.addWidget(self.list_widget)
@@ -157,15 +161,17 @@ class OperationHelperDialog(QDialog):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.detail_widget = QWidget()
         self.detail_lay = QVBoxLayout(self.detail_widget)
-        self.detail_lay.setContentsMargins(12, 10, 12, 10)
+        self.detail_lay.setContentsMargins(18, 12, 18, 12)
         self.detail_lay.setSpacing(12)
         scroll.setWidget(self.detail_widget)
         splitter.addWidget(scroll)
 
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 7)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([270, 580])
         main_lay.addWidget(splitter, 1)
 
         # Botones inferiores
@@ -265,8 +271,12 @@ class OperationHelperDialog(QDialog):
             self.detail_lay.addWidget(QLabel(f"<h3>{tr('Ejemplo en OpenSCAD:')}</h3>"))
             code_view = QPlainTextEdit(info["example_code"])
             code_view.setReadOnly(True)
-            code_view.setStyleSheet(themed("font-family: monospace; font-size: 11px; background: #F1F5F9; border: 1px solid #CBD5E1; border-radius: 4px;"))
-            code_view.setMaximumHeight(100)
+            code_view.setStyleSheet(themed(
+                "font-family: monospace; font-size: 11px; background: #F1F5F9; "
+                "border: 1px solid #CBD5E1; border-radius: 6px; padding: 6px;"
+            ))
+            lines = max(3, info["example_code"].count("\n") + 1)
+            code_view.setFixedHeight(min(160, max(65, lines * 19 + 20)))
             self.detail_lay.addWidget(code_view)
 
         self.detail_lay.addStretch(1)
