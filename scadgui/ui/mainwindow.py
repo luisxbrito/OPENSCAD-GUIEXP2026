@@ -144,7 +144,7 @@ class Ribbon(QTabWidget):
         "mech": ((N_("Engranajes"), ("spur_gear", "helical_gear", "herringbone_gear", "bevel_gear",
                                        "worm", "worm_gear", "rack")),
                  (N_("Transmisión"), ("pulley", "v_pulley", "spline")),
-                 (N_("Levas"), ("cam", "camshaft_main_shaft", "cam_lobe")),
+                 (N_("Levas"), ("cam", "camshaft_main_shaft", "cam_lobe", "camshaft_bearing", "camshaft_end")),
                  (N_("Uniones"), ("pipe_flange",)),
                  (N_("Asistentes"), ("transmission_wizard", "hardware", "flange_wizard", "camshaft_wizard"))),
         "shape2d": ((N_("Primitivas 2D"), ("square", "circle", "polygon", "text")), (N_("Modificar"), ("offset",)),
@@ -1305,7 +1305,9 @@ class MainWindow(QMainWindow):
             return
         res = dlg.get_result()
         try:
-            group = create_camshaft(res["shaft"], res["lobe"], dlg.items(), unique_fn=self.doc.unique_name)
+            group = create_camshaft(res["shaft"], res["lobe"], dlg.items(),
+                                    bearings=res.get("bearings"), ends=res.get("ends"),
+                                    unique_fn=self.doc.unique_name)
         except ValueError as exc:   # orden de cilindros que no vale
             QMessageBox.warning(self, tr("Árbol de levas"), str(exc))
             return

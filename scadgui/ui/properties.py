@@ -232,7 +232,7 @@ class PropertyPanel(QScrollArea):
             self._cam_info(node)
         if node.kind == "cam_lobe":
             self._lobe_info(node)
-        if node.kind in ("cam_lobe", "camshaft_main_shaft") and self.doc is not None:
+        if node.kind in ("cam_lobe", "camshaft_main_shaft", "camshaft_bearing", "camshaft_end") and self.doc is not None:
             self._camshaft_info(node)
         if node.kind == "pipe_flange":
             self._flange_info(node)
@@ -546,14 +546,39 @@ class PropertyPanel(QScrollArea):
             self._hint(tr(text).format(**data), "warnText")
 
     def _camshaft_info(self, node: Node) -> None:
-        """Solapes, lóbulos fuera del eje y radios base menores que el del eje, mirando las piezas del
-        árbol que están en el mismo contenedor. En un lóbulo, solo los avisos que le tocan."""
+        """Solapes, piezas fuera del eje, diámetros y radios insuficientes y cojinetes en túnel,
+        mirando las piezas del árbol que están en el mismo contenedor."""
         from .. import camshaft
-        shaft, lobes = camshaft.siblings(self.doc, node)
-        problems = camshaft.shaft_problems(shaft.params if shaft is not None else None,
-                                           [(lobe.name or lobe.kind, lobe.params) for lobe in lobes])
+        sib = camshaft.siblings(self.doc, node)
+        shaft = sib.shaft
+        lobes = sib.lobes
+        bearings = sib.bearings
+        shaft_params = shaft.params if shaft is not None else None
+        lobe_pairs = [(l.name or l.kind, l.params) for l in lobes]
+        bearing_pairs = [(b.name or b.kind, b.params) for b in bearings]
+        problems = camshaft.shaft_problems(shaft_params, lobe_pairs, bearing_pairs, tunnel_bearings=True)
         if node.kind == "camshaft_main_shaft":
             self._hint(tr("Lóbulos en este árbol: {n}").format(n=len(lobes)))
+            if bearings:
+                self._hint(tr("Muñones de apoyo: {n}").format(n=len(bearings)))
+        elif node.kind == "camshaft_bearing":
+            p = node.params
+            pos = p.get("position", 0)
+            w = p.get("width", 15)
+            if isinstance(pos, (int, float)) and isinstance(w, (int, float)):
+                self._hint(tr("Ocupa de z = {a:g} a z = {b:g} mm").format(a=pos - w / 2, b=pos + w / 2))
+            mine = node.name or node.kind
+            problems = [(t, d) for t, d in problems if mine in (d.get("a"), d.get("b"))]
+        elif node.kind == "camshaft_end":
+            p = node.params
+            pos = p.get("position", 0)
+            length = p.get("length", 25)
+            flange_t = p.get("flange_t", 8)
+            t = flange_t if p.get("end_type") == "plato" else length
+            if isinstance(pos, (int, float)) and isinstance(t, (int, float)):
+                self._hint(tr("Ocupa de z = {a:g} a z = {b:g} mm").format(a=pos, b=pos + t))
+            mine = node.name or node.kind
+            problems = [(t, d) for t, d in problems if mine in (d.get("a"), d.get("b"))]
         else:
             mine = node.name or node.kind
             problems = [(t, d) for t, d in problems if mine in (d.get("a"), d.get("b"))]

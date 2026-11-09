@@ -445,6 +445,29 @@ _add(Spec("cam_lobe", "Lóbulo de leva", "mech", False, (
    "circular, excéntrico, elíptico y periforme son construcciones geométricas (no de una norma) con "
    "el mismo radio base y la misma alzada; el periforme usa el radio de la punta."))
 
+_add(Spec("camshaft_bearing", "Muñón de apoyo", "mech", False, (
+    Param("d", "num", 28, label="Ø del muñón", minimum=0.01),
+    Param("width", "num", 15, label="Longitud de apoyo", minimum=0.01),
+    Param("position", "num", 0, label="Posición en el eje (Z)", step=5),
+), keyword="module", hint="Muñón cilíndrico de apoyo para cojinete o rodamiento del árbol de levas."))
+
+_add(Spec("camshaft_end", "Extremo del árbol", "mech", False, (
+    Param("d", "num", 20, label="Ø del extremo", minimum=0.01),
+    Param("length", "num", 25, label="Longitud del extremo", minimum=0.01),
+    Param("position", "num", 0, label="Posición en el eje (Z)", step=5),
+    Param("end_type", "choice", "liso", label="Tipo de extremo",
+          options=("liso", "chavetero", "estriado", "plato")),
+    Param("key_width", "num", 0, optional=True, label="Ancho de chaveta", minimum=0, step=0.5),
+    Param("key_depth", "num", 0, optional=True, label="Profundidad en el eje (t1)", minimum=0, step=0.1),
+    Param("spline_teeth", "int", 16, optional=True, label="Dientes del estriado (z)", minimum=4, maximum=100),
+    Param("spline_mod", "num", 1.0, optional=True, label="Módulo del estriado", minimum=0.25, step=0.25),
+    Param("flange_d", "num", 60, optional=True, label="Ø del plato", minimum=10, step=5),
+    Param("flange_t", "num", 8, optional=True, label="Espesor del plato", minimum=1, step=1),
+    Param("bolt_circle", "num", 45, optional=True, label="Círculo de taladros", minimum=5, step=5),
+    Param("bolts", "int", 4, optional=True, label="Número de taladros", minimum=1, maximum=24),
+    Param("bolt_d", "num", 6, optional=True, label="Ø de los taladros", minimum=1, step=0.5),
+), keyword="module", hint="Extremo del árbol de levas: liso, con chavetero, estriado o con plato de arrastre."))
+
 _add(Spec("v_pulley", "Polea trapecial", "mech", False, (
     Param("section", "choice", "A", label="Sección", options=("A", "B", "C", "D")),
     Param("datum_d", "num", 80, label="Ø primitivo (datum)", minimum=10, step=5),
@@ -579,6 +602,8 @@ ICONS = {
     # Eje con dos muñones escalonados, y lóbulo visto de frente: círculo base, punta y el agujero del eje.
     "camshaft_main_shaft": "M2 10.5h20v3H2z M5 8.5h3v7H5z M16 8.5h3v7h-3z",
     "cam_lobe": "M12 3C14 3 18 9 18 15a6 6 0 0 1-12 0C6 9 10 3 12 3z M12 13a2 2 0 1 0 0 4a2 2 0 1 0 0-4z",
+    "camshaft_bearing": "M2 10.5h20v3H2z M7 6.5h10v11H7z M9 8.5h6v7H9z",
+    "camshaft_end": "M2 10.5h12v3H2z M14 7h8v10h-8z M18 10a2 2 0 1 0 0.01 0",
     "pipe_flange": ("M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20z M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8z"
                     " M12 4.2a.9.9 0 1 0 0 1.8a.9.9 0 1 0 0-1.8z M12 18a.9.9 0 1 0 0 1.8a.9.9 0 1 0 0-1.8z"
                     " M4.2 12a.9.9 0 1 0 1.8 0a.9.9 0 1 0-1.8 0z M18 12a.9.9 0 1 0 1.8 0a.9.9 0 1 0-1.8 0z"),

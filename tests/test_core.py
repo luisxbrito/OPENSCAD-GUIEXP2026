@@ -32,7 +32,7 @@ def roundtrip(text):
 
 
 def test_catalogo_completo():
-    assert len(SPECS) == 49  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 14 de mecánica
+    assert len(SPECS) == 51  # 30 módulos de OpenSCAD + 3 matrices + 2 de aristas + 16 de mecánica
     for key, _, _ in CATEGORIES:
         assert specs_in(key), key
     for name in SPECS:
@@ -1100,6 +1100,7 @@ def test_modulos_propios_con_comentarios_en_ingles():
 
     assert set(SPANISH_COMMENTS) == set(LIBRARY) - {"shaft_bore", "spline", "cam", "pipe_flange",
                                                        "camshaft_main_shaft", "cam_lobe",
+                                                       "camshaft_bearing", "camshaft_end",
                                                        "herringbone_gear", "worm",
                                                        "worm_gear"}  # nacieron en inglés
     for name, code in LIBRARY.items():
@@ -1970,6 +1971,71 @@ def test_arbol_de_levas_del_asistente():
     again = parse(text)
     assert generate(again).text == text
     assert [n.params for n in again.children[0].children] == [n.params for n in group.children]
+
+
+def test_camshaft_phase4_bearings_and_ends():
+    from scadgui import camshaft as cs
+    # 1. bearing_layout: para 4 cilindros debe generar 5 apoyos
+    b_layout = cs.bearing_layout(cylinders=4, per_cylinder=2, first_z=20, pitch=50, pair_gap=20,
+                                 shaft_length=220, bearing_width=15)
+    assert len(b_layout) == 5
+    assert b_layout[0]["index"] == 1 and b_layout[0]["position"] == 10.0
+    assert b_layout[4]["index"] == 5
+
+    # 2. shaft_problems comprobaciones de apoyos
+    lobes = [("Leva 1", {"position": 50, "width": 12, "base_r": 15, "lift": 8})]
+    # Lóbulo altura máx: 15 + 8 = 23 mm -> envolvente Ø 46 mm
+    bearings = [
+        ("Muñón 1", {"position": 50, "width": 15, "d": 28}),  # solape con Leva 1
+        ("Muñón 2", {"position": 250, "width": 15, "d": 20}), # fuera del eje (longitud 200) y menor que eje (d=25)
+    ]
+    shaft = {"length": 200, "d": 25}
+    probs = cs.shaft_problems(shaft, lobes, bearings, tunnel_bearings=True)
+    prob_texts = [p[0] for p in probs]
+    assert any("se solapan" in t for t in prob_texts)
+    assert any("se sale del eje" in t for t in prob_texts)
+    assert any("menor que el diámetro del eje" in t for t in prob_texts)
+    assert any("con cojinetes enteros (en túnel)" in t for t in prob_texts)
+
+    # Si tunnel_bearings=False, no da el error de túnel
+    probs_split = cs.shaft_problems(shaft, lobes, [("Muñón 1", {"position": 10, "width": 15, "d": 28})],
+                                    tunnel_bearings=False)
+    assert not any("túnel" in t for t, _ in probs_split)
+
+    # 3. create_camshaft con muñones y extremos
+    bearings_data = [{"index": 1, "position": 10, "width": 15, "d": 28}]
+    ends_data = [
+        {"kind": "front", "d": 20, "length": 25, "position": -25, "end_type": "chavetero"},
+        {"kind": "rear", "d": 20, "length": 20, "position": 120, "end_type": "plato"}
+    ]
+    doc = Document()
+    full_group = cs.create_camshaft(
+        {"length": 120, "d": 25},
+        {"profile": "circular", "base_r": 15, "lift": 0, "width": 12, "motion": "cicloidal",
+         "rise_angle": 110, "dwell_angle": 20, "fall_angle": 110, "nose_r": 0, "step": 1},
+        [{"cylinder": 1, "kind": "single", "position": 50, "angle": 0}],
+        bearings=bearings_data,
+        ends=ends_data,
+        unique_fn=doc.unique_name
+    )
+    doc.children.append(full_group)
+    kinds = [n.kind for n in full_group.children]
+    assert kinds == ["camshaft_main_shaft", "cam_lobe", "camshaft_bearing", "camshaft_end", "camshaft_end"]
+
+    # 4. siblings retorna CamshaftSiblings con soporte para 2-tupla y atributos
+    sib = cs.siblings(doc, full_group.children[2])
+    shaft_node, lobes_list = sib
+    assert shaft_node.kind == "camshaft_main_shaft"
+    assert len(lobes_list) == 1
+    assert len(sib.bearings) == 1 and sib.bearings[0].kind == "camshaft_bearing"
+    assert len(sib.ends) == 2
+
+    # 5. Roundtrip de OpenSCAD
+    code = generate(doc).text
+    assert "camshaft_bearing" in code
+    assert "camshaft_end" in code
+    again = parse(code)
+    assert generate(again).text == code
 
 
 def test_mesh_cache():

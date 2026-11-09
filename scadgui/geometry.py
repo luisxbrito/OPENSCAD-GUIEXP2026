@@ -991,6 +991,38 @@ def cam_lobe(p) -> Optional[Tris]:
     return prism(poly, width, position - width / 2)
 
 
+def camshaft_bearing(p, ctx) -> Optional[Tris]:
+    """Muñón de apoyo del árbol de levas: cilindro centrado en position."""
+    d, width = _num(p.get("d", 28)), _num(p.get("width", 15))
+    pos = _num(p.get("position", 0))
+    if None in (d, width, pos) or d <= 0 or width <= 0:
+        return None
+    z0 = pos - width / 2
+    return revolve(np.array([[0, z0], [d / 2, z0], [d / 2, z0 + width], [0, z0 + width]], dtype=float), ctx)
+
+
+def camshaft_end(p, ctx) -> Optional[Tris]:
+    """Extremo del árbol de levas."""
+    end_type = p.get("end_type", "liso")
+    pos = _num(p.get("position", 0)) or 0.0
+    if end_type == "plato":
+        fd, ft = _num(p.get("flange_d", 60)), _num(p.get("flange_t", 8))
+        if None in (fd, ft) or fd <= 0 or ft <= 0:
+            return None
+        return revolve(np.array([[0, pos], [fd / 2, pos], [fd / 2, pos + ft], [0, pos + ft]], dtype=float), ctx)
+    if end_type == "estriado":
+        from . import gears
+        mod = _num(p.get("spline_mod", 1.0)) or 1.0
+        teeth = int(_num(p.get("spline_teeth", 16)) or 16)
+        length = _num(p.get("length", 25)) or 25.0
+        poly = gears.spline_polygon(mod, teeth, internal=False)
+        return prism(poly, length, pos)
+    d, length = _num(p.get("d", 20)), _num(p.get("length", 25))
+    if None in (d, length) or d <= 0 or length <= 0:
+        return None
+    return revolve(np.array([[0, pos], [d / 2, pos], [d / 2, pos + length], [0, pos + length]], dtype=float), ctx)
+
+
 def rack(p) -> Optional[Tris]:
     """Cremallera, recta o helicoidal (el dentado inclinado sale sesgando el prisma)."""
     from . import gears
@@ -1413,6 +1445,10 @@ def solid(node, ctx) -> dict:
         mesh = camshaft_main_shaft(p, ctx)
     elif k == "cam_lobe":
         mesh = cam_lobe(p)
+    elif k == "camshaft_bearing":
+        mesh = camshaft_bearing(p, ctx)
+    elif k == "camshaft_end":
+        mesh = camshaft_end(p, ctx)
     elif k == "cylinder_edges":
         mesh = cylinder_edges(p, ctx)
     elif k in ("square", "circle", "polygon"):

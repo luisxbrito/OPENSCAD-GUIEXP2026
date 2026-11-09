@@ -669,12 +669,64 @@ CAM_LOBE = '''module cam_lobe(base_r = 15, lift = 8, width = 12, rise_angle = 11
     else polygon(law);
 }'''
 
+CAMSHAFT_BEARING = '''module camshaft_bearing(d = 28, width = 15, position = 0) {
+  // Bearing journal of a camshaft (written by OpenSCAD GUI Mejorada).
+  // d is the journal diameter, width is the axial bearing length,
+  // and position is the center position along the Z axis.
+  translate([0, 0, position - width / 2])
+    cylinder(h = width, d = d, $fn = $fn > 0 ? $fn : 16);
+}'''
+
+CAMSHAFT_END = '''module camshaft_end(d = 20, length = 25, position = 0, end_type = "liso",
+                    key_width = 0, key_depth = 0,
+                    spline_teeth = 16, spline_mod = 1.0,
+                    flange_d = 60, flange_t = 8, bolt_circle = 45, bolts = 4, bolt_d = 6) {
+  // Camshaft end section (written by OpenSCAD GUI Mejorada): drive end or rear end.
+  // Supports plain shaft, standard external keyway (BS 4235-1 / DIN 6885),
+  // metric spline (ANSI B92.2M) or drive flange with bolt pattern.
+  table = [
+    [6, 8, 2, 2, 1.2, 1], [8, 10, 3, 3, 1.8, 1.4], [10, 12, 4, 4, 2.5, 1.8], [12, 17, 5, 5, 3, 2.3],
+    [17, 22, 6, 6, 3.5, 2.8], [22, 30, 8, 7, 4, 3.3], [30, 38, 10, 8, 5, 3.3], [38, 44, 12, 8, 5, 3.3],
+    [44, 50, 14, 9, 5.5, 3.8], [50, 58, 16, 10, 6, 4.3], [58, 65, 18, 11, 7, 4.4], [65, 75, 20, 12, 7.5, 4.9],
+    [75, 85, 22, 14, 9, 5.4], [85, 95, 25, 14, 9, 5.4], [95, 110, 28, 16, 10, 6.4]
+  ];
+  row = [for (r = table) if (d > r[0] && d <= r[1]) r];
+  b = key_width > 0 ? key_width : len(row) > 0 ? row[0][2] : 0;
+  t1 = key_depth > 0 ? key_depth : len(row) > 0 ? row[0][4] : 0;
+  fn_c = ($fn > 0 ? $fn : 16);
+
+  translate([0, 0, position]) {
+    if (end_type == "chavetero") {
+      difference() {
+        cylinder(h = length, d = d, $fn = fn_c);
+        if (b > 0 && t1 > 0)
+          translate([-b / 2, d / 2 - t1, -1])
+            cube([b, t1 + 2, length + 2]);
+      }
+    } else if (end_type == "estriado") {
+      spline(mod = spline_mod, teeth = spline_teeth, length = length, internal = false);
+    } else if (end_type == "plato") {
+      difference() {
+        cylinder(h = flange_t, d = flange_d, $fn = fn_c);
+        if (bolts > 0 && bolt_d > 0)
+          for (k = [0 : bolts - 1])
+            rotate(360 * k / bolts)
+              translate([bolt_circle / 2, 0, -1])
+                cylinder(h = flange_t + 2, d = bolt_d, $fn = fn_c);
+      }
+    } else {
+      cylinder(h = length, d = d, $fn = fn_c);
+    }
+  }
+}'''
+
 LIBRARY = {"cube_edges": CUBE_EDGES, "cylinder_edges": CYLINDER_EDGES, "spur_gear": SPUR_GEAR,
            "helical_gear": HELICAL_GEAR, "herringbone_gear": HERRINGBONE_GEAR, "rack": RACK,
            "bevel_gear": BEVEL_GEAR, "worm": WORM, "worm_gear": WORM_GEAR, "pulley": PULLEY,
            "v_pulley": V_PULLEY, "spline": SPLINE, "cam": CAM, "shaft_bore": SHAFT_BORE,
            "pipe_flange": PIPE_FLANGE,
-           "camshaft_main_shaft": CAMSHAFT_MAIN_SHAFT, "cam_lobe": CAM_LOBE}
+           "camshaft_main_shaft": CAMSHAFT_MAIN_SHAFT, "cam_lobe": CAM_LOBE,
+           "camshaft_bearing": CAMSHAFT_BEARING, "camshaft_end": CAMSHAFT_END}
 
 # Versiones anteriores que ya pueden estar en archivos guardados. Al abrir el archivo se
 # reconocen como nuestras y se sustituyen por la versión actual (no se conservan como código
