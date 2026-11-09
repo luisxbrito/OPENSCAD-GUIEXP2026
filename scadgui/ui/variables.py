@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QSize, Signal
 from PySide6.QtWidgets import (QAbstractItemView, QHBoxLayout, QHeaderView,
                                QLabel, QPushButton, QTableWidget, QTableWidgetItem,
                                QVBoxLayout, QWidget)
@@ -17,6 +17,9 @@ class VariablesPanel(QWidget):
     variableChanged = Signal(str, str, str)  # (name, value, comment)
     variableAdded = Signal(str, str, str)
     variableDeleted = Signal(str)
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(200, 150)
 
     def __init__(self, parent=None):
         super().__init__(parent)

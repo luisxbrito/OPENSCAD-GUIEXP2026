@@ -215,6 +215,8 @@ QToolBar#ribbonCorner { background: #262B33; border: 0; spacing: 1px; padding: 0
 QToolBar#ribbonCorner QToolButton { border: 1px solid transparent; border-radius: 4px; padding: 2px; }
 QToolBar#ribbonCorner QToolButton:hover { background: #343A44; border-color: #5A6372; }
 QFrame#propsOverlay { background: #FFFFFF; border: 1px solid #CBD1DA; border-radius: 8px; }
+QScrollArea#ribbonScroll { background: #FFFFFF; border: 0; }
+QScrollArea#ribbonScroll > QWidget > QWidget { background: #FFFFFF; }
 QWidget#ribbonPage { background: #FFFFFF; }
 QToolButton#ribbonButton { background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 4px 6px; font-size: 9pt; }
 QToolButton#ribbonButton[command="true"] { font-family: "IBM Plex Mono", Consolas, "Courier New", monospace; }
@@ -281,6 +283,8 @@ QSplitter::handle:vertical { height: 1px; }
 # El visor 3D es oscuro en los dos temas: estos colores no se traducen.
 VIEWER_STYLES = """
 QWidget#viewport { background: #262B33; }
+QScrollArea#viewBarScroll { background: #262B33; border: 0; }
+QScrollArea#viewBarScroll > QWidget > QWidget { background: #262B33; }
 QWidget#viewBar { background: #262B33; }
 QWidget#viewBar QLabel, QCheckBox#viewCheck { color: #FFFFFF; font-size: 9pt; }
 QLabel#viewTitle { color: #FFFFFF; font-weight: 600; margin-right: 6px; }

@@ -13,12 +13,12 @@ import time
 from typing import Optional
 
 import numpy as np
-from PySide6.QtCore import QItemSelectionModel, QProcess, QSettings, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QActionGroup, QColor, QIcon, QKeySequence
+from PySide6.QtCore import QEvent, QItemSelectionModel, QProcess, QSettings, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QAction, QActionGroup, QColor, QGuiApplication, QIcon, QKeySequence
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QDockWidget, QFileDialog, QFrame,
                                QHBoxLayout,
                                QHeaderView, QLabel, QMainWindow, QMenu, QMessageBox, QPlainTextEdit,
-                               QSizePolicy, QSplitter, QTabWidget, QToolBar, QToolButton, QTreeWidget,
+                               QScrollArea, QSizePolicy, QSplitter, QTabWidget, QToolBar, QToolButton, QTreeWidget,
                                QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from .. import __version__
@@ -199,7 +199,15 @@ class Ribbon(QTabWidget):
             row.addWidget(tip)
             self._hints.append(tip)
             self._pages.append(page)
-            self.addTab(page, "")
+
+            scroll = QScrollArea()
+            scroll.setObjectName("ribbonScroll")
+            scroll.setWidgetResizable(True)
+            scroll.setWidget(page)
+            scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            scroll.setFrameShape(QFrame.Shape.NoFrame)
+            self.addTab(scroll, "")
         self.currentChanged.connect(self._fit_current_page)
         self._fit_current_page()
         self.retranslate_ui()
@@ -213,14 +221,16 @@ class Ribbon(QTabWidget):
         guardan el tamaño de antes: entonces cuenta solo la visible (todas miden igual)."""
         current = self.currentWidget()
         if self.compact and current is not None:
-            size.setHeight(self.tabBar().sizeHint().height() + current.sizeHint().height() + 2)
+            inner = current.widget() if hasattr(current, "widget") and current.widget() is not None else current
+            size.setHeight(self.tabBar().sizeHint().height() + inner.sizeHint().height() + 2)
         return size
 
     def sizeHint(self) -> QSize:
         return self._height_for_current(super().sizeHint())
 
     def minimumSizeHint(self) -> QSize:
-        return self._height_for_current(super().minimumSizeHint())
+        h = self._height_for_current(super().minimumSizeHint()).height()
+        return QSize(350, h)
 
     def _group(self, title: str, commands, wizards: dict) -> QWidget:
         box = QWidget()
@@ -413,7 +423,14 @@ class MainWindow(QMainWindow):
 
         self.setStyleSheet(stylesheet())
         self.setWindowIcon(icon("cube", "#2563EB"))
-        self.resize(1440, 900)
+        screen = QGuiApplication.primaryScreen()
+        if screen is not None:
+            avail = screen.availableGeometry()
+            target_w = min(1360, max(800, int(avail.width() * 0.85)))
+            target_h = min(820, max(600, int(avail.height() * 0.85)))
+            self.resize(target_w, target_h)
+        else:
+            self.resize(1200, 750)
         self._action_defs: list[tuple[QAction, str, Optional[str]]] = []
         self._compact_saved = None    # (disposición, árbol sobre el visor) de antes del modo compacto
         self._was_maximized = False
@@ -431,7 +448,29 @@ class MainWindow(QMainWindow):
         geometry = self.settings.value("geometry")
         if geometry is not None:
             self.restoreGeometry(geometry)
+            self._clamp_to_screen()
         QTimer.singleShot(0, lambda: self._startup(path))
+
+    def changeEvent(self, event) -> None:
+        if event.type() == QEvent.Type.WindowStateChange:
+            if not (self.isMaximized() or self.isFullScreen()):
+                QTimer.singleShot(0, self._clamp_to_screen)
+        super().changeEvent(event)
+
+    def _clamp_to_screen(self) -> None:
+        """Asegura que si la ventana no está maximizada, no exceda la pantalla disponible."""
+        if self.isMaximized() or self.isFullScreen():
+            return
+        screen = self.screen() or QGuiApplication.primaryScreen()
+        if screen is None:
+            return
+        avail = screen.availableGeometry()
+        geo = self.geometry()
+        w = min(geo.width(), avail.width())
+        h = min(geo.height(), avail.height())
+        x = max(avail.left(), min(geo.x(), avail.right() - w))
+        y = max(avail.top(), min(geo.y(), avail.bottom() - h))
+        self.setGeometry(x, y, w, h)
 
     # ------------------------------------------------------------- construcción
     def _act(self, text, slot, shortcut=None, icon_name=None, tip=None) -> QAction:

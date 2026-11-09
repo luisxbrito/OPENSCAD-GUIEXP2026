@@ -820,6 +820,9 @@ class CodeView(QWidget):
     applyRequested = Signal(str)       # texto editado a mano
     editingChanged = Signal(bool)
 
+    def minimumSizeHint(self) -> QSize:
+        return QSize(220, 160)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.editing = False

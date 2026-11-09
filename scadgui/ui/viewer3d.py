@@ -14,10 +14,10 @@ import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 from OpenGL import GL
-from PySide6.QtCore import QPointF, Qt, QTimer, Signal
+from PySide6.QtCore import QPointF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout,
-                               QLabel, QLineEdit, QPlainTextEdit, QPushButton, QSlider, QTextEdit, QVBoxLayout,
+                               QLabel, QLineEdit, QPlainTextEdit, QPushButton, QScrollArea, QSlider, QTextEdit, QVBoxLayout,
                                QWidget)
 
 from .. import geometry as geo
@@ -379,6 +379,9 @@ class Viewer3D(QWidget):
     treeOverlayToggled = Signal(bool)      # el usuario pide (o quita) el árbol sobre el visor
     displayModeChanged = Signal(str)       # modo de visualización (clave de geo.DISPLAY_MODES)
 
+    def minimumSizeHint(self) -> QSize:
+        return QSize(280, 200)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("viewport")
@@ -474,7 +477,16 @@ class Viewer3D(QWidget):
         self.status = QLabel("")
         self.status.setObjectName("viewStatus")
         row.addWidget(self.status)
-        layout.addWidget(bar)
+
+        bar_scroll = QScrollArea()
+        bar_scroll.setObjectName("viewBarScroll")
+        bar_scroll.setWidgetResizable(True)
+        bar_scroll.setWidget(bar)
+        bar_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        bar_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        bar_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        bar_scroll.setFixedHeight(38)
+        layout.addWidget(bar_scroll)
 
         self.view = _GLView()
         self.view.setBackgroundColor(pg.mkColor("#262B33"))
