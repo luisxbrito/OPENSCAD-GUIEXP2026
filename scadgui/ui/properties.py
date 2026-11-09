@@ -99,6 +99,7 @@ class PropertyPanel(QScrollArea):
         super().__init__(parent)
         self.setWidgetResizable(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.node = None
         self.doc: Optional[Document] = None
         self.base_dir = ""
@@ -924,17 +925,20 @@ class PropertyPanel(QScrollArea):
         box = QWidget()
         grid = QGridLayout(box)
         grid.setContentsMargins(0, 0, 0, 0)
-        grid.setHorizontalSpacing(6)
+        grid.setHorizontalSpacing(8)
+        grid.setVerticalSpacing(4)
         spins = []
         for i, axis in enumerate("XYZ"[:len(value)]):
             lab = QLabel(axis)
             lab.setObjectName("axis" + axis)
+            lab.setFixedWidth(16)
+            lab.setAlignment(Qt.AlignmentFlag.AlignCenter)
             spin = self._num_spin(p, value[i])
             spin.setRange(-1e7, 1e7)
-            grid.addWidget(lab, 0, i * 2)
-            grid.addWidget(spin, 0, i * 2 + 1)
-            grid.setColumnStretch(i * 2 + 1, 1)
+            grid.addWidget(lab, i, 0)
+            grid.addWidget(spin, i, 1)
             spins.append(spin)
+        grid.setColumnStretch(1, 1)
         for spin in spins:
             spin.valueChanged.connect(lambda _=None: self._emit(node, p.name, [s.value() for s in spins]))
         return box
