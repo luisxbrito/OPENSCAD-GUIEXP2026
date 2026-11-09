@@ -61,9 +61,10 @@ All by module (metric). The panel shows the calculated dimensions and warns abou
 | V-belt pulley | A, B, C, D sections (ANSI/RMA IP-20), groove angle by diameter range |
 | Involute spline | Shaft and hub (ANSI B92.2M / ISO 4156), 30°, 37.5° and 45°; the hub is added in place, already meshing |
 | Keyways | On gears and pulleys, sized by bore from BS 4235-1 / ISO R773 |
+| Worm & worm gear | Worm screw (single or multi-start, right/left hand) and globoid worm wheel with one-click mating at exact center distance and 90° crossed axes |
 | Plate cam | Rise, dwell and fall with the cycloidal, harmonic, parabolic or constant-velocity law (*Machinery's Handbook*, «Cams and Cam Design») |
+| Camshaft designer | Full modular engine camshaft: main shaft, customizable lobes (law, pear, elliptical, circular, tangent), bearing journals with tunnel clearance checks, drive ends (plain, keyway, spline, drive flange), print bed layout and multi-part STL export ([see below](#camshaft-designer)) |
 | Transmission calculator | Gear tooth counts, or timing and V-belt pulleys with the belt length, for a ratio or a pair of speeds, created already in place ([see below](#transmission-calculator)) |
-| Camshaft (in progress) | Main shaft and lobes as separate parts: each lobe has its own axial position, nose angle, law, lift and rise/fall angles (asymmetric lobes allowed) |
 
 ![Spur gear pair with keyways](docs/images/gears_spur_pair.png)
 
@@ -71,6 +72,7 @@ All by module (metric). The panel shows the calculated dimensions and warns abou
 |---|---|
 | ![Helical rack and gear](docs/images/gears_helical_rack.png) | ![Bevel gear pair](docs/images/gears_bevel_pair.png) |
 | ![Spline shaft in its hub](docs/images/spline_shaft_hub.png) | ![Timing and V-belt pulleys](docs/images/pulleys.png) |
+| ![Worm screw and worm gear mesh](docs/images/worm_and_worm_gear.png) | ![Assembled engine camshaft](docs/images/camshaft_assembled.png) |
 
 #### Transmission calculator
 *Mechanical › Wizards › Transmission calculator*, or *Design › Transmission calculator…*. Tell it what you
@@ -121,6 +123,19 @@ The search is exact kinematics only: it does not size the module or the belt fro
 |---|---|
 | ![Gear train calculator: 1500 to 75 rpm in two stages](docs/images/gear_train_calculator.png) | ![A two-stage helical train created by the calculator](docs/images/gear_train.png) |
 | ![Timing belt mode of the calculator](docs/images/belt_calculator.png) | ![Timing pulleys and belt created by the calculator](docs/images/belt_drive.png) |
+
+#### Camshaft designer
+*Mechanical › Wizards › Camshaft*, or *Design › Camshaft…*. Interactive generator for modular engine camshafts:
+
+- **Shaft and cylinder layout**: Number of cylinders (1 to 16), 1 or 2 lobes per cylinder (intake and exhaust with independent phase angle and gap), customizable cylinder spacing, pitch, starting angle and firing order (e.g. `1-3-4-2`).
+- **Lobe profiles**: Profile law (cycloidal, harmonic, parabolic, constant-velocity), geometric pear-shaped (*periforme* with nose radius), elliptical, circular or tangent cam profiles.
+- **Bearing journals & shaft ends**: Integrated bearing journals (`camshaft_bearing`) automatically placed between cylinders and at ends. Drive ends (`camshaft_end`) with plain shaft, standard BS 4235-1 / DIN 6885 keyways, ANSI B92.2M involute splines, or drive flanges with bolt patterns.
+- **Assembly checks**: Real-time validation checking for lobe/journal overlaps, shaft boundary overruns, journal diameter undercuts, and tunnel bearing insertion clearance (ensuring journal diameter clears the highest lobe envelope).
+- **3D printing & manufacturing**: One-click print bed layout packing all disassembled components flat at $Z = 0$ on the build platform, plus multi-part STL batch export.
+
+| | |
+|---|---|
+| ![Camshaft Wizard dialog with journal layout and engineering checks](docs/images/camshaft_wizard.png) | ![Disassembled camshaft parts laid flat on the 3D print bed](docs/images/camshaft_print_bed.png) |
 
 ### Standard parts and fits
 - Screws (ISO 4762, DIN 933, DIN 7991, ISO 7380), nuts (DIN 934, DIN 985), washers (DIN 125),
