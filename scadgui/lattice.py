@@ -11,7 +11,7 @@ from typing import Callable, Optional
 from .i18n import tr
 from .model import Node, RawCode, new_id
 
-PATTERNS = ("gyroid", "schwarz_p", "honeycomb", "voronoi")
+PATTERNS = ("gyroid", "schwarz_p", "honeycomb", "voronoi", "clathrus")
 
 MATERIALS = {
     "pla": (tr("PLA"), 1.24),
@@ -31,6 +31,7 @@ def pattern_name(pattern: str) -> str:
         "schwarz_p": tr("Schwarz P (TPMS)"),
         "honeycomb": tr("Panal de abeja (Honeycomb)"),
         "voronoi": tr("Voronoi 3D celular"),
+        "clathrus": tr("Jaula biomimética (Clathrus ruber)"),
     }
     return names.get(pattern, pattern)
 
@@ -39,7 +40,8 @@ def estimate_metrics(dx: float, dy: float, dz: float,
                      cell_size: float, wall_thick: float,
                      has_shell: bool = False, shell_thick: float = 1.2,
                      has_drain: bool = False, drain_d: float = 4.0,
-                     material_key: str = "pla") -> dict:
+                     material_key: str = "pla",
+                     pattern: str = "gyroid") -> dict:
     """Calcula volumen sólido, volumen aligerado, masa estimada y ahorro de material."""
     dx = max(1.0, dx)
     dy = max(1.0, dy)
@@ -54,8 +56,11 @@ def estimate_metrics(dx: float, dy: float, dz: float,
     solid_mass_g = total_vol_cm3 * density_g_cm3
 
     # Densidad relativa del núcleo celular según relación t / lambda
-    ratio = wall_thick / cell_size
-    rel_density = min(0.90, max(0.08, ratio * 2.6))
+    if pattern == "clathrus":
+        rel_density = min(0.40, max(0.10, (wall_thick / cell_size) * 1.2))
+    else:
+        ratio = wall_thick / cell_size
+        rel_density = min(0.90, max(0.08, ratio * 2.6))
 
     if has_shell and dx > 2 * shell_thick and dy > 2 * shell_thick and dz > 2 * shell_thick:
         inner_dx = dx - 2 * shell_thick
@@ -201,6 +206,47 @@ def generate_scad_code(dx: float, dy: float, dz: float,
             "  }",
             "}",
         ])
+    elif pattern == "clathrus":
+        code_lines.extend([
+            "// Jaula biomimética enrejada Clathrus ruber (Voronoi esferoidal)",
+            "module nucleo_lattice(dim, s, t) {",
+            "  rx = dim[0] / 2;",
+            "  ry = dim[1] / 2;",
+            "  rz = dim[2] / 2;",
+            "  r_max = max(rx, max(ry, rz));",
+            "  phi = (1 + sqrt(5)) / 2;",
+            "  num_ventanas = max(14, min(36, round((4 * 3.14159 * r_max * r_max) / (s * s * 3.0))));",
+            "  r_apertura = max(3.0, (2.0 * r_max / sqrt(num_ventanas)) * 0.82);",
+            "",
+            "  module cortador_radial(v) {",
+            "    ang_z = atan2(v[1], v[0]);",
+            "    ang_y = atan2(sqrt(v[0]*v[0] + v[1]*v[1]), v[2]);",
+            "    rotate([0, 0, ang_z])",
+            "      rotate([0, ang_y, 0])",
+            "        cylinder(r1 = 1.0, r2 = r_apertura * 1.25, h = r_max * 1.25, center = false, $fn = 5);",
+            "  }",
+            "",
+            "  color([0.92, 0.25, 0.20])",
+            "  difference() {",
+            "    scale([rx, ry, rz]) {",
+            "      difference() {",
+            "        sphere(r = 1.0, $fn = 32);",
+            "        sphere(r = max(0.05, 1.0 - (t / r_max)), $fn = 30);",
+            "      }",
+            "    }",
+            "    for (i = [0 : num_ventanas - 1]) {",
+            "      z = 1.0 - (2.0 * i) / max(1, num_ventanas - 1);",
+            "      r_xy = sqrt(max(0.0, 1.0 - z * z));",
+            "      theta = 360 * i / phi;",
+            "      vx = cos(theta) * r_xy;",
+            "      vy = sin(theta) * r_xy;",
+            "      vz = z;",
+            "      scale([rx / r_max, ry / r_max, rz / r_max])",
+            "        cortador_radial([vx, vy, vz]);",
+            "    }",
+            "  }",
+            "}",
+        ])
     else:  # voronoi
         code_lines.extend([
             "// Núcleo celular trabecular biomimético tipo Voronoi 3D",
@@ -234,6 +280,12 @@ def generate_scad_code(dx: float, dy: float, dz: float,
         code_lines.append("module solido_original() {")
         code_lines.append(indented_code)
         code_lines.append("}")
+    elif pattern == "clathrus":
+        code_lines.extend([
+            "module solido_original() {",
+            "  scale([dim_x / 2, dim_y / 2, dim_z / 2]) sphere(r = 1.0, $fn = 32);",
+            "}",
+        ])
     else:
         code_lines.extend([
             "module solido_original() {",

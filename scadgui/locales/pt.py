@@ -1511,4 +1511,5 @@ STRINGS: dict[str, str] = {
     'Estructura aligerada aplicada a {name}': 'Estrutura aliviada aplicada a {name}',
     "La estructura aligerada reemplazará al sólido seleccionado '{name}', manteniendo su contorno y ahuecando su interior con el patrón celular.": "A estrutura aliviada substituirá o sólido selecionado '{name}', mantendo seu contorno externo e esvaziando seu interior com o padrão celular.",
     '{name} (aligerado {pattern})': '{name} (aliviado {pattern})',
+    'Jaula biomimética (Clathrus ruber)': 'Gaiola biomimética (Clathrus ruber)',
 }

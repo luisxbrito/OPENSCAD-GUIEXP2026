@@ -145,6 +145,22 @@ class LatticeSlicePreview(QWidget):
                         p2 = pts[(k + 1) % 6]
                         p.drawLine(int(p1[0]), int(p1[1]), int(p2[0]), int(p2[1]))
 
+        elif self.pattern == "clathrus":
+            # Jaula biomimética Clathrus ruber (corte transversal ovoide calado)
+            p.setPen(QPen(QColor("#EF4444"), max(2.0, wall_px * 1.4)))
+            p.drawEllipse(int(clip_x + wall_px), int(clip_y + wall_px),
+                          int(max(10.0, clip_w - 2 * wall_px)), int(max(10.0, clip_h - 2 * wall_px)))
+            p.setPen(QPen(QColor("#F97316"), max(1.5, wall_px)))
+            n_holes = 8
+            for i in range(n_holes):
+                ang = 2 * math.pi * i / n_holes
+                rad_x = max(5.0, (clip_w - 3 * wall_px) / 2.0)
+                rad_y = max(5.0, (clip_h - 3 * wall_px) / 2.0)
+                hx = clip_x + clip_w / 2.0 + rad_x * math.cos(ang)
+                hy = cy + clip_h / 2.0 + rad_y * math.sin(ang)
+                h_size = max(4.0, cell_px * 0.45)
+                p.drawEllipse(int(hx - h_size / 2.0), int(hy - h_size / 2.0), int(h_size), int(h_size))
+
         else:  # voronoi
             # Celdas poligonales orgánicas
             p.setPen(QPen(QColor("#34D399"), max(1.5, wall_px)))
@@ -266,6 +282,7 @@ class LatticeDialog(QDialog):
         self.combo_pattern.addItem(tr("Schwarz P (TPMS - Canales ortogonales)"), "schwarz_p")
         self.combo_pattern.addItem(tr("Panal de abeja (Honeycomb - Compresión Z)"), "honeycomb")
         self.combo_pattern.addItem(tr("Voronoi 3D (Celular biomimético)"), "voronoi")
+        self.combo_pattern.addItem(tr("Jaula biomimética (Clathrus ruber)"), "clathrus")
         self.combo_pattern.currentIndexChanged.connect(self._recalc)
         form_pat.addRow(tr("Patrón:"), self.combo_pattern)
         left_lay.addWidget(grp_pat)
@@ -441,7 +458,7 @@ class LatticeDialog(QDialog):
         d_hole = self.spin_drain.value()
         mat_key = str(self.combo_mat.currentData())
 
-        m = lattice.estimate_metrics(dx, dy, dz, cell, wall, shell, s_thick, drain, d_hole, mat_key)
+        m = lattice.estimate_metrics(dx, dy, dz, cell, wall, shell, s_thick, drain, d_hole, mat_key, pattern=pat)
 
         mat_label, _ = lattice.MATERIALS.get(mat_key, (mat_key.upper(), 1.0))
         self.lbl_saving_badge.setText(tr("Ahorro estimado: -{pct:.0f}% peso").format(pct=m["savings_pct"]))

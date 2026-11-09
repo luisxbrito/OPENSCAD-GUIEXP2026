@@ -40,3 +40,13 @@ def test_lattice_apply_to_solid():
     assert "solido_interior()" in node.text
     assert "MiCubo" in node.name
     assert node.kind == "__raw__"
+
+
+def test_clathrus_ruber():
+    code = lattice.generate_scad_code(50, 50, 60, 12, 3.5, pattern="clathrus")
+    assert "cortador_radial" in code
+    assert "num_ventanas" in code
+    assert "phi = (1 + sqrt(5)) / 2" in code
+    node = lattice.create_lattice_node(50, 50, 60, 12, 3.5, pattern="clathrus")
+    assert "Clathrus ruber" in node.name
+    assert node.kind == "__raw__"
