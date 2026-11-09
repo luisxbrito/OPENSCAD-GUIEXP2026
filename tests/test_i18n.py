@@ -22,6 +22,7 @@ SAME_EVERYWHERE = {
     "Z +10", "Z -10", "Z = 0", "X +90°", "Y +90°", "Z +90°", "Z +45°", "Z +180°", "5 mm", "10 mm",
     "20 mm", "SteelBlue", "Tomato", "Gold", "SeaGreen", "DimGray", "Purple", "Radio R=2",
     "Radio R=5", "Delta +1", "Delta -1", "Twist 90°", "Alta suave ($fn=64)", "Rev.",
+    "PLA", "PETG", "ABS", "Nylon PA12",
 }
 
 # Palabras que en ese idioma se escriben igual que en español (revisadas una a una).
@@ -34,7 +35,8 @@ SAME_AS_SPANISH = {
            "Módulo axial (m)",
            "Módulo normal (mn)", "parabólica", "automática", "Ø máximo", "Ø mínimo",
            "Empresa", "Empresa:", "Escala", "Formato", "Material", "Material:", "NOTAS:", "Rev.", "Revisado",
-           "Revisado por:", "Título", "{name} (horizontal)"},
+           "Revisado por:", "Título", "{name} (horizontal)",
+           "Resina", "Esquema 2D / Corte", "Código OpenSCAD", "Copiar código OpenSCAD"},
 }
 
 

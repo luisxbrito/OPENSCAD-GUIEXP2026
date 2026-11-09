@@ -628,6 +628,8 @@ ICONS = {
     "transmission": ("M8 4.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 1 0 0-9z M8 2.5v2 M8 13.5v2 M2.5 9h2 M11.5 9h2 "
                      "M16.5 12a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7z M16.5 10.5v1.5 M16.5 19v1.5 M21.5 15.5h-1.5 "
                      "M8 8a1 1 0 1 0 0 2a1 1 0 1 0 0-2z M16.5 14.5a1 1 0 1 0 0 2a1 1 0 1 0 0-2z"),
+    "lattice": ("M3 6c3-3 6-3 9 0s6 3 9 0 M3 12c3-3 6-3 9 0s6 3 9 0 M3 18c3-3 6-3 9 0s6 3 9 0 "
+                "M6 3c-3 3-3 6 0 9s3 6 0 9 M12 3c-3 3-3 6 0 9s3 6 0 9 M18 3c-3 3-3 6 0 9s3 6 0 9"),
     "compact": "M9 3v6H3 M15 3v6h6 M9 21v-6H3 M15 21v-6h6",          # flechas hacia dentro
     "fullscreen": "M3 9V3h6 M21 9V3h-6 M3 15v6h6 M21 15v6h-6",       # esquinas hacia fuera
     "comment": "M4 5h16v11H9l-5 4z",

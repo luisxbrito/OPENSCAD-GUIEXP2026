@@ -135,6 +135,8 @@ class Ribbon(QTabWidget):
          "Lámina con vistas ortogonales, isométrica, marco y cajetín."),
         ("bool", "bool_wizard", "difference", "Asistente ·\nBooleano",
          "Configura qué sólido es la base y cuáles se restan, unen o intersectan."),
+        ("adv", "lattice_wizard", "lattice", "Estructuras ·\nAligeradas",
+         "Generador de estructuras aligeradas, lattice celular y TPMS Gyroid."),
     )
 
     # Grupos de cada pestaña, con su título debajo (como en Fusion). Un comando de la pestaña que
@@ -155,7 +157,8 @@ class Ribbon(QTabWidget):
                  (N_("Asistentes"), ("bool_wizard",))),
         "extrude": ((N_("Extruir"), ("linear_extrude", "rotate_extrude")), (N_("3D → 2D"), ("projection",))),
         "array": ((N_("Matrices"), ("linear_array", "polar_array", "grid_array")),),
-        "adv": ((N_("Envolventes"), ("hull", "minkowski")), (N_("Otros"), ("fill", "render", "roof"))),
+        "adv": ((N_("Envolventes"), ("hull", "minkowski")), (N_("Otros"), ("fill", "render", "roof")),
+                (N_("Asistentes"), ("lattice_wizard",))),
         "imp": ((N_("Archivos"), ("import", "surface")),),
     }
 
@@ -529,6 +532,8 @@ class MainWindow(QMainWindow):
                                   "Bridas ASME B16.5 y EN 1092-1 con las medidas de sus tablas")
         self.a_camshaft = self._act("Insertar árbol de levas…", self.open_camshaft_dialog, None, "cam_lobe",
                                     "Eje y lóbulos repartidos por cilindros, con sus desfases")
+        self.a_lattice = self._act("Estructuras aligeradas / Gyroid…", self.open_lattice_dialog, "Ctrl+Shift+L", "lattice",
+                                   "Generador de estructuras aligeradas, lattice celular y TPMS Gyroid")
         self.a_transmission = self._act("Calculadora de transmisión…", self.open_transmission_dialog, None,
                                         "transmission", "Engranajes, o poleas y correa, para una relación, ya "
                                         "colocados")
@@ -566,6 +571,7 @@ class MainWindow(QMainWindow):
         m_design.addAction(self.a_flange)
         m_design.addAction(self.a_transmission)
         m_design.addAction(self.a_camshaft)
+        m_design.addAction(self.a_lattice)
         m_design.addAction(self.a_drawing)
         m_design.addSeparator()
         m_design.addAction(self.a_preview)
@@ -1394,6 +1400,28 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             QMessageBox.warning(self, tr("Exportar piezas"), str(exc))
 
+    def open_lattice_dialog(self) -> None:
+        from ..lattice import create_lattice_node
+        from .lattice_dialog import LatticeDialog
+
+        dlg = LatticeDialog(parent=self)
+        if not dlg.exec():
+            return
+        res = dlg.get_result()
+        try:
+            node = create_lattice_node(
+                res["dx"], res["dy"], res["dz"],
+                res["cell_size"], res["wall_thick"],
+                res["pattern"], res["has_shell"], res["shell_thick"],
+                res["has_drain"], res["drain_d"],
+                unique_fn=self.doc.unique_name
+            )
+        except Exception as exc:
+            QMessageBox.warning(self, tr("Estructuras aligeradas"), str(exc))
+            return
+        self.mutate(lambda: self.doc.children.append(node), select=[node.id])
+        self.statusBar().showMessage(tr("Componente añadido: {name}").format(name=node.name), 4000)
+
     def open_transmission_dialog(self) -> None:
         from ..transmission import create_belt_drive, create_train
         from .transmission_dialog import TransmissionDialog
@@ -1706,6 +1734,9 @@ class MainWindow(QMainWindow):
             return
         if kind == "transmission_wizard":
             self.open_transmission_dialog()
+            return
+        if kind == "lattice_wizard":
+            self.open_lattice_dialog()
             return
         if kind == "hardware":
             self.open_hardware_dialog()
