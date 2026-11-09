@@ -60,6 +60,39 @@ def face_normals(tris: Tris) -> np.ndarray:
     return n / length
 
 
+def auto_smooth_normals(tris: Tris, crease_angle_deg: float = 35.0) -> np.ndarray:
+    """Normales por vértice (N, 3, 3) suavizando caras contiguas con ángulo < crease_angle_deg."""
+    N = len(tris)
+    if N == 0:
+        return np.zeros((0, 3, 3), dtype=np.float64)
+    fn = face_normals(tris)
+    pts = tris.reshape(-1, 3)
+    scale = max(float(np.abs(pts).max()), 1.0)
+    keys = np.round(pts / (scale * 1e-7)).astype(np.int64)
+    _, inverse = np.unique(keys, axis=0, return_inverse=True)
+    cos_thresh = float(np.cos(np.radians(crease_angle_deg)))
+
+    order = np.argsort(inverse)
+    inv_sorted = inverse[order]
+    face_ids_sorted = order // 3
+    splits = np.flatnonzero(np.diff(inv_sorted)) + 1
+    groups = np.split(np.arange(len(order)), splits)
+
+    out = np.repeat(fn, 3, axis=0)
+    for g in groups:
+        if len(g) <= 1:
+            continue
+        g_faces = face_ids_sorted[g]
+        g_fn = fn[g_faces]
+        dots = g_fn @ g_fn.T
+        mask = dots >= cos_thresh
+        summed = mask @ g_fn
+        slens = np.linalg.norm(summed, axis=1, keepdims=True)
+        slens[slens == 0] = 1.0
+        out[order[g]] = summed / slens
+    return out.reshape(N, 3, 3)
+
+
 def feature_edges(tris: Tris, angle_deg: float = 25.0) -> np.ndarray:
     """Segmentos (K, 2, 3) donde las caras forman un ángulo mayor que ``angle_deg`` o hay borde."""
     if len(tris) == 0:
@@ -152,7 +185,10 @@ def next_display_mode(mode: str, step: int = 1) -> str:
 
 def xray_colors(colors: np.ndarray) -> np.ndarray:
     out = np.array(colors, dtype=np.float64, copy=True)
-    out[:, 3] = XRAY_ALPHA
+    if out.ndim == 3:
+        out[:, :, 3] = XRAY_ALPHA
+    else:
+        out[:, 3] = XRAY_ALPHA
     return out
 
 
@@ -1716,8 +1752,8 @@ def assign_faces(real: Tris, ghosts: dict) -> np.ndarray:
     return owner
 
 
-def colored(tris: Tris, owner: Optional[np.ndarray], colors: dict, face_colors=None) -> np.ndarray:
-    """Colores por cara ya iluminados, listos para el visor."""
+def colored(tris: Tris, owner: Optional[np.ndarray], colors: dict, face_colors=None, smooth: bool = False) -> np.ndarray:
+    """Colores por cara o vértice ya iluminados, listos para el visor."""
     if face_colors is not None:
         base = np.array(face_colors, dtype=np.float64)
         base[base[:, 3] < 0] = DEFAULT_COLOR
@@ -1726,16 +1762,24 @@ def colored(tris: Tris, owner: Optional[np.ndarray], colors: dict, face_colors=N
         if owner is not None:
             for nid in np.unique(owner[owner >= 0]):
                 base[owner == nid] = colors.get(int(nid), DEFAULT_COLOR)
+    if smooth and len(tris) > 0:
+        norms = auto_smooth_normals(tris, 35.0)
+        v_base = np.repeat(base[:, None, :], 3, axis=1)
+        return shade(norms.reshape(-1, 3), v_base.reshape(-1, 4)).reshape(len(tris), 3, 4)
     return shade(face_normals(tris), base)
 
 
-def ghost_colors(ghosts: dict, colors: dict):
+def ghost_colors(ghosts: dict, colors: dict, smooth: bool = False):
     """Triángulos y colores iluminados de la vista aproximada."""
     if not ghosts:
         return EMPTY, np.zeros((0, 4))
     tris = np.concatenate(list(ghosts.values()))
     base = np.concatenate([np.tile(np.array(colors.get(nid, DEFAULT_COLOR)), (len(t), 1))
                            for nid, t in ghosts.items()])
+    if smooth and len(tris) > 0:
+        norms = auto_smooth_normals(tris, 35.0)
+        v_base = np.repeat(base[:, None, :], 3, axis=1)
+        return tris, shade(norms.reshape(-1, 3), v_base.reshape(-1, 4)).reshape(len(tris), 3, 4)
     return tris, shade(face_normals(tris), base)
 
 

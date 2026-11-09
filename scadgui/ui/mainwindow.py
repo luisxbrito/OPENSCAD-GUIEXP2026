@@ -659,6 +659,12 @@ class MainWindow(QMainWindow):
         self.a_grid.setChecked(True)
         self.a_grid.setEnabled(self.gl)
         self.a_grid.toggled.connect(lambda on: self.viewer.set_grid(on) if self.gl else None)
+        self.a_smooth = QAction(tr("Sombreado suave (Shade Smooth)"), self)
+        self.a_smooth.setCheckable(True)
+        self.a_smooth.setChecked(True)
+        self.a_smooth.setEnabled(self.gl)
+        self.a_smooth.setShortcut(QKeySequence("Shift+S"))
+        self.a_smooth.toggled.connect(lambda on: self.viewer.set_smooth_shading(on) if self.gl else None)
         self.a_gizmo = QAction(tr("Flechas de arrastre (gizmo)"), self)
         self.a_gizmo.setCheckable(True)
         self.a_gizmo.setChecked(self.settings.value("gizmo_enabled", True, bool))
@@ -677,6 +683,7 @@ class MainWindow(QMainWindow):
         if self.gl:
             self.viewer.displayModeChanged.connect(self._display_mode_changed)
             self.viewer.gridToggled.connect(self._grid_changed)
+            self.viewer.smoothToggled.connect(self._smooth_changed)
             self.viewer.treeOverlayToggled.connect(self.a_tree_overlay.setChecked)
             self.viewer.ruler_btn.toggled.connect(lambda on: self.settings.setValue("ruler", on))
 
@@ -812,6 +819,8 @@ class MainWindow(QMainWindow):
         m.addSeparator()
         self.a_grid.setText(tr("Rejilla") + "\tG")    # G con el ratón sobre el visor (no es atajo global)
         m.addAction(self.a_grid)
+        self.a_smooth.setText(tr("Sombreado suave (Shade Smooth)") + "\tShift+S")
+        m.addAction(self.a_smooth)
         self.a_gizmo.setText(tr("Flechas de arrastre (gizmo)"))
         m.addAction(self.a_gizmo)
         sub = m.addMenu(tr("Visualización"))
@@ -843,6 +852,12 @@ class MainWindow(QMainWindow):
         self.a_grid.setChecked(on)
         self.a_grid.blockSignals(False)
         self.settings.setValue("grid", on)
+
+    def _smooth_changed(self, on: bool) -> None:
+        self.a_smooth.blockSignals(True)
+        self.a_smooth.setChecked(on)
+        self.a_smooth.blockSignals(False)
+        self.settings.setValue("smooth_shading", on)
 
     def _dock(self, title, widget, area, width) -> QDockWidget:
         d = QDockWidget(title, self)
@@ -898,6 +913,11 @@ class MainWindow(QMainWindow):
         if self.gl:
             self.viewer.set_ruler(self.settings.value("ruler", True, bool))
             self.viewer.set_grid(self.settings.value("grid", True, bool))
+            smooth_val = self.settings.value("smooth_shading", True, bool)
+            self.viewer.set_smooth_shading(smooth_val)
+            self.a_smooth.blockSignals(True)
+            self.a_smooth.setChecked(smooth_val)
+            self.a_smooth.blockSignals(False)
             self.viewer.set_display_mode(self.settings.value("display_mode", "shaded", str))
         if self.settings.value("compact", False, bool):
             self.set_compact(True)

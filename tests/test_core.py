@@ -2118,6 +2118,64 @@ def test_mesh_cache():
     assert len(cache) == 0 and cache.bytes == 0
 
 
+def test_auto_smooth_normals_and_shading():
+    """Comprueba el cálculo de normales suaves (Shade Smooth) con umbral de arista viva."""
+    import math
+    import numpy as np
+    from scadgui import geometry as geo
+    # Malla vacía
+    assert geo.auto_smooth_normals(np.zeros((0, 3, 3))).shape == (0, 3, 3)
+
+    # Cilindro de 16 lados: lados contiguos a 22.5° (< 35°), tapas a 90° (> 35°)
+    fn = 16
+    angles = np.linspace(0, 2 * math.pi, fn, endpoint=False)
+    r, h = 10.0, 30.0
+    top_c = np.array([0, 0, h])
+    bot_c = np.array([0, 0, 0])
+    top_ring = np.column_stack([r * np.cos(angles), r * np.sin(angles), np.full(fn, h)])
+    bot_ring = np.column_stack([r * np.cos(angles), r * np.sin(angles), np.full(fn, 0)])
+
+    tris = []
+    for i in range(fn):
+        nxt = (i + 1) % fn
+        tris.append([top_c, top_ring[i], top_ring[nxt]])
+        tris.append([bot_c, bot_ring[nxt], bot_ring[i]])
+        tris.append([bot_ring[i], top_ring[i], top_ring[nxt]])
+        tris.append([bot_ring[i], top_ring[nxt], bot_ring[nxt]])
+    tris = np.array(tris, dtype=np.float64)
+
+    # 1. Normales con auto-smooth a 35°
+    norms = geo.auto_smooth_normals(tris, 35.0)
+    assert norms.shape == (len(tris), 3, 3)
+
+    # Tapas superiores (primer tercio): su normal en Z debe ser 1.0 (no se mezcla con los laterales a 90°)
+    for i in range(fn):
+        top_cap_norm = norms[4 * i + 0]
+        assert np.allclose(top_cap_norm[:, 2], 1.0, atol=1e-3)
+        bot_cap_norm = norms[4 * i + 1]
+        assert np.allclose(bot_cap_norm[:, 2], -1.0, atol=1e-3)
+
+    # Lados cilíndricos: las normales en vértices deben apuntar radialmente hacia afuera
+    for i in range(fn):
+        side_norm_1 = norms[4 * i + 2]
+        # Normal Z es cero en el cilindro vertical
+        assert np.allclose(side_norm_1[:, 2], 0.0, atol=1e-3)
+        # Longitud unitaria
+        assert np.allclose(np.linalg.norm(side_norm_1, axis=1), 1.0, atol=1e-4)
+
+    # 2. geo.colored con smooth=True genera colores por vértice (N, 3, 4)
+    cols_smooth = geo.colored(tris, None, {}, smooth=True)
+    assert cols_smooth.shape == (len(tris), 3, 4)
+
+    # 3. geo.colored con smooth=False genera colores planos por cara (N, 4)
+    cols_flat = geo.colored(tris, None, {}, smooth=False)
+    assert cols_flat.shape == (len(tris), 4)
+
+    # 4. xray_colors preserva la dimensionalidad
+    assert geo.xray_colors(cols_smooth).shape == (len(tris), 3, 4)
+    assert geo.xray_colors(cols_flat).shape == (len(tris), 4)
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

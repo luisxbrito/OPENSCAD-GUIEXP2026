@@ -1448,4 +1448,7 @@ STRINGS: dict[str, str] = {
     '{name} (horizontal)': '{name} (orizzontale)',
     '{name} (impresión)': '{name} (layout di stampa)',
     'Árbol de levas (piezas para imprimir)': 'Albero a camme (parti per stampa 3D)',
+    'Suavizado': 'Ombreggiatura morbida',
+    'Sombreado suave (Shade Smooth)': 'Ombreggiatura morbida (Shade Smooth)',
+    'Sombreado suave de caras curvas estilo Shade Smooth (tecla S o Shift+S)': 'Ombreggiatura morbida per superfici curve (tasto S o Maiusc+S)',
 }

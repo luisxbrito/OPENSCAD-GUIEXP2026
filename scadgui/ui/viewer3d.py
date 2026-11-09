@@ -55,6 +55,8 @@ VIEW_KEYS = {
     "R": ("ruler", "ruler"),
     "G": ("grid", "grid"),
     "Z": ("display_next", "display_next"),   # modo de visualización (Ctrl+Z es Deshacer)
+    "S": ("smooth", "smooth"),               # sombreado suave Shade Smooth
+    "s": ("smooth", "smooth"),
     "home": ("frame_all", "frame_all"),
 }
 SHORTCUT_OF = {"Isométrica": "0", "Frontal": "1", "Superior": "7", "Derecha": "3"}
@@ -135,14 +137,22 @@ def _line_item(color, width, options="opaque", depth=0):
 
 
 def _set_mesh(item, tris, face_colors=None) -> None:
-    """Carga triángulos con su color por cara (ya iluminado). Sin colores, usa el del elemento."""
+    """Carga triángulos con su color por cara o por vértice (ya iluminado). Sin colores, usa el del elemento."""
     if tris is None or len(tris) == 0:
         item.setVisible(False)
         return
     if face_colors is None:
         base = np.tile(np.array(item.base_color, dtype=np.float64), (len(tris), 1))
         face_colors = geo.shade(geo.face_normals(tris), base)
-    vcolors = np.repeat(np.asarray(face_colors, dtype=np.float32)[:, None, :], 3, axis=1)
+        vcolors = np.repeat(np.asarray(face_colors, dtype=np.float32)[:, None, :], 3, axis=1)
+    else:
+        c_arr = np.asarray(face_colors, dtype=np.float32)
+        if c_arr.ndim == 2:
+            vcolors = np.repeat(c_arr[:, None, :], 3, axis=1)
+        elif c_arr.ndim == 3:
+            vcolors = c_arr
+        else:
+            vcolors = np.repeat(c_arr.reshape(-1, 4)[:, None, :], 3, axis=1)
     item.setMeshData(meshdata=gl.MeshData(vertexes=np.ascontiguousarray(tris, dtype=np.float32),
                                           vertexColors=np.ascontiguousarray(vcolors)))
     item.setVisible(True)
@@ -376,6 +386,7 @@ class Viewer3D(QWidget):
     gizmoFinished = Signal()
     edgeFinish = Signal(str, float, list)  # "round" | "chamfer" | "none", valor, [(id, clave)]
     gridToggled = Signal(bool)             # rejilla del suelo mostrada u ocultada (tecla G)
+    smoothToggled = Signal(bool)           # sombreado suave Shade Smooth (tecla S / Shift+S)
     treeOverlayToggled = Signal(bool)      # el usuario pide (o quita) el árbol sobre el visor
     displayModeChanged = Signal(str)       # modo de visualización (clave de geo.DISPLAY_MODES)
 
@@ -451,6 +462,13 @@ class Viewer3D(QWidget):
         self.edges_check.setChecked(True)
         self.edges_check.toggled.connect(lambda _on: self._show_model())
         row.addWidget(self.edges_check)
+        self.smooth_shading = True
+        self.smooth_check = QCheckBox(tr("Suavizado"))
+        self.smooth_check.setObjectName("viewCheck")
+        self.smooth_check.setChecked(True)
+        self.smooth_check.setToolTip(tr("Sombreado suave de caras curvas estilo Shade Smooth (tecla S o Shift+S)"))
+        self.smooth_check.toggled.connect(self.set_smooth_shading)
+        row.addWidget(self.smooth_check)
         self.display_mode = "shaded"
         self.mode_combo = QComboBox()
         self.mode_combo.setObjectName("viewCombo")
@@ -712,10 +730,23 @@ class Viewer3D(QWidget):
         else:
             self._owner = geo.assign_faces(self.real, self.ghosts) if self.ghosts else None
             if self._face_colors is not None:
-                self._model_cols = geo.colored(self.real, None, self.colors, self._face_colors)
+                self._model_cols = geo.colored(self.real, None, self.colors, self._face_colors, smooth=self.smooth_shading)
             else:
-                self._model_cols = geo.colored(self.real, self._owner, self.colors)
+                self._model_cols = geo.colored(self.real, self._owner, self.colors, smooth=self.smooth_shading)
         self._show_model()
+
+    def set_smooth_shading(self, on: bool) -> None:
+        on = bool(on)
+        if on == self.smooth_shading:
+            return
+        self.smooth_shading = on
+        if self.smooth_check.isChecked() != on:
+            self.smooth_check.blockSignals(True)
+            self.smooth_check.setChecked(on)
+            self.smooth_check.blockSignals(False)
+        self._paint_model()
+        self.view.update()
+        self.smoothToggled.emit(on)
 
     def set_ghosts(self, ghosts: dict, colors=None, hashed=None, background=None,
                    part_of: Optional[dict] = None, subtracted: Optional[set] = None) -> None:
@@ -760,7 +791,7 @@ class Viewer3D(QWidget):
             self.wire.setVisible(False)
             visible = {k: v for k, v in self.ghosts.items() if k not in self.subtracted} if amount > 0 else self.ghosts
             if visible:
-                tris, cols = geo.ghost_colors(visible, self.colors)
+                tris, cols = geo.ghost_colors(visible, self.colors, smooth=self.smooth_shading)
                 if amount > 0:
                     parts = np.concatenate([np.full(len(t), self.part_of.get(k, -1)) for k, t in visible.items()])
                     offsets = geo.explosion_offsets(tris, parts, amount)
@@ -923,6 +954,8 @@ class Viewer3D(QWidget):
             self.set_grid(not self.grid.visible())
         elif action == "display_next":
             self.set_display_mode(geo.next_display_mode(self.display_mode))
+        elif action == "smooth":
+            self.set_smooth_shading(not self.smooth_shading)
 
     # ------------------------------------------------------------- rejilla
     def set_render_delay(self, ms: int) -> None:
