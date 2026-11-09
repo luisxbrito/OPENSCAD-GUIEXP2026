@@ -92,6 +92,8 @@ class PropertyPanel(QScrollArea):
     openOperationHelper = Signal(str)
     fixRadii = Signal(int)
     addMeshingGear = Signal(int, int)       # engranaje, dientes de la pareja
+    layoutCamshaftForPrint = Signal(int)
+    exportCamshaftParts = Signal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -584,6 +586,18 @@ class PropertyPanel(QScrollArea):
             problems = [(t, d) for t, d in problems if mine in (d.get("a"), d.get("b"))]
         for text, data in problems:
             self._hint(tr(text).format(**data), "warnText")
+
+        row_btns = QHBoxLayout()
+        btn_print = QPushButton(tr("Disponer para imprimir en 3D"))
+        btn_print.setToolTip(tr("Coloca todas las piezas del árbol de levas planas en la cama de impresión."))
+        btn_print.clicked.connect(lambda: self.layoutCamshaftForPrint.emit(node.id))
+        row_btns.addWidget(btn_print)
+
+        btn_export = QPushButton(tr("Exportar piezas a STL..."))
+        btn_export.setToolTip(tr("Exporta cada componente del árbol de levas a un archivo STL en una carpeta."))
+        btn_export.clicked.connect(lambda: self.exportCamshaftParts.emit(node.id))
+        row_btns.addWidget(btn_export)
+        self._lay.addLayout(row_btns)
 
     def _flange_info(self, node: Node) -> None:
         """Volumen y avisos de forma de la brida (también si se retocan las medidas a mano)."""

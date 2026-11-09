@@ -265,3 +265,197 @@ def create_camshaft(shaft: dict, lobe: dict, items: list[dict],
             e_node.params.update({k: v for k, v in e.items() if k != "kind"})
             group.children.append(e_node)
     return group
+
+
+def layout_for_print(group: Node, bed_size: tuple[float, float] = (200.0, 200.0),
+                     spacing: float = 8.0, margin: float = 10.0,
+                     shaft_horizontal: bool = True,
+                     unique_fn: Optional[Callable[[str], str]] = None) -> Node:
+    """Dispone todas las piezas del árbol de levas planas sobre la cama de impresión (z >= 0).
+
+    Cada pieza se extrae del grupo montado, se apoya en su cara más estable sobre z = 0, y se
+    reparte mediante empaquetado por filas centrado en el origen (0, 0).
+    """
+    u_fn = unique_fn or (lambda s: s)
+    out_group = make_node("group", u_fn(tr("Árbol de levas (piezas para imprimir)")))
+
+    candidates = group.children if group.kind == "group" else [group]
+    parts: list[tuple[Node, float, float, float, str, float]] = []
+
+    for node in candidates:
+        if node.kind not in ("camshaft_main_shaft", "cam_lobe", "camshaft_bearing", "camshaft_end"):
+            continue
+        p = dict(node.params)
+        name = node.name or node.kind
+
+        if node.kind == "cam_lobe":
+            w = _num(p, "width", 12) or 12.0
+            r = _num(p, "base_r", 15) or 15.0
+            lift = _num(p, "lift", 8) or 0.0
+            r_max = r + max(0.0, lift)
+            dx = 2 * r_max
+            dy = 2 * r_max
+            dz = w
+            flat_node = make_node("cam_lobe", u_fn(name))
+            flat_node.params.update(p)
+            flat_node.params["position"] = w / 2.0
+            flat_node.params["angle"] = 0.0
+            parts.append((flat_node, dx, dy, dz, name, 0.0))
+
+        elif node.kind == "camshaft_bearing":
+            d = _num(p, "d", 28) or 28.0
+            w = _num(p, "width", 15) or 15.0
+            dx = d
+            dy = d
+            dz = w
+            flat_node = make_node("camshaft_bearing", u_fn(name))
+            flat_node.params.update(p)
+            flat_node.params["position"] = w / 2.0
+            parts.append((flat_node, dx, dy, dz, name, 0.0))
+
+        elif node.kind == "camshaft_end":
+            end_type = p.get("end_type", "liso")
+            d = _num(p, "d", 20) or 20.0
+            length = _num(p, "length", 25) or 25.0
+            flange_d = _num(p, "flange_d", 60) or 60.0
+            flange_t = _num(p, "flange_t", 8) or 8.0
+            if end_type == "plato":
+                dx = flange_d
+                dy = flange_d
+                dz = flange_t
+            else:
+                dx = d
+                dy = d
+                dz = length
+            flat_node = make_node("camshaft_end", u_fn(name))
+            flat_node.params.update(p)
+            flat_node.params["position"] = 0.0
+            parts.append((flat_node, dx, dy, dz, name, 0.0))
+
+        elif node.kind == "camshaft_main_shaft":
+            length = _num(p, "length", 220) or 220.0
+            d = _num(p, "d", 25) or 25.0
+            if shaft_horizontal:
+                dx = length
+                dy = d
+                dz = d
+                rot = make_node("rotate", u_fn(tr("{name} (horizontal)").format(name=name)))
+                rot.params["a"] = [0, 90, 0]
+                rot.params.pop("v", None)
+                inner = make_node("camshaft_main_shaft", u_fn(name))
+                inner.params.update(p)
+                rot.children.append(inner)
+                parts.append((rot, dx, dy, dz, name, d / 2.0))
+            else:
+                dx = d
+                dy = d
+                dz = length
+                flat_node = make_node("camshaft_main_shaft", u_fn(name))
+                flat_node.params.update(p)
+                parts.append((flat_node, dx, dy, dz, name, 0.0))
+
+    if not parts:
+        return out_group
+
+    max_w = bed_size[0] - 2 * margin
+    rows: list[list[tuple[Node, float, float, float, str, float]]] = []
+    current_row: list[tuple[Node, float, float, float, str, float]] = []
+    current_w = 0.0
+
+    for item in parts:
+        flat_node, dx, dy, dz, name, z_off = item
+        if current_row and (current_w + spacing + dx > max_w):
+            rows.append(current_row)
+            current_row = [item]
+            current_w = dx
+        else:
+            if current_row:
+                current_w += spacing + dx
+            else:
+                current_w = dx
+            current_row.append(item)
+    if current_row:
+        rows.append(current_row)
+
+    row_heights = [max(item[2] for item in r) for r in rows]
+    total_y = sum(row_heights) + max(0, len(rows) - 1) * spacing
+
+    cur_y = -total_y / 2.0
+
+    for r_idx, r in enumerate(rows):
+        r_h = row_heights[r_idx]
+        row_w = sum(item[1] for item in r) + max(0, len(r) - 1) * spacing
+        cur_x = -row_w / 2.0
+        for item in r:
+            flat_node, dx, dy, dz, name, z_off = item
+            pos_x = cur_x + dx / 2.0
+            pos_y = cur_y + r_h / 2.0
+            pos_z = z_off
+
+            tr_node = make_node("translate", u_fn(tr("{name} (impresión)").format(name=name)))
+            tr_node.params["v"] = [round(pos_x, 2), round(pos_y, 2), round(pos_z, 2)]
+            tr_node.children.append(flat_node)
+            out_group.children.append(tr_node)
+
+            cur_x += dx + spacing
+        cur_y += r_h + spacing
+
+    return out_group
+
+
+def export_camshaft_parts(group: Node, out_dir: str, exe: str = "",
+                          backend: str = "") -> list[tuple[str, str, bool]]:
+    """Exporta cada componente del árbol de levas a un archivo STL en out_dir.
+
+    Devuelve lista de tuplas (nombre, ruta_stl, éxito)."""
+    import os
+    import re
+    import subprocess
+    import tempfile
+    from .generator import generate
+    from .model import Document
+    from .runner import find_openscad
+
+    if not exe:
+        exe = find_openscad()
+    if not exe:
+        raise RuntimeError(tr("No se encontró el ejecutable de OpenSCAD."))
+
+    os.makedirs(out_dir, exist_ok=True)
+    results = []
+
+    candidates = group.children if group.kind == "group" else [group]
+    for node in candidates:
+        if node.kind not in ("camshaft_main_shaft", "cam_lobe", "camshaft_bearing", "camshaft_end"):
+            continue
+        name = node.name or node.kind
+        safe_name = re.sub(r"[^\w\-_]", "_", name.strip()) or "pieza"
+        stl_path = os.path.join(out_dir, f"{safe_name}.stl")
+
+        doc = Document()
+        clone = make_node(node.kind, name)
+        clone.params.update(node.params)
+        if clone.kind in ("cam_lobe", "camshaft_bearing"):
+            w = _num(clone.params, "width", 12) or 12.0
+            clone.params["position"] = w / 2.0
+            if clone.kind == "cam_lobe":
+                clone.params["angle"] = 0.0
+        elif clone.kind == "camshaft_end":
+            clone.params["position"] = 0.0
+        doc.children.append(clone)
+
+        code = generate(doc).text
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            scad_file = os.path.join(tmp_dir, "part.scad")
+            with open(scad_file, "w", encoding="utf-8") as f:
+                f.write(code)
+
+            cmd = [exe]
+            if backend:
+                cmd.append(f"--backend={backend}")
+            cmd.extend(["-o", stl_path, scad_file])
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            ok = proc.returncode == 0 and os.path.exists(stl_path) and os.path.getsize(stl_path) > 0
+            results.append((name, stl_path, ok))
+
+    return results

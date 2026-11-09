@@ -34,7 +34,7 @@ SAME_AS_SPANISH = {
            "Módulo axial (m)",
            "Módulo normal (mn)", "parabólica", "automática", "Ø máximo", "Ø mínimo",
            "Empresa", "Empresa:", "Escala", "Formato", "Material", "Material:", "NOTAS:", "Rev.", "Revisado",
-           "Revisado por:", "Título"},
+           "Revisado por:", "Título", "{name} (horizontal)"},
 }
 
 

@@ -1055,12 +1055,22 @@ def library_name(text: str) -> str:
 
 def needed_definitions(code: str) -> list[str]:
     """Definiciones que hay que añadir: módulos usados en ``code`` que no están definidos en él.
-    Un módulo puede usar otro que va después en ``LIBRARY``: se busca también en lo ya añadido."""
+    Un módulo puede usar otro (por ejemplo camshaft_end usa spline): se itera hasta resolver
+    todas las dependencias transitivas."""
     out = []
-    for name, definition in LIBRARY.items():
-        used = re.search(rf"(?<![\w$]){name}\s*\(", code)
-        defined = re.search(rf"\bmodule\s+{name}\s*\(", code)
-        if used and not defined:
-            out.append(definition)
-            code += "\n" + definition
+    added_names = set()
+    while True:
+        added_in_pass = False
+        for name, definition in LIBRARY.items():
+            if name in added_names:
+                continue
+            used = re.search(rf"(?<![\w$]){name}\s*\(", code)
+            defined = re.search(rf"\bmodule\s+{name}\s*\(", code)
+            if used and not defined:
+                out.append(definition)
+                code += "\n" + definition
+                added_names.add(name)
+                added_in_pass = True
+        if not added_in_pass:
+            break
     return out

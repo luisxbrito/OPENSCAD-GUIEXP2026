@@ -561,6 +561,73 @@ def test_arbol_de_levas_completo_se_renderiza():
     assert abs(got - (shaft + lobes - inside)) < 0.01 * shaft, (got, shaft + lobes - inside)
 
 
+def test_camshaft_casos_al_azar_en_los_dos_motores():
+    """Genera árboles de levas aleatorios (distintos cilindros, leyes de movimiento, perfiles,
+    muñones y extremos) y comprueba que se renderizan limpiamente con volumen positivo tanto en
+    forma montada como dispuestos para imprimir en 3D, bajo los motores de OpenSCAD disponibles."""
+    import random
+    from scadgui import camshaft as cs
+
+    rng = random.Random(42)
+
+    profiles = ["ley", "periforme", "eliptico", "circular", "tangente", "excentrico"]
+    motions = ["cicloidal", "armonica", "parabolica", "velocidad_constante"]
+    end_types = ["liso", "chavetero", "estriado", "plato"]
+
+    for case_i in range(3):
+        cylinders = rng.randint(1, 3)
+        per = rng.choice([1, 2])
+        prof = rng.choice(profiles)
+        mot = rng.choice(motions)
+        base_r = rng.uniform(12.0, 16.0)
+        lift = rng.uniform(4.0, 7.0)
+        width = rng.uniform(10.0, 12.0)
+
+        lobe = {
+            "profile": prof,
+            "base_r": round(base_r, 1),
+            "lift": round(lift, 1),
+            "width": round(width, 1),
+            "motion": mot,
+            "rise_angle": 110,
+            "dwell_angle": 20,
+            "fall_angle": 110,
+            "nose_r": 5.0,
+            "step": 2.0,
+        }
+
+        first_z = 25.0
+        pitch = 45.0
+        gap = 18.0
+        shaft_len = first_z + cylinders * pitch + 25.0
+
+        items = cs.layout(cylinders, per, first_z, pitch, gap, 360.0 / cylinders, 110.0)
+        b_layout = cs.bearing_layout(cylinders, per, first_z, pitch, gap, shaft_len, 14.0)
+        bearings = [{"index": b["index"], "position": b["position"], "width": b["width"], "d": 26.0}
+                    for b in b_layout]
+        ends = [
+            {"kind": "front", "d": 18.0, "length": 20.0, "position": -20.0, "end_type": rng.choice(end_types)},
+            {"kind": "rear", "d": 18.0, "length": 20.0, "position": shaft_len, "end_type": rng.choice(end_types)}
+        ]
+
+        doc = Document()
+        group = cs.create_camshaft({"length": shaft_len, "d": 22.0}, lobe, items,
+                                   bearings=bearings, ends=ends, unique_fn=doc.unique_name)
+        doc.children.append(group)
+
+        # 1. Probar árbol de levas montado
+        code_mounted = generate(doc).text
+        v_mounted = volume_of(code_mounted)
+        assert v_mounted > 500.0, f"Caso {case_i}: volumen montado insuficiente ({v_mounted})"
+
+        # 2. Probar disposición para imprimir en 3D
+        print_group = cs.layout_for_print(group, bed_size=(250, 250), spacing=8.0, shaft_horizontal=True)
+        print_doc = Document(children=[print_group])
+        code_print = generate(print_doc).text
+        v_print = volume_of(code_print)
+        assert v_print > 500.0, f"Caso {case_i}: volumen plano insuficiente ({v_print})"
+
+
 def test_calculadora_de_transmisiones_engrana():
     """Los trenes de la calculadora engranan: cada pareja no se toca (con la holgura de serie), en
     recto, helicoidal y espina de pescado, en una etapa, en dos y en un tren revertido."""

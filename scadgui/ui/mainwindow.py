@@ -854,6 +854,8 @@ class MainWindow(QMainWindow):
         self.props.openOperationHelper.connect(self.open_operation_helper)
         self.props.fixRadii.connect(self.fix_radii)
         self.props.addMeshingGear.connect(self.add_meshing_gear)
+        self.props.layoutCamshaftForPrint.connect(self.layout_camshaft_for_print)
+        self.props.exportCamshaftParts.connect(self.export_camshaft_parts)
         self.code.lineClicked.connect(self.on_code_line)
         self.code.applyRequested.connect(self.apply_code)
         self.code.editingChanged.connect(self.on_code_editing)
@@ -1313,6 +1315,44 @@ class MainWindow(QMainWindow):
             return
         self.mutate(lambda: self.doc.children.append(group), select=[group.id])
         self.statusBar().showMessage(tr("Componente añadido: {name}").format(name=group.name), 4000)
+
+    def layout_camshaft_for_print(self, node_id: int) -> None:
+        from ..camshaft import layout_for_print
+        node = self.doc.find_id(node_id)
+        if node is None:
+            return
+        parent_list, parent_node = self.doc.parent_list(node_id)
+        target = parent_node if parent_node and parent_node.kind == "group" else node
+        print_group = layout_for_print(target, unique_fn=self.doc.unique_name)
+        if not print_group.children:
+            QMessageBox.information(self, tr("Impresión 3D"), tr("No se encontraron piezas del árbol de levas para disponer."))
+            return
+        self.mutate(lambda: self.doc.children.append(print_group), select=[print_group.id])
+        self.statusBar().showMessage(tr("Piezas dispuestas para impresión 3D: {name}").format(name=print_group.name), 4000)
+
+    def export_camshaft_parts(self, node_id: int) -> None:
+        from ..camshaft import export_camshaft_parts
+        node = self.doc.find_id(node_id)
+        if node is None:
+            return
+        parent_list, parent_node = self.doc.parent_list(node_id)
+        target = parent_node if parent_node and parent_node.kind == "group" else node
+        folder = QFileDialog.getExistingDirectory(self, tr("Seleccionar carpeta para exportar piezas STL"))
+        if not folder:
+            return
+        try:
+            results = export_camshaft_parts(target, folder, exe=self.runner.exe)
+            ok_count = sum(1 for _, _, ok in results if ok)
+            total = len(results)
+            self.statusBar().showMessage(tr("Exportadas {ok}/{total} piezas a {folder}").format(
+                ok=ok_count, total=total, folder=folder), 5000)
+            self.log(tr("Exportación de piezas completada: {ok}/{total} archivos STL en {folder}").format(
+                ok=ok_count, total=total, folder=folder), "info")
+            QMessageBox.information(self, tr("Exportar piezas"),
+                                    tr("Se han exportado {ok} de {total} piezas en la carpeta:\n{folder}").format(
+                                        ok=ok_count, total=total, folder=folder))
+        except Exception as exc:
+            QMessageBox.warning(self, tr("Exportar piezas"), str(exc))
 
     def open_transmission_dialog(self) -> None:
         from ..transmission import create_belt_drive, create_train

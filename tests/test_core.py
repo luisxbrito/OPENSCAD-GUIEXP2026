@@ -2038,6 +2038,47 @@ def test_camshaft_phase4_bearings_and_ends():
     assert generate(again).text == code
 
 
+def test_camshaft_phase5_layout_for_print():
+    from scadgui import camshaft as cs
+    lobe = {"profile": "periforme", "base_r": 15, "lift": 8, "width": 12, "motion": "cicloidal",
+            "rise_angle": 110, "dwell_angle": 20, "fall_angle": 110, "nose_r": 5, "step": 1}
+    items = cs.layout(2, 2, 20, 50, 20, 180, 110)
+    bearings = [{"index": 1, "position": 10, "width": 15, "d": 28},
+                {"index": 2, "position": 55, "width": 15, "d": 28},
+                {"index": 3, "position": 100, "width": 15, "d": 28}]
+    ends = [{"kind": "front", "d": 20, "length": 25, "position": -25, "end_type": "chavetero"}]
+    doc = Document()
+    group = cs.create_camshaft({"length": 120, "d": 25}, lobe, items,
+                               bearings=bearings, ends=ends, unique_fn=doc.unique_name)
+    doc.children.append(group)
+
+    # Disponer piezas sobre la cama de impresión
+    print_group = cs.layout_for_print(group, bed_size=(250, 250), spacing=10.0, margin=15.0, shaft_horizontal=True)
+    assert print_group.kind == "group"
+    # Misma cantidad de piezas (1 eje + 4 lóbulos + 3 apoyos + 1 extremo = 9 piezas)
+    assert len(print_group.children) == len(group.children) == 9
+
+    # Todas las piezas deben estar envueltas en un translate con z >= 0
+    for child in print_group.children:
+        assert child.kind == "translate"
+        vx, vy, vz = child.params["v"]
+        assert vz >= 0.0
+        # El contenido interior debe ser una de las piezas del árbol
+        inner = child.children[0]
+        if inner.kind == "rotate": # eje horizontal
+            assert inner.children[0].kind == "camshaft_main_shaft"
+        else:
+            assert inner.kind in ("cam_lobe", "camshaft_bearing", "camshaft_end")
+
+    # Roundtrip y sintaxis válida en OpenSCAD
+    print_doc = Document()
+    print_doc.children.append(print_group)
+    code = generate(print_doc).text
+    assert "translate" in code
+    again = parse(code)
+    assert generate(again).text == code
+
+
 def test_mesh_cache():
     import numpy as np
     from scadgui import meshcache as mc
