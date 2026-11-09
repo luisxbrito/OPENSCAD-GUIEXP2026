@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
+from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
-from PySide6.QtWidgets import (QCheckBox, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout,
+from PySide6.QtWidgets import (QCheckBox, QHBoxLayout, QLabel, QMenu, QPushButton, QSizePolicy, QVBoxLayout,
                                QWidget)
 
 from ..i18n import tr
@@ -96,6 +96,7 @@ class _Canvas(QWidget):
 
 class Viewport(QWidget):
     renderRequested = Signal()
+    barPositionChanged = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -106,19 +107,30 @@ class Viewport(QWidget):
         self.render_zoom = 1.0
         self.pan = QPointF(0, 0)
         self.message = tr("Crea una pieza con los botones de arriba para verla aquí.")
+        self._bar_position = "top"
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
+        self.main_layout = layout
 
         bar = QWidget()
         bar.setObjectName("viewBar")
+        bar.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        bar.customContextMenuRequested.connect(self._bar_context_menu)
         row = QHBoxLayout(bar)
         row.setContentsMargins(10, 6, 10, 6)
         row.setSpacing(6)
         self.title = QLabel(tr("Vista previa"))
         self.title.setObjectName("viewTitle")
         row.addWidget(self.title)
+
+        self.pos_btn = QPushButton("▼")
+        self.pos_btn.setObjectName("viewButton")
+        self.pos_btn.setFixedSize(24, 24)
+        self.pos_btn.setToolTip(tr("Mover barra abajo"))
+        self.pos_btn.clicked.connect(self.toggle_bar_position)
+        row.addWidget(self.pos_btn)
         self.view_buttons: dict[str, QPushButton] = {}
         for name in VIEWS:
             b = QPushButton(tr(name))
@@ -138,6 +150,7 @@ class Viewport(QWidget):
         self.status = QLabel("")
         self.status.setObjectName("viewStatus")
         row.addWidget(self.status)
+        self.bar = bar
         layout.addWidget(bar)
 
         self.canvas = _Canvas(self)
@@ -167,6 +180,40 @@ class Viewport(QWidget):
         self.fit_btn.setText(tr("Ajustar"))
         self.auto.setText(tr("Actualizar sola"))
         self.setup.setText(tr("Elegir openscad…"))
+        if hasattr(self, "pos_btn"):
+            self.pos_btn.setToolTip(tr("Mover barra arriba") if getattr(self, "_bar_position", "top") == "bottom" else tr("Mover barra abajo"))
+
+    def toggle_bar_position(self) -> None:
+        """Conmuta la barra de herramientas entre la parte superior e inferior del visor."""
+        new_pos = "top" if getattr(self, "_bar_position", "top") == "bottom" else "bottom"
+        self.set_bar_position(new_pos)
+
+    def set_bar_position(self, pos: str) -> None:
+        """Coloca la barra de herramientas arriba ('top') o abajo ('bottom') del visor."""
+        pos = "bottom" if pos == "bottom" else "top"
+        self._bar_position = pos
+        self.main_layout.removeWidget(self.bar)
+        self.main_layout.removeWidget(self.canvas)
+        if pos == "bottom":
+            self.main_layout.addWidget(self.canvas, 1)
+            self.main_layout.addWidget(self.bar, 0)
+            if hasattr(self, "pos_btn"):
+                self.pos_btn.setText("▲")
+                self.pos_btn.setToolTip(tr("Mover barra arriba"))
+        else:
+            self.main_layout.addWidget(self.bar, 0)
+            self.main_layout.addWidget(self.canvas, 1)
+            if hasattr(self, "pos_btn"):
+                self.pos_btn.setText("▼")
+                self.pos_btn.setToolTip(tr("Mover barra abajo"))
+        self.barPositionChanged.emit(pos)
+
+    def _bar_context_menu(self, pos: QPoint) -> None:
+        menu = QMenu(self)
+        is_bottom = getattr(self, "_bar_position", "top") == "bottom"
+        act = menu.addAction(tr("Mover barra arriba") if is_bottom else tr("Mover barra abajo"))
+        act.triggered.connect(self.toggle_bar_position)
+        menu.exec(self.bar.mapToGlobal(pos))
 
     # ----- api
     def render_size(self) -> tuple[int, int]:

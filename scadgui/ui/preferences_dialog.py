@@ -111,6 +111,16 @@ class PreferencesDialog(QDialog):
             self.combo_viewer_type.setCurrentIndex(idx_v)
         self.lbl_viewer = QLabel()
         form_viewer.addRow(self.lbl_viewer, self.combo_viewer_type)
+
+        self.combo_bar_pos = QComboBox()
+        self.combo_bar_pos.addItem("", "top")
+        self.combo_bar_pos.addItem("", "bottom")
+        saved_bar_pos = self.settings.value("view_bar_position", "top", str)
+        idx_bp = self.combo_bar_pos.findData(saved_bar_pos)
+        if idx_bp >= 0:
+            self.combo_bar_pos.setCurrentIndex(idx_bp)
+        self.lbl_bar_pos = QLabel()
+        form_viewer.addRow(self.lbl_bar_pos, self.combo_bar_pos)
         lay_view.addWidget(self.grp_viewer)
 
         self.grp_gizmo = QGroupBox()
@@ -289,6 +299,9 @@ class PreferencesDialog(QDialog):
         self.lbl_viewer.setText(tr("Tecnología del visor:"))
         self.combo_viewer_type.setItemText(0, tr("Visor 3D OpenGL interactivo (recomendado)"))
         self.combo_viewer_type.setItemText(1, tr("Visor de imágenes estáticas OpenSCAD"))
+        self.lbl_bar_pos.setText(tr("Posición de la barra 3D:"))
+        self.combo_bar_pos.setItemText(0, tr("Arriba"))
+        self.combo_bar_pos.setItemText(1, tr("Abajo"))
 
         self.grp_gizmo.setTitle(tr("Gizmo 3D de transformación interactiva"))
         self.chk_gizmo_enabled.setText(tr("Mostrar flechas de arrastre XYZ en la selección"))
@@ -374,6 +387,7 @@ class PreferencesDialog(QDialog):
         self.settings.setValue("extra_flags", self.edit_extra_flags.text().strip())
 
         self.settings.setValue("viewer", self.combo_viewer_type.currentData() or "gl")
+        self.settings.setValue("view_bar_position", self.combo_bar_pos.currentData() or "top")
         self.settings.setValue("gizmo_enabled", self.chk_gizmo_enabled.isChecked())
         self.settings.setValue("gizmo_snap", float(self.combo_snap.currentData() or 1.0))
         self.settings.setValue("explode_max_mult", float(self.spin_explode.value()))

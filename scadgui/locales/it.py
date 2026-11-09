@@ -1512,4 +1512,10 @@ STRINGS: dict[str, str] = {
     "La estructura aligerada reemplazará al sólido seleccionado '{name}', manteniendo su contorno y ahuecando su interior con el patrón celular.": "La struttura alleggerita sostituirà il solido selezionato '{name}', mantenendone il profilo esterno e svuotandone l'interno con il reticolo cellulare.",
     '{name} (aligerado {pattern})': '{name} (alleggerito {pattern})',
     'Jaula biomimética (Clathrus ruber)': 'Gabbia biomimetica (Clathrus ruber)',
+    'Mover barra abajo': 'Sposta barra in basso',
+    'Mover barra arriba': 'Sposta barra in alto',
+    'Barra 3D en la parte inferior': 'Barra 3D in basso',
+    'Posición de la barra 3D:': 'Posizione barra 3D:',
+    'Arriba': 'In alto',
+    'Abajo': 'In basso',
 }

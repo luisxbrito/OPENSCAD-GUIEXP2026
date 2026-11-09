@@ -14,10 +14,10 @@ import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 from OpenGL import GL
-from PySide6.QtCore import QPointF, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QPoint, QPointF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout,
-                               QLabel, QLineEdit, QPlainTextEdit, QPushButton, QScrollArea, QSlider, QTextEdit, QVBoxLayout,
+                               QLabel, QLineEdit, QMenu, QPlainTextEdit, QPushButton, QScrollArea, QSlider, QTextEdit, QVBoxLayout,
                                QWidget)
 
 from .. import geometry as geo
@@ -389,6 +389,7 @@ class Viewer3D(QWidget):
     smoothToggled = Signal(bool)           # sombreado suave Shade Smooth (tecla S / Shift+S)
     treeOverlayToggled = Signal(bool)      # el usuario pide (o quita) el árbol sobre el visor
     displayModeChanged = Signal(str)       # modo de visualización (clave de geo.DISPLAY_MODES)
+    barPositionChanged = Signal(str)       # posición de la barra ("top" | "bottom")
 
     def minimumSizeHint(self) -> QSize:
         return QSize(280, 200)
@@ -411,15 +412,26 @@ class Viewer3D(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
+        self.main_layout = layout
+        self._bar_position = "top"
 
         bar = QWidget()
         bar.setObjectName("viewBar")
+        bar.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        bar.customContextMenuRequested.connect(self._bar_context_menu)
         row = QHBoxLayout(bar)
         row.setContentsMargins(10, 6, 10, 6)
         row.setSpacing(6)
         self.title = QLabel(tr("Vista 3D"))
         self.title.setObjectName("viewTitle")
         row.addWidget(self.title)
+
+        self.pos_btn = QPushButton("▼")
+        self.pos_btn.setObjectName("viewButton")
+        self.pos_btn.setFixedSize(24, 24)
+        self.pos_btn.setToolTip(tr("Mover barra abajo"))
+        self.pos_btn.clicked.connect(self.toggle_bar_position)
+        row.addWidget(self.pos_btn)
         self.view_buttons: dict[str, QPushButton] = {}
         for name in VIEWS:
             b = QPushButton(tr(name))
@@ -504,6 +516,7 @@ class Viewer3D(QWidget):
         bar_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         bar_scroll.setFrameShape(QFrame.Shape.NoFrame)
         bar_scroll.setFixedHeight(38)
+        self.bar_scroll = bar_scroll
         layout.addWidget(bar_scroll)
 
         self.view = _GLView()
@@ -1078,7 +1091,42 @@ class Viewer3D(QWidget):
         self.explosion_label.setText(tr("Explosión:"))
         self.explosion_slider.setToolTip(tr("Separa las piezas para visualización explosionada"))
         self.auto.setText(tr("Actualizar sola"))
+        if hasattr(self, "pos_btn"):
+            self.pos_btn.setToolTip(tr("Mover barra arriba") if getattr(self, "_bar_position", "top") == "bottom" else tr("Mover barra abajo"))
         self._update_view_name()
+
+    def toggle_bar_position(self) -> None:
+        """Conmuta la barra de herramientas entre la parte superior e inferior del visor."""
+        new_pos = "top" if getattr(self, "_bar_position", "top") == "bottom" else "bottom"
+        self.set_bar_position(new_pos)
+
+    def set_bar_position(self, pos: str) -> None:
+        """Coloca la barra de herramientas arriba ('top') o abajo ('bottom') del visor."""
+        pos = "bottom" if pos == "bottom" else "top"
+        self._bar_position = pos
+        self.main_layout.removeWidget(self.bar_scroll)
+        self.main_layout.removeWidget(self.view)
+        if pos == "bottom":
+            self.main_layout.addWidget(self.view, 1)
+            self.main_layout.addWidget(self.bar_scroll, 0)
+            if hasattr(self, "pos_btn"):
+                self.pos_btn.setText("▲")
+                self.pos_btn.setToolTip(tr("Mover barra arriba"))
+        else:
+            self.main_layout.addWidget(self.bar_scroll, 0)
+            self.main_layout.addWidget(self.view, 1)
+            if hasattr(self, "pos_btn"):
+                self.pos_btn.setText("▼")
+                self.pos_btn.setToolTip(tr("Mover barra abajo"))
+        self.barPositionChanged.emit(pos)
+        QTimer.singleShot(0, self._place_overlays)
+
+    def _bar_context_menu(self, pos: QPoint) -> None:
+        menu = QMenu(self)
+        is_bottom = getattr(self, "_bar_position", "top") == "bottom"
+        act = menu.addAction(tr("Mover barra arriba") if is_bottom else tr("Mover barra abajo"))
+        act.triggered.connect(self.toggle_bar_position)
+        menu.exec(self.bar_scroll.widget().mapToGlobal(pos))
 
     def _update_view_name(self) -> None:
         """Marca el botón de la vista actual y escribe su nombre en el visor."""

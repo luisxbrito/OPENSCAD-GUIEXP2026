@@ -676,6 +676,12 @@ class MainWindow(QMainWindow):
         self.a_gizmo.setChecked(self.settings.value("gizmo_enabled", True, bool))
         self.a_gizmo.setEnabled(self.gl)
         self.a_gizmo.toggled.connect(self._toggle_gizmo)
+        self.a_bar_bottom = QAction(tr("Barra 3D en la parte inferior"), self)
+        self.a_bar_bottom.setCheckable(True)
+        self.a_bar_bottom.setChecked(self.settings.value("view_bar_position", "top", str) == "bottom")
+        self.a_bar_bottom.toggled.connect(self._toggle_bar_bottom)
+        if hasattr(self.viewer, "barPositionChanged"):
+            self.viewer.barPositionChanged.connect(self._on_viewer_bar_position_changed)
         self.display_group = QActionGroup(self)        # Ver › Visualización (exclusivas)
         self.display_actions: dict[str, QAction] = {}
         for key, label in geo.DISPLAY_MODES:
@@ -829,6 +835,8 @@ class MainWindow(QMainWindow):
         m.addAction(self.a_smooth)
         self.a_gizmo.setText(tr("Flechas de arrastre (gizmo)"))
         m.addAction(self.a_gizmo)
+        self.a_bar_bottom.setText(tr("Barra 3D en la parte inferior"))
+        m.addAction(self.a_bar_bottom)
         sub = m.addMenu(tr("Visualización"))
         sub.setWindowFlags(sub.windowFlags() | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Popup)
         sub.aboutToShow.connect(sub.raise_)
@@ -847,6 +855,20 @@ class MainWindow(QMainWindow):
         """Ver › Flechas de arrastre: la misma opción que en Preferencias."""
         self.settings.setValue("gizmo_enabled", bool(on))
         self._update_highlight()
+
+    def _toggle_bar_bottom(self, on: bool) -> None:
+        """Ver › Barra 3D en la parte inferior: cambia la barra del visor entre arriba y abajo."""
+        pos = "bottom" if on else "top"
+        if hasattr(self.viewer, "set_bar_position"):
+            self.viewer.set_bar_position(pos)
+        self.settings.setValue("view_bar_position", pos)
+
+    def _on_viewer_bar_position_changed(self, pos: str) -> None:
+        """Actualiza la acción del menú y la configuración cuando la posición de la barra cambia desde el botón del visor."""
+        self.settings.setValue("view_bar_position", pos)
+        self.a_bar_bottom.blockSignals(True)
+        self.a_bar_bottom.setChecked(pos == "bottom")
+        self.a_bar_bottom.blockSignals(False)
 
     def _display_mode_changed(self, mode: str) -> None:
         if mode in self.display_actions:
@@ -925,6 +947,9 @@ class MainWindow(QMainWindow):
             self.a_smooth.setChecked(smooth_val)
             self.a_smooth.blockSignals(False)
             self.viewer.set_display_mode(self.settings.value("display_mode", "shaded", str))
+        bar_pos = self.settings.value("view_bar_position", "top", str)
+        if hasattr(self.viewer, "set_bar_position"):
+            self.viewer.set_bar_position(bar_pos)
         if self.settings.value("compact", False, bool):
             self.set_compact(True)
         version = self.runner.version()
@@ -2560,6 +2585,13 @@ class MainWindow(QMainWindow):
                 self.a_gizmo.blockSignals(False)
                 self.viewer.snap_step = float(self.settings.value("gizmo_snap", 1.0) or 1.0)
                 self._update_highlight()
+
+            bar_pos = self.settings.value("view_bar_position", "top", str)
+            if hasattr(self.viewer, "set_bar_position"):
+                self.viewer.set_bar_position(bar_pos)
+            self.a_bar_bottom.blockSignals(True)
+            self.a_bar_bottom.setChecked(bar_pos == "bottom")
+            self.a_bar_bottom.blockSignals(False)
 
             self.apply_settings()
             self.render_view(False)
