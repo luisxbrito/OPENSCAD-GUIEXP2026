@@ -14,7 +14,7 @@ from typing import Optional
 
 import numpy as np
 from PySide6.QtCore import QEvent, QItemSelectionModel, QProcess, QSettings, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QActionGroup, QColor, QGuiApplication, QIcon, QKeySequence
+from PySide6.QtGui import QAction, QActionGroup, QColor, QGuiApplication, QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QDockWidget, QFileDialog, QFrame,
                                QHBoxLayout,
                                QHeaderView, QLabel, QMainWindow, QMenu, QMessageBox, QPlainTextEdit,
@@ -434,6 +434,7 @@ class MainWindow(QMainWindow):
         self._action_defs: list[tuple[QAction, str, Optional[str]]] = []
         self._compact_saved = None    # (disposición, árbol sobre el visor) de antes del modo compacto
         self._was_maximized = False
+        self._is_fullscreen = False
         self._build_actions()
         self._build_menus()
         self._build_toolbars()
@@ -448,18 +449,27 @@ class MainWindow(QMainWindow):
         geometry = self.settings.value("geometry")
         if geometry is not None:
             self.restoreGeometry(geometry)
+            if self.isFullScreen():
+                self.showNormal()
             self._clamp_to_screen()
         QTimer.singleShot(0, lambda: self._startup(path))
 
     def changeEvent(self, event) -> None:
         if event.type() == QEvent.Type.WindowStateChange:
-            if not (self.isMaximized() or self.isFullScreen()):
+            if not (self.isMaximized() or self.isFullScreen() or getattr(self, "_is_fullscreen", False)):
                 QTimer.singleShot(0, self._clamp_to_screen)
         super().changeEvent(event)
 
+    def keyPressEvent(self, event) -> None:
+        if event.key() == Qt.Key.Key_Escape and getattr(self, "_is_fullscreen", False):
+            self.set_fullscreen(False)
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
     def _clamp_to_screen(self) -> None:
         """Asegura que si la ventana no está maximizada, no exceda la pantalla disponible."""
-        if self.isMaximized() or self.isFullScreen():
+        if self.isMaximized() or self.isFullScreen() or getattr(self, "_is_fullscreen", False):
             return
         screen = self.screen() or QGuiApplication.primaryScreen()
         if screen is None:
@@ -538,30 +548,35 @@ class MainWindow(QMainWindow):
 
     def _build_menus(self) -> None:
         mb = self.menuBar()
-        m = mb.addMenu(tr("&Archivo"))
+        mb.setNativeMenuBar(False)
+        m_file = mb.addMenu(tr("&Archivo"))
         for a in (self.a_new, self.a_open, self.a_example, self.a_example_plate, None, self.a_save, self.a_save_as,
                   self.a_export, self.a_drawing, None, self.a_prefs, None, self.a_quit):
-            m.addSeparator() if a is None else m.addAction(a)
-        m = mb.addMenu(tr("&Editar"))
+            m_file.addSeparator() if a is None else m_file.addAction(a)
+        m_edit = mb.addMenu(tr("&Editar"))
         for a in (self.a_undo, self.a_redo, None, self.a_dup, self.a_make_module, self.a_del, None, self.a_prefs):
-            m.addSeparator() if a is None else m.addAction(a)
+            m_edit.addSeparator() if a is None else m_edit.addAction(a)
         self.view_menu = mb.addMenu(tr("&Ver"))
-        m = mb.addMenu(tr("&Diseño"))
-        m.addAction(self.a_make_module)
-        m.addAction(self.a_bool_wizard)
-        m.addAction(self.a_operation_helper)
-        m.addAction(self.a_sketch)
-        m.addAction(self.a_hardware)
-        m.addAction(self.a_flange)
-        m.addAction(self.a_transmission)
-        m.addAction(self.a_camshaft)
-        m.addAction(self.a_drawing)
-        m.addSeparator()
-        m.addAction(self.a_preview)
-        m.addAction(self.a_render)
+        m_design = mb.addMenu(tr("&Diseño"))
+        m_design.addAction(self.a_make_module)
+        m_design.addAction(self.a_bool_wizard)
+        m_design.addAction(self.a_operation_helper)
+        m_design.addAction(self.a_sketch)
+        m_design.addAction(self.a_hardware)
+        m_design.addAction(self.a_flange)
+        m_design.addAction(self.a_transmission)
+        m_design.addAction(self.a_camshaft)
+        m_design.addAction(self.a_drawing)
+        m_design.addSeparator()
+        m_design.addAction(self.a_preview)
+        m_design.addAction(self.a_render)
         ayuda_m = mb.addMenu(tr("A&yuda"))
         ayuda_m.addAction(self.a_operation_helper)
         ayuda_m.addAction(self.a_about)
+
+        for m in (m_file, m_edit, self.view_menu, m_design, ayuda_m):
+            m.setWindowFlags(m.windowFlags() | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Popup)
+            m.aboutToShow.connect(m.raise_)
 
     def _build_toolbars(self) -> None:
         tb = QToolBar(tr("Principal"))
@@ -800,6 +815,8 @@ class MainWindow(QMainWindow):
         self.a_gizmo.setText(tr("Flechas de arrastre (gizmo)"))
         m.addAction(self.a_gizmo)
         sub = m.addMenu(tr("Visualización"))
+        sub.setWindowFlags(sub.windowFlags() | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Popup)
+        sub.aboutToShow.connect(sub.raise_)
         for key, label in geo.DISPLAY_MODES:
             a = self.display_actions[key]
             a.setText(tr(label))
@@ -871,6 +888,8 @@ class MainWindow(QMainWindow):
         if self.gl:
             self.viewer.picked.connect(self.on_pick)
             self.viewer.measured.connect(lambda text: self.log(text, "echo"))
+        self._esc_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
+        self._esc_shortcut.activated.connect(lambda: self.set_fullscreen(False) if getattr(self, "_is_fullscreen", False) else None)
 
     def _startup(self, path: str) -> None:
         if self.settings.value("tree_overlay", False, bool):
@@ -1156,6 +1175,7 @@ class MainWindow(QMainWindow):
 
     def tree_menu(self, pos) -> None:
         menu = QMenu(self)
+        menu.setWindowFlags(menu.windowFlags() | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Popup)
         node = self.current_node()
         if node is not None and isinstance(node, RawCode):
             menu.addAction(tr("Editar en el código")).triggered.connect(lambda: self.edit_code_of(node.id))
@@ -2175,15 +2195,33 @@ class MainWindow(QMainWindow):
         self.settings.setValue("compact", on)
 
     def set_fullscreen(self, on: bool) -> None:
+        on = bool(on)
+        if getattr(self, "_is_fullscreen", False) == on:
+            return
+        self._is_fullscreen = on
         if on:
             self._was_maximized = self.isMaximized()
-            self.showFullScreen()
-        elif self._was_maximized:
-            self.showMaximized()
+            if not self._was_maximized:
+                self._saved_geometry = self.saveGeometry()
+            # En Windows DWM, showFullScreen() puede ocultar los menús desplegables
+            # (QMenu) por detrás de la ventana por la exclusividad de pantalla completa.
+            # El modo sin bordes cubre toda la pantalla y mantiene los menús siempre visibles.
+            self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
+            screen = self.screen() or QGuiApplication.primaryScreen()
+            if screen is not None:
+                self.setGeometry(screen.geometry())
+            self.show()
         else:
-            self.showNormal()
+            self.setWindowFlag(Qt.WindowType.FramelessWindowHint, False)
+            if getattr(self, "_was_maximized", False):
+                self.showMaximized()
+            else:
+                self.showNormal()
+                if hasattr(self, "_saved_geometry"):
+                    self.restoreGeometry(self._saved_geometry)
+                self._clamp_to_screen()
         self.a_fullscreen.blockSignals(True)
-        self.a_fullscreen.setChecked(bool(on))
+        self.a_fullscreen.setChecked(on)
         self.a_fullscreen.blockSignals(False)
 
     def set_tree_overlay(self, on: bool) -> None:
@@ -2497,7 +2535,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         if self.maybe_save():
-            if self.a_fullscreen.isChecked():
+            if getattr(self, "_is_fullscreen", False):
                 self.set_fullscreen(False)
             self.settings.setValue("geometry", self.saveGeometry())
             self.runner.cancel()
