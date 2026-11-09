@@ -50,3 +50,22 @@ def test_clathrus_ruber():
     node = lattice.create_lattice_node(50, 50, 60, 12, 3.5, pattern="clathrus")
     assert "Clathrus ruber" in node.name
     assert node.kind == "__raw__"
+
+
+def test_strut_and_tpms_robustness():
+    """Verifica que todos los patrones generan código sintácticamente válido y robusto."""
+    for pat in lattice.PATTERNS:
+        code = lattice.generate_scad_code(40, 40, 40, 8.0, 1.2, pattern=pat,
+                                          has_shell=True, shell_thick=1.5,
+                                          has_drain=True, drain_d=3.0)
+        assert "pieza_aligerada();" in code
+        if pat == "voronoi":
+            assert "celda_voronoi" in code
+            assert "r_viga" in code
+            assert "r_nodo" in code
+        elif pat == "gyroid":
+            assert "celda_gyroid" in code
+            assert "r_ext" in code
+        elif pat == "schwarz_p":
+            assert "celda_schwarz_p" in code
+            assert "d_hole" in code

@@ -450,6 +450,13 @@ class LatticeDialog(QDialog):
         dy = self.spin_dy.value()
         dz = self.spin_dz.value()
         cell = self.spin_cell.value()
+        max_wall = max(0.4, round(cell * 0.45, 2))
+        if abs(self.spin_wall.maximum() - max_wall) > 1e-4:
+            self.spin_wall.blockSignals(True)
+            self.spin_wall.setMaximum(max_wall)
+            if self.spin_wall.value() > max_wall:
+                self.spin_wall.setValue(max_wall)
+            self.spin_wall.blockSignals(False)
         wall = self.spin_wall.value()
         pat = str(self.combo_pattern.currentData())
         shell = self.chk_shell.isChecked()
