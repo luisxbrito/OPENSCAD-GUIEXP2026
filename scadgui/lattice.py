@@ -9,7 +9,7 @@ import math
 from typing import Callable, Optional
 
 from .i18n import tr
-from .model import Node, new_id
+from .model import Node, RawCode, new_id
 
 PATTERNS = ("gyroid", "schwarz_p", "honeycomb", "voronoi")
 
@@ -95,15 +95,29 @@ def generate_scad_code(dx: float, dy: float, dz: float,
                        cell_size: float, wall_thick: float,
                        pattern: str = "gyroid",
                        has_shell: bool = False, shell_thick: float = 1.2,
-                       has_drain: bool = False, drain_d: float = 4.0) -> str:
+                       has_drain: bool = False, drain_d: float = 4.0,
+                       cx: float = 0.0, cy: float = 0.0, cz: float = 0.0,
+                       solid_code: Optional[str] = None,
+                       solid_name: str = "") -> str:
     """Genera código OpenSCAD paramétrico modular con la estructura aligerada."""
+    p_upper = pattern.upper()
+    header_comment = f"// {tr('Estructura aligerada paramétrica')} ({p_upper})"
+    if solid_name:
+        sub_comment = f"// {tr('Aplicada a:')} {solid_name}"
+    else:
+        sub_comment = f"// {tr('Bloque independiente')}"
+
     code_lines = [
-        f"// {tr('Estructura aligerada paramétrica')} ({pattern.upper()})",
+        header_comment,
+        sub_comment,
         f"// {tr('Dimensiones:')} {dx:.1f} x {dy:.1f} x {dz:.1f} mm | {tr('Celda:')} {cell_size:.1f} mm | {tr('Espesor:')} {wall_thick:.1f} mm",
         "",
         f"dim_x = {dx:.2f};",
         f"dim_y = {dy:.2f};",
         f"dim_z = {dz:.2f};",
+        f"centro_x = {cx:.2f};",
+        f"centro_y = {cy:.2f};",
+        f"centro_z = {cz:.2f};",
         f"tam_celda = {cell_size:.2f};",
         f"espesor_pared = {wall_thick:.2f};",
         "",
@@ -113,23 +127,26 @@ def generate_scad_code(dx: float, dy: float, dz: float,
         code_lines.extend([
             "// Celda unitaria de Giroide (TPMS triplemente periódica mínima)",
             "module celda_gyroid(s = 10, t = 1.2) {",
-            "  render(convexity = 2)",
             "  intersection() {",
             "    cube([s, s, s], center = true);",
             "    union() {",
-            "      rotate([45, 35.26, 0]) cylinder(r = s * 0.65, h = s * 1.5, center = true, $fn = 16);",
-            "      rotate([-45, 35.26, 0]) cylinder(r = s * 0.65, h = s * 1.5, center = true, $fn = 16);",
+            "      rotate([45, 35.26, 0]) cylinder(r = s * 0.65, h = s * 1.5, center = true, $fn = 12);",
+            "      rotate([-45, 35.26, 0]) cylinder(r = s * 0.65, h = s * 1.5, center = true, $fn = 12);",
             "    }",
             "  }",
             "}",
             "",
             "module nucleo_lattice(dim, s, t) {",
+            "  nx = ceil(dim[0] / s);",
+            "  ny = ceil(dim[1] / s);",
+            "  nz = ceil(dim[2] / s);",
             "  intersection() {",
             "    cube(dim, center = true);",
-            "    for (x = [-dim[0]/2 : s : dim[0]/2])",
-            "      for (y = [-dim[1]/2 : s : dim[1]/2])",
-            "        for (z = [-dim[2]/2 : s : dim[2]/2])",
-            "          translate([x, y, z]) celda_gyroid(s, t);",
+            "    for (ix = [0 : nx - 1])",
+            "      for (iy = [0 : ny - 1])",
+            "        for (iz = [0 : nz - 1])",
+            "          translate([(ix - (nx-1)/2) * s, (iy - (ny-1)/2) * s, (iz - (nz-1)/2) * s])",
+            "            celda_gyroid(s, t);",
             "  }",
             "}",
         ])
@@ -139,19 +156,23 @@ def generate_scad_code(dx: float, dy: float, dz: float,
             "module celda_schwarz_p(s = 10, t = 1.2) {",
             "  difference() {",
             "    cube([s, s, s], center = true);",
-            "    cylinder(d = s - t, h = s + 1, center = true, $fn = 20);",
-            "    rotate([90, 0, 0]) cylinder(d = s - t, h = s + 1, center = true, $fn = 20);",
-            "    rotate([0, 90, 0]) cylinder(d = s - t, h = s + 1, center = true, $fn = 20);",
+            "    cylinder(d = max(0.2, s - t), h = s + 1, center = true, $fn = 16);",
+            "    rotate([90, 0, 0]) cylinder(d = max(0.2, s - t), h = s + 1, center = true, $fn = 16);",
+            "    rotate([0, 90, 0]) cylinder(d = max(0.2, s - t), h = s + 1, center = true, $fn = 16);",
             "  }",
             "}",
             "",
             "module nucleo_lattice(dim, s, t) {",
+            "  nx = ceil(dim[0] / s);",
+            "  ny = ceil(dim[1] / s);",
+            "  nz = ceil(dim[2] / s);",
             "  intersection() {",
             "    cube(dim, center = true);",
-            "    for (x = [-dim[0]/2 : s : dim[0]/2])",
-            "      for (y = [-dim[1]/2 : s : dim[1]/2])",
-            "        for (z = [-dim[2]/2 : s : dim[2]/2])",
-            "          translate([x, y, z]) celda_schwarz_p(s, t);",
+            "    for (ix = [0 : nx - 1])",
+            "      for (iy = [0 : ny - 1])",
+            "        for (iz = [0 : nz - 1])",
+            "          translate([(ix - (nx-1)/2) * s, (iy - (ny-1)/2) * s, (iz - (nz-1)/2) * s])",
+            "            celda_schwarz_p(s, t);",
             "  }",
             "}",
         ])
@@ -160,13 +181,13 @@ def generate_scad_code(dx: float, dy: float, dz: float,
             "// Núcleo celular de panal de abeja hexagonal (máxima resistencia a compresión Z)",
             "module nucleo_lattice(dim, s, t) {",
             "  r = s * 0.5;",
-            "  paso_x = r * 1.732;",
-            "  paso_y = r * 1.5;",
+            "  paso_x = max(1.0, r * 1.732);",
+            "  paso_y = max(1.0, r * 1.5);",
             "  difference() {",
             "    cube(dim, center = true);",
             "    for (x = [-dim[0]/2 : paso_x : dim[0]/2])",
             "      for (y = [-dim[1]/2 : paso_y : dim[1]/2])",
-            "        translate([x, y, 0]) cylinder(r = r - t/2, h = dim[2] + 2, center = true, $fn = 6);",
+            "        translate([x, y, 0]) cylinder(r = max(0.1, r - t/2), h = dim[2] + 2, center = true, $fn = 6);",
             "  }",
             "}",
         ])
@@ -176,19 +197,37 @@ def generate_scad_code(dx: float, dy: float, dz: float,
             "module celda_voronoi(s = 10, t = 1.2) {",
             "  difference() {",
             "    cube([s, s, s], center = true);",
-            "    sphere(r = s * 0.45, $fn = 16);",
-            "    for (a = [0, 90]) rotate([0, a, 45]) cylinder(r = s * 0.25, h = s * 1.5, center = true, $fn = 12);",
+            "    sphere(r = s * 0.45, $fn = 12);",
+            "    for (a = [0, 90]) rotate([0, a, 45]) cylinder(r = s * 0.25, h = s * 1.5, center = true, $fn = 8);",
             "  }",
             "}",
             "",
             "module nucleo_lattice(dim, s, t) {",
+            "  nx = ceil(dim[0] / s);",
+            "  ny = ceil(dim[1] / s);",
+            "  nz = ceil(dim[2] / s);",
             "  intersection() {",
             "    cube(dim, center = true);",
-            "    for (x = [-dim[0]/2 : s : dim[0]/2])",
-            "      for (y = [-dim[1]/2 : s : dim[1]/2])",
-            "        for (z = [-dim[2]/2 : s : dim[2]/2])",
-            "          translate([x, y, z]) celda_voronoi(s, t);",
+            "    for (ix = [0 : nx - 1])",
+            "      for (iy = [0 : ny - 1])",
+            "        for (iz = [0 : nz - 1])",
+            "          translate([(ix - (nx-1)/2) * s, (iy - (ny-1)/2) * s, (iz - (nz-1)/2) * s])",
+            "            celda_voronoi(s, t);",
             "  }",
+            "}",
+        ])
+
+    code_lines.append("")
+    code_lines.append("// Sólido original a procesar")
+    if solid_code and solid_code.strip():
+        indented_code = "\n".join("  " + ln for ln in solid_code.strip().splitlines())
+        code_lines.append("module solido_original() {")
+        code_lines.append(indented_code)
+        code_lines.append("}")
+    else:
+        code_lines.extend([
+            "module solido_original() {",
+            "  cube([dim_x, dim_y, dim_z], center = true);",
             "}",
         ])
 
@@ -198,23 +237,38 @@ def generate_scad_code(dx: float, dy: float, dz: float,
     if has_shell and dx > 2 * shell_thick and dy > 2 * shell_thick and dz > 2 * shell_thick:
         code_lines.extend([
             f"espesor_piel = {shell_thick:.2f};",
+            "",
+            "module solido_interior() {",
+            "  sx = max(0.01, (dim_x - 2 * espesor_piel) / dim_x);",
+            "  sy = max(0.01, (dim_y - 2 * espesor_piel) / dim_y);",
+            "  sz = max(0.01, (dim_z - 2 * espesor_piel) / dim_z);",
+            "  translate([centro_x, centro_y, centro_z])",
+            "    scale([sx, sy, sz])",
+            "      translate([-centro_x, -centro_y, -centro_z])",
+            "        solido_original();",
+            "}",
+            "",
             "module pieza_aligerada() {",
             "  difference() {",
             "    union() {",
             "      // Piel sólida exterior",
             "      difference() {",
-            "        cube([dim_x, dim_y, dim_z], center = true);",
-            "        cube([dim_x - 2*espesor_piel, dim_y - 2*espesor_piel, dim_z - 2*espesor_piel], center = true);",
+            "        solido_original();",
+            "        solido_interior();",
             "      }",
-            "      // Núcleo aligerado interno",
-            "      nucleo_lattice([dim_x - 2*espesor_piel, dim_y - 2*espesor_piel, dim_z - 2*espesor_piel], tam_celda, espesor_pared);",
+            "      // Núcleo celular interno",
+            "      intersection() {",
+            "        solido_interior();",
+            "        translate([centro_x, centro_y, centro_z])",
+            "          nucleo_lattice([dim_x, dim_y, dim_z], tam_celda, espesor_pared);",
+            "      }",
             "    }",
         ])
         if has_drain and drain_d > 0:
             code_lines.extend([
                 f"    // Orificios de drenaje para resina SLA / polvo SLS (diam = {drain_d:.1f} mm)",
-                f"    translate([0, 0, -dim_z/2]) cylinder(d = {drain_d:.2f}, h = espesor_piel * 3, center = true, $fn = 24);",
-                f"    translate([0, 0, dim_z/2]) cylinder(d = {drain_d:.2f}, h = espesor_piel * 3, center = true, $fn = 24);",
+                f"    translate([centro_x, centro_y, centro_z - dim_z/2]) cylinder(d = {drain_d:.2f}, h = espesor_piel * 3, center = true, $fn = 24);",
+                f"    translate([centro_x, centro_y, centro_z + dim_z/2]) cylinder(d = {drain_d:.2f}, h = espesor_piel * 3, center = true, $fn = 24);",
             ])
         code_lines.extend([
             "  }",
@@ -225,7 +279,11 @@ def generate_scad_code(dx: float, dy: float, dz: float,
     else:
         code_lines.extend([
             "module pieza_aligerada() {",
-            "  nucleo_lattice([dim_x, dim_y, dim_z], tam_celda, espesor_pared);",
+            "  intersection() {",
+            "    solido_original();",
+            "    translate([centro_x, centro_y, centro_z])",
+            "      nucleo_lattice([dim_x, dim_y, dim_z], tam_celda, espesor_pared);",
+            "  }",
             "}",
             "",
             "pieza_aligerada();",
@@ -239,13 +297,25 @@ def create_lattice_node(dx: float, dy: float, dz: float,
                         pattern: str = "gyroid",
                         has_shell: bool = False, shell_thick: float = 1.2,
                         has_drain: bool = False, drain_d: float = 4.0,
-                        unique_fn: Optional[Callable[[str], str]] = None) -> Node:
+                        cx: float = 0.0, cy: float = 0.0, cz: float = 0.0,
+                        solid_code: Optional[str] = None,
+                        target_name: str = "",
+                        unique_fn: Optional[Callable[[str], str]] = None) -> RawCode:
     """Crea un nodo de código OpenSCAD con la estructura aligerada."""
     u_fn = unique_fn or (lambda s: s)
     code = generate_scad_code(
         dx, dy, dz, cell_size, wall_thick, pattern,
-        has_shell, shell_thick, has_drain, drain_d
+        has_shell, shell_thick, has_drain, drain_d,
+        cx=cx, cy=cy, cz=cz,
+        solid_code=solid_code, solid_name=target_name
     )
     p_name = pattern_name(pattern)
-    name = u_fn(tr("Estructura aligerada {pattern}").format(pattern=p_name))
-    return Node(kind="raw", params={"code": code}, name=name, id=new_id())
+    if target_name:
+        name = u_fn(tr("{name} (aligerado {pattern})").format(name=target_name, pattern=p_name))
+    else:
+        name = u_fn(tr("Estructura aligerada {pattern}").format(pattern=p_name))
+    return RawCode(
+        text=code,
+        name=name,
+        params={"size": (dx, dy, dz), "center": (cx, cy, cz)}
+    )

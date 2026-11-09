@@ -183,6 +183,7 @@ class RawCode:
     id: int = field(default_factory=new_id)
     name: str = ""
     modifier: str = ""
+    params: dict = field(default_factory=dict)
 
     kind = "__raw__"
     children: list = field(default_factory=list)  # siempre vacía

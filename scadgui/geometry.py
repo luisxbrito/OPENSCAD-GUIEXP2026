@@ -19,7 +19,7 @@ from typing import Optional
 import numpy as np
 
 from .library import CUBE_EDGE_KEYS
-from .model import Document, Expr, Node
+from .model import Document, Expr, Node, RawCode
 
 Tris = np.ndarray  # (M, 3, 3)
 EMPTY = np.zeros((0, 3, 3))
@@ -1437,6 +1437,16 @@ def flat_children(node: Node, ctx) -> dict:
 
 def solid(node, ctx) -> dict:
     """Contexto 3D: id → triángulos (coordenadas locales del nodo)."""
+    if isinstance(node, RawCode):
+        params = getattr(node, "params", {})
+        if "size" in params:
+            size = params["size"]
+            center = params.get("center", (0, 0, 0))
+            m = cube({"size": size, "center": True})
+            if any(center):
+                m = transform(m, _translate(center))
+            return {node.id: m}
+        return {}
     if not isinstance(node, Node) or node.modifier == "*":
         return {}
     ctx = _ctx(ctx, node)

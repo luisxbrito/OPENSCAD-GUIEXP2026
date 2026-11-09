@@ -19,5 +19,24 @@ def test_lattice_metrics_and_patterns():
     assert m["savings_pct"] > 0
 
     node = lattice.create_lattice_node(60, 40, 30, 10, 1.2, pattern="gyroid")
-    assert node.kind == "raw"
-    assert "code" in node.params
+    assert node.kind == "__raw__"
+    assert "module pieza_aligerada" in node.text
+    assert "size" in node.params
+
+
+def test_lattice_apply_to_solid():
+    from scadgui.model import Document, Node, generate
+    cube_node = Node("cube", {"size": [30, 30, 30], "center": True}, name="MiCubo")
+    temp_doc = Document(children=[cube_node])
+    solid_code = generate(temp_doc, header=False, library=False).text.strip()
+
+    node = lattice.create_lattice_node(
+        30, 30, 30, 10, 1.2, pattern="gyroid",
+        has_shell=True, shell_thick=1.5,
+        solid_code=solid_code, target_name="MiCubo"
+    )
+    assert "module solido_original() {" in node.text
+    assert "cube([30, 30, 30], center = true);" in node.text
+    assert "solido_interior()" in node.text
+    assert "MiCubo" in node.name
+    assert node.kind == "__raw__"

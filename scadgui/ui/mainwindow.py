@@ -1232,6 +1232,9 @@ class MainWindow(QMainWindow):
             menu.addAction(tr("Guía de esta operación…")).triggered.connect(
                 lambda: self.open_operation_helper(node.kind)
             )
+            menu.addAction(tr("Estructuras aligeradas / Gyroid…")).triggered.connect(
+                self.open_lattice_dialog
+            )
             menu.addSeparator()
 
         menu.addAction(tr("Nueva operación booleana…")).triggered.connect(
@@ -1404,7 +1407,35 @@ class MainWindow(QMainWindow):
         from ..lattice import create_lattice_node
         from .lattice_dialog import LatticeDialog
 
-        dlg = LatticeDialog(parent=self)
+        selected_node = None
+        target_code = None
+        target_bbox = None
+
+        sel_ids = self.selected_ids()
+        if sel_ids:
+            cand = self.doc.find(sel_ids[0])
+            if cand is not None and not getattr(cand, "is_comment", False):
+                selected_node = cand
+                try:
+                    temp_doc = Document(children=[selected_node], fn=self.doc.fn)
+                    target_code = generate(temp_doc, header=False, library=False).text.strip()
+                except Exception:
+                    target_code = None
+
+                box = geo.model_box(self.doc, self.ghosts, [selected_node.id])
+                if box is not None:
+                    lo, hi = box
+                    dx = max(1.0, float(hi[0] - lo[0]))
+                    dy = max(1.0, float(hi[1] - lo[1]))
+                    dz = max(1.0, float(hi[2] - lo[2]))
+                    cx = float((lo[0] + hi[0]) / 2.0)
+                    cy = float((lo[1] + hi[1]) / 2.0)
+                    cz = float((lo[2] + hi[2]) / 2.0)
+                    target_bbox = (dx, dy, dz, cx, cy, cz)
+                else:
+                    target_bbox = (60.0, 40.0, 30.0, 0.0, 0.0, 0.0)
+
+        dlg = LatticeDialog(parent=self, target_node=selected_node, target_code=target_code, target_bbox=target_bbox)
         if not dlg.exec():
             return
         res = dlg.get_result()
@@ -1414,13 +1445,32 @@ class MainWindow(QMainWindow):
                 res["cell_size"], res["wall_thick"],
                 res["pattern"], res["has_shell"], res["shell_thick"],
                 res["has_drain"], res["drain_d"],
+                cx=res.get("cx", 0.0), cy=res.get("cy", 0.0), cz=res.get("cz", 0.0),
+                solid_code=res.get("target_code"),
+                target_name=res.get("target_name", ""),
                 unique_fn=self.doc.unique_name
             )
         except Exception as exc:
             QMessageBox.warning(self, tr("Estructuras aligeradas"), str(exc))
             return
-        self.mutate(lambda: self.doc.children.append(node), select=[node.id])
-        self.statusBar().showMessage(tr("Componente añadido: {name}").format(name=node.name), 4000)
+
+        apply_selected = res.get("apply_to_selected", False) and selected_node is not None
+        if apply_selected:
+            parent_list, _ = self.doc.parent_list(selected_node.id)
+            def do_replace():
+                if parent_list is not None and selected_node in parent_list:
+                    idx = parent_list.index(selected_node)
+                    parent_list[idx] = node
+                else:
+                    self.doc.children.append(node)
+            self.mutate(do_replace, select=[node.id])
+            self.statusBar().showMessage(
+                tr("Estructura aligerada aplicada a {name}").format(name=selected_node.name or selected_node.kind),
+                4000
+            )
+        else:
+            self.mutate(lambda: self.doc.children.append(node), select=[node.id])
+            self.statusBar().showMessage(tr("Componente añadido: {name}").format(name=node.name), 4000)
 
     def open_transmission_dialog(self) -> None:
         from ..transmission import create_belt_drive, create_train

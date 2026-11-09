@@ -10,11 +10,12 @@ from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
                                QDoubleSpinBox, QFormLayout, QFrame, QGroupBox,
                                QHBoxLayout, QLabel, QPlainTextEdit, QPushButton,
-                               QScrollArea, QSizePolicy, QSplitter, QTabWidget,
-                               QVBoxLayout, QWidget)
+                               QRadioButton, QScrollArea, QSizePolicy, QSplitter,
+                               QTabWidget, QVBoxLayout, QWidget)
 
 from .. import lattice
 from ..i18n import tr
+from ..model import Node
 from .style import themed
 
 
@@ -182,11 +183,22 @@ class LatticeSlicePreview(QWidget):
 class LatticeDialog(QDialog):
     """Diálogo interactivo para el generador de estructuras aligeradas y TPMS Gyroid."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None,
+                 target_node: Optional[Node] = None,
+                 target_code: Optional[str] = None,
+                 target_bbox: Optional[tuple[float, float, float, float, float, float]] = None):
         super().__init__(parent)
         self.setWindowTitle(tr("Generador de estructuras aligeradas & Gyroid TPMS"))
-        self.resize(840, 580)
-        self.setMinimumSize(700, 480)
+        self.resize(840, 600)
+        self.setMinimumSize(700, 500)
+
+        self.target_node = target_node
+        self.target_code = target_code
+        self.target_bbox = target_bbox or (60.0, 40.0, 30.0, 0.0, 0.0, 0.0)
+        self.target_name = (target_node.name or target_node.kind) if target_node else ""
+        self.has_target = bool(target_node and target_code)
+
+        init_dx, init_dy, init_dz = self.target_bbox[0], self.target_bbox[1], self.target_bbox[2]
 
         main_lay = QVBoxLayout(self)
         main_lay.setContentsMargins(14, 14, 14, 14)
@@ -220,6 +232,32 @@ class LatticeDialog(QDialog):
         left_lay.setSpacing(10)
         left_lay.setContentsMargins(0, 0, 8, 0)
 
+        # 0. Destino de la estructura (si hay un sólido seleccionado)
+        if self.has_target:
+            grp_dest = QGroupBox(tr("Destino de la estructura"))
+            lay_dest = QVBoxLayout(grp_dest)
+            lay_dest.setSpacing(6)
+
+            self.radio_apply = QRadioButton(
+                tr("Aplicar al sólido seleccionado ({name})").format(name=self.target_name)
+            )
+            self.radio_apply.setChecked(True)
+            self.radio_apply.toggled.connect(self._on_dest_mode_changed)
+            lay_dest.addWidget(self.radio_apply)
+
+            self.radio_new = QRadioButton(tr("Crear nuevo bloque independiente"))
+            self.radio_new.toggled.connect(self._on_dest_mode_changed)
+            lay_dest.addWidget(self.radio_new)
+
+            self.lbl_target_info = QLabel(
+                tr("La estructura aligerada reemplazará al sólido seleccionado '{name}', manteniendo su contorno y ahuecando su interior con el patrón celular.").format(name=self.target_name)
+            )
+            self.lbl_target_info.setWordWrap(True)
+            self.lbl_target_info.setStyleSheet(themed("font-size: 11px; color: #475569; padding: 2px 0;"))
+            lay_dest.addWidget(self.lbl_target_info)
+
+            left_lay.addWidget(grp_dest)
+
         # 1. Patrón
         grp_pat = QGroupBox(tr("Tipo de patrón celular"))
         form_pat = QFormLayout(grp_pat)
@@ -235,9 +273,9 @@ class LatticeDialog(QDialog):
         # 2. Dimensiones
         grp_dim = QGroupBox(tr("Dimensiones externas (mm)"))
         form_dim = QFormLayout(grp_dim)
-        self.spin_dx = self._spin(10.0, 500.0, 60.0, " mm")
-        self.spin_dy = self._spin(10.0, 500.0, 40.0, " mm")
-        self.spin_dz = self._spin(5.0, 500.0, 30.0, " mm")
+        self.spin_dx = self._spin(1.0, 1000.0, init_dx, " mm")
+        self.spin_dy = self._spin(1.0, 1000.0, init_dy, " mm")
+        self.spin_dz = self._spin(1.0, 1000.0, init_dz, " mm")
         form_dim.addRow(tr("Ancho (X):"), self.spin_dx)
         form_dim.addRow(tr("Largo (Y):"), self.spin_dy)
         form_dim.addRow(tr("Alto (Z):"), self.spin_dz)
@@ -348,7 +386,8 @@ class LatticeDialog(QDialog):
         btn_cancel.clicked.connect(self.reject)
         btn_bar.addWidget(btn_cancel)
 
-        self.btn_insert = QPushButton(tr("Insertar en el modelo"))
+        initial_btn_text = tr("Aplicar al sólido") if self.has_target else tr("Insertar en el modelo")
+        self.btn_insert = QPushButton(initial_btn_text)
         self.btn_insert.setDefault(True)
         self.btn_insert.setStyleSheet("font-weight: bold;")
         self.btn_insert.clicked.connect(self.accept)
@@ -366,6 +405,20 @@ class LatticeDialog(QDialog):
         sp.setSuffix(suffix)
         sp.valueChanged.connect(self._recalc)
         return sp
+
+    def _on_dest_mode_changed(self) -> None:
+        if not self.has_target:
+            return
+        is_apply = self.radio_apply.isChecked()
+        self.lbl_target_info.setVisible(is_apply)
+        if is_apply:
+            self.btn_insert.setText(tr("Aplicar al sólido"))
+            self.spin_dx.setValue(self.target_bbox[0])
+            self.spin_dy.setValue(self.target_bbox[1])
+            self.spin_dz.setValue(self.target_bbox[2])
+        else:
+            self.btn_insert.setText(tr("Insertar en el modelo"))
+        self._recalc()
 
     def _on_shell_toggled(self, checked: bool) -> None:
         self.spin_shell.setEnabled(checked)
@@ -400,7 +453,17 @@ class LatticeDialog(QDialog):
             f"<b>{tr('Material:')}</b> {mat_label}"
         )
 
-        code = lattice.generate_scad_code(dx, dy, dz, cell, wall, pat, shell, s_thick, drain, d_hole)
+        is_apply = bool(self.has_target and self.radio_apply.isChecked())
+        solid_code = self.target_code if is_apply else None
+        solid_name = self.target_name if is_apply else ""
+        cx = self.target_bbox[3] if is_apply else 0.0
+        cy = self.target_bbox[4] if is_apply else 0.0
+        cz = self.target_bbox[5] if is_apply else 0.0
+
+        code = lattice.generate_scad_code(
+            dx, dy, dz, cell, wall, pat, shell, s_thick, drain, d_hole,
+            cx=cx, cy=cy, cz=cz, solid_code=solid_code, solid_name=solid_name
+        )
         self.code_view.setPlainText(code)
 
         self.preview_widget.update_params(dx, dy, cell, wall, pat, shell, s_thick, drain, d_hole)
@@ -409,10 +472,14 @@ class LatticeDialog(QDialog):
         QApplication.clipboard().setText(self.code_view.toPlainText())
 
     def get_result(self) -> dict:
+        is_apply = bool(self.has_target and self.radio_apply.isChecked())
         return {
             "dx": self.spin_dx.value(),
             "dy": self.spin_dy.value(),
             "dz": self.spin_dz.value(),
+            "cx": self.target_bbox[3] if is_apply else 0.0,
+            "cy": self.target_bbox[4] if is_apply else 0.0,
+            "cz": self.target_bbox[5] if is_apply else 0.0,
             "cell_size": self.spin_cell.value(),
             "wall_thick": self.spin_wall.value(),
             "pattern": str(self.combo_pattern.currentData()),
@@ -421,4 +488,8 @@ class LatticeDialog(QDialog):
             "has_drain": self.chk_drain.isChecked(),
             "drain_d": self.spin_drain.value(),
             "code": self.code_view.toPlainText(),
+            "apply_to_selected": is_apply,
+            "target_name": self.target_name if is_apply else "",
+            "target_code": self.target_code if is_apply else None,
+            "selected_id": self.target_node.id if (is_apply and self.target_node) else None,
         }

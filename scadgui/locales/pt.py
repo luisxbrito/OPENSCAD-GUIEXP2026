@@ -1502,4 +1502,13 @@ STRINGS: dict[str, str] = {
     'Titanio': 'Titânio',
     'Voronoi 3D (Celular biomimético)': 'Voronoi 3D (Celular biomimético)',
     'Voronoi 3D celular': 'Voronoi 3D celular',
+    'Aplicada a:': 'Aplicada a:',
+    'Aplicar al sólido': 'Aplicar ao sólido',
+    'Aplicar al sólido seleccionado ({name})': 'Aplicar ao sólido selecionado ({name})',
+    'Bloque independiente': 'Bloco independente',
+    'Crear nuevo bloque independiente': 'Criar novo bloco independente',
+    'Destino de la estructura': 'Destino da estrutura',
+    'Estructura aligerada aplicada a {name}': 'Estrutura aliviada aplicada a {name}',
+    "La estructura aligerada reemplazará al sólido seleccionado '{name}', manteniendo su contorno y ahuecando su interior con el patrón celular.": "A estrutura aliviada substituirá o sólido selecionado '{name}', mantendo seu contorno externo e esvaziando seu interior com o padrão celular.",
+    '{name} (aligerado {pattern})': '{name} (aliviado {pattern})',
 }
